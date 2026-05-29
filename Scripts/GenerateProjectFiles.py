@@ -35,6 +35,19 @@ CONFIGURATIONS = [
     ("Demo", "x64"),
 ]
 
+SOLUTION_CONFIGURATIONS = [
+    ("Debug", "x64", "Debug", "x64"),
+    ("Debug", "x86", "Debug", "Win32"),
+    ("Demo", "x64", "Demo", "x64"),
+    ("Demo", "x86", "Demo", "x64"),
+    ("Game", "x64", "Game", "x64"),
+    ("Game", "x86", "Game", "Win32"),
+    ("ObjViewDebug", "x64", "ObjViewDebug", "x64"),
+    ("ObjViewDebug", "x86", "ObjViewDebug", "x64"),
+    ("Release", "x64", "Release", "x64"),
+    ("Release", "x86", "Release", "Win32"),
+]
+
 # Per-configuration overrides (base is derived from the name)
 #   "release_like"  : True = Release optimizations, False = Debug
 #   "extra_defines" : additional preprocessor definitions
@@ -81,6 +94,18 @@ EXTRA_CL_COMPILE_FILES = [
     "Intermediate\\Generated\\LuaBindings.generated.cpp",
 ]
 
+# PhysX 4.1 source is kept for browsing/debugging, but it must not be compiled
+# as part of the engine project. The engine links the prebuilt vc143.md libs.
+PHYSX_VERSION = "4.1"
+PHYSX_ROOT = "ThirdParty\\PhysX\\"
+PHYSX_BIN_PLATFORM = "win.x86_64.vc143.md"
+PHYSX_BROWSE_ONLY_PREFIX = "ThirdParty\\PhysX\\"
+PHYSX_BROWSE_ONLY_DIRS = [
+    "ThirdParty\\PhysX\\physx\\include",
+    "ThirdParty\\PhysX\\physx\\source",
+    "ThirdParty\\PhysX\\pxshared\\include",
+]
+
 # Include paths (relative to project dir)
 INCLUDE_PATHS = [
     "Intermediate\\Generated",
@@ -97,9 +122,7 @@ INCLUDE_PATHS = [
     "ThirdParty\\sol2\\include",
     "ThirdParty\\fmod\\include",
     "ThirdParty\\fbx\\include",
-    # PhysX(NuGet) — vcpkg.targets 가 조건부 Import 라 첫 clone 직후 IntelliSense 파싱 시점엔
-    # Exists()=false 로 include 경로가 안 잡힘. 직접 박아 restore 타이밍과 무관하게 잡히게 함.
-    "packages\\NVIDIA.PhysX.4.1.2\\installed\\x64-windows\\include",
+    "$(PhysXIncludeDirectories)",
     ".",
 ]
 
@@ -116,12 +139,15 @@ FMOD_RELEASE_LIB = "fmod_vc.lib"
 FMOD_DEBUG_DLL = "fmodL.dll"
 FMOD_RELEASE_DLL = "fmod.dll"
 
-# PhysX (NuGet, 4.1.2) — vcpkg auto applocal-deps가 일부 환경에서 동작하지 않아
-# PostBuildEvent 에서 명시적으로 *.dll 을 OutDir 로 복사한다.
-# Debug 구성은 debug\\bin, 그 외(Release/Game/ObjViewDebug/Demo)는 release bin 사용.
-# (Include 경로는 INCLUDE_PATHS 에 직접 추가됨 — 위 주석 참고.)
-PHYSX_DEBUG_BIN   = "packages\\NVIDIA.PhysX.4.1.2\\installed\\x64-windows\\debug\\bin"
-PHYSX_RELEASE_BIN = "packages\\NVIDIA.PhysX.4.1.2\\installed\\x64-windows\\bin"
+PHYSX_DEPENDENCIES = [
+    "PhysXExtensions_static_64.lib",
+    "PhysXCooking_64.lib",
+    "PhysXPvdSDK_static_64.lib",
+    "PhysXVehicle_static_64.lib",
+    "PhysX_64.lib",
+    "PhysXCommon_64.lib",
+    "PhysXFoundation_64.lib",
+]
 
 # Reflection — UCLASS/UPROPERTY 매크로 → *.generated.h/.cpp 자동 생성.
 # 빌드 시작 직전(PreBuildEvent)과 ClCompile 직전(GenerateReflectionHeaders target)
@@ -155,7 +181,6 @@ ADDITIONAL_DEPENDENCIES = [
 # NuGet packages (id, version) — restored via packages.config
 NUGET_PACKAGES = [
     ("directxtk_desktop_win10", "2025.10.28.2"),
-    ("NVIDIA.PhysX", "4.1.2"),
 ]
 
 NS = "http://schemas.microsoft.com/developer/msbuild/2003"
@@ -179,6 +204,9 @@ def scan_files(project_dir: Path) -> dict[str, list[str]]:
                 rel = full.relative_to(project_dir)
                 rel_str = str(rel).replace("/", "\\")
                 ext = full.suffix.lower()
+
+                if rel_str.startswith(PHYSX_BROWSE_ONLY_PREFIX):
+                    continue
 
                 if ext in SOURCE_EXTS:
                     result["ClCompile"].append(rel_str)
@@ -214,6 +242,19 @@ def scan_files(project_dir: Path) -> dict[str, list[str]]:
     # so we add them unconditionally rather than gating on Path.exists().
     for extra in EXTRA_CL_COMPILE_FILES:
         result["ClCompile"].append(extra)
+
+    for browse_dir in PHYSX_BROWSE_ONLY_DIRS:
+        full_dir = project_dir / browse_dir
+        if not full_dir.exists():
+            continue
+        for dirpath, _, filenames in os.walk(full_dir):
+            for fname in sorted(filenames):
+                full = Path(dirpath) / fname
+                ext = full.suffix.lower()
+                if ext not in {".h", ".hpp", ".hxx", ".inl", ".cpp", ".c", ".cc", ".cxx"}:
+                    continue
+                rel = full.relative_to(project_dir)
+                result["None"].append(str(rel).replace("/", "\\"))
 
     # Add root-level .rc files
     for f in sorted(project_dir.glob("*.rc")):
@@ -327,6 +368,18 @@ def generate_vcxproj(files: dict[str, list[str]]):
 
     ET.SubElement(proj, "PropertyGroup", Label="UserMacros")
 
+    pg = ET.SubElement(proj, "PropertyGroup")
+    ET.SubElement(pg, "PhysXRoot").text = f"$(ProjectDir){PHYSX_ROOT}"
+    ET.SubElement(pg, "PhysXIncludeDirectories").text = (
+        "$(PhysXRoot)physx\\include;$(PhysXRoot)pxshared\\include"
+    )
+    ET.SubElement(pg, "PhysXBuildConfig", Condition="'$(Configuration)'=='Debug'").text = "debug"
+    ET.SubElement(pg, "PhysXBuildConfig", Condition="'$(Configuration)'!='Debug'").text = "release"
+    ET.SubElement(pg, "PhysXLibDir").text = (
+        f"$(PhysXRoot)physx\\bin\\{PHYSX_BIN_PLATFORM}\\$(PhysXBuildConfig)"
+    )
+    ET.SubElement(pg, "PhysXDependencies").text = ";".join(PHYSX_DEPENDENCIES) + ";"
+
     # OutDir, IntDir, IncludePath, LibraryPath, WorkingDirectory for all configurations
     include_path_value = ";".join(INCLUDE_PATHS) + ";$(IncludePath)"
     for cfg, plat in CONFIGURATIONS:
@@ -335,6 +388,7 @@ def generate_vcxproj(files: dict[str, list[str]]):
         rmlui_dir = RMLUI_DEBUG_DIR if cfg == "Debug" else RMLUI_RELEASE_DIR
         library_paths = [rmlui_dir] if is_x64 else []
         if is_x64:
+            library_paths.append("$(PhysXLibDir)")
             library_paths.append(FMOD_LIB_DIR)
             library_paths.append(FBX_DEBUG_LIB_DIR if cfg == "Debug" else FBX_RELEASE_LIB_DIR)
         library_path_value = ";".join(library_paths) + ";$(LibraryPath)" if library_paths else "$(LibraryPath)"
@@ -397,12 +451,16 @@ def generate_vcxproj(files: dict[str, list[str]]):
         subsystem = props.get("subsystem", "Windows" if is_x64 else "Console")
         ET.SubElement(link, "SubSystem").text = subsystem
         ET.SubElement(link, "GenerateDebugInformation").text = "true"
-        if ADDITIONAL_LIB_DIRS:
+        additional_lib_dirs = list(ADDITIONAL_LIB_DIRS)
+        if is_x64:
+            additional_lib_dirs.append("$(PhysXLibDir)")
+        if additional_lib_dirs:
             ET.SubElement(link, "AdditionalLibraryDirectories").text = (
-                ";".join(ADDITIONAL_LIB_DIRS) + ";%(AdditionalLibraryDirectories)"
+                ";".join(additional_lib_dirs) + ";%(AdditionalLibraryDirectories)"
             )
         all_deps = list(ADDITIONAL_DEPENDENCIES)
         if is_x64:
+            all_deps.append("$(PhysXDependencies)")
             all_deps.extend(RMLUI_DEPENDENCIES)
             # fmod: Debug면 logging 버전(fmodL_vc.lib), 그 외 release 버전(fmod_vc.lib)
             all_deps.append(FMOD_DEBUG_LIB if cfg == "Debug" else FMOD_RELEASE_LIB)
@@ -415,13 +473,12 @@ def generate_vcxproj(files: dict[str, list[str]]):
         if is_x64:
             rmlui_dir = RMLUI_DEBUG_DIR if cfg == "Debug" else RMLUI_RELEASE_DIR
             fmod_dll = FMOD_DEBUG_DLL if cfg == "Debug" else FMOD_RELEASE_DLL
-            physx_bin = PHYSX_DEBUG_BIN if cfg == "Debug" else PHYSX_RELEASE_BIN
             fbx_lib_dir = FBX_DEBUG_LIB_DIR if cfg == "Debug" else FBX_RELEASE_LIB_DIR
             post_build = ET.SubElement(idg, "PostBuildEvent")
             ET.SubElement(post_build, "Command").text = (
                 f'xcopy /Y "$(ProjectDir){rmlui_dir}\\*.dll" "$(OutDir)"\n'
                 f'xcopy /Y "$(ProjectDir){FMOD_LIB_DIR}\\{fmod_dll}" "$(OutDir)"\n'
-                f'xcopy /Y "$(ProjectDir){physx_bin}\\*.dll" "$(OutDir)"\n'
+                f'xcopy /Y "$(PhysXLibDir)\\*.dll" "$(OutDir)"\n'
                 f'xcopy /Y "$(ProjectDir){LUA_BIN_DIR}\\{LUA_DLL}" "$(OutDir)"\n'
                 f'xcopy /Y "$(ProjectDir){fbx_lib_dir}\\{FBX_DLL}" "$(OutDir)"'
             )
@@ -602,7 +659,7 @@ def generate_sln():
     lines.append("")
     lines.append("Microsoft Visual Studio Solution File, Format Version 12.00")
     lines.append("# Visual Studio Version 17")
-    lines.append("VisualStudioVersion = 17.14.37012.4 d17.14")
+    lines.append("VisualStudioVersion = 17.14.37012.4")
     lines.append("MinimumVisualStudioVersion = 10.0.40219.1")
 
     guid_upper = PROJECT_GUID.upper()
@@ -616,17 +673,15 @@ def generate_sln():
 
     # SolutionConfigurationPlatforms
     lines.append("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution")
-    for cfg, plat in CONFIGURATIONS:
-        sln_plat = "x86" if plat == "Win32" else plat
-        lines.append(f"\t\t{cfg}|{sln_plat} = {cfg}|{sln_plat}")
+    for sln_cfg, sln_plat, _, _ in SOLUTION_CONFIGURATIONS:
+        lines.append(f"\t\t{sln_cfg}|{sln_plat} = {sln_cfg}|{sln_plat}")
     lines.append("\tEndGlobalSection")
 
     # ProjectConfigurationPlatforms
     lines.append("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution")
-    for cfg, plat in CONFIGURATIONS:
-        sln_plat = "x86" if plat == "Win32" else plat
-        lines.append(f"\t\t{guid_upper}.{cfg}|{sln_plat}.ActiveCfg = {cfg}|{plat}")
-        lines.append(f"\t\t{guid_upper}.{cfg}|{sln_plat}.Build.0 = {cfg}|{plat}")
+    for sln_cfg, sln_plat, project_cfg, project_plat in SOLUTION_CONFIGURATIONS:
+        lines.append(f"\t\t{guid_upper}.{sln_cfg}|{sln_plat}.ActiveCfg = {project_cfg}|{project_plat}")
+        lines.append(f"\t\t{guid_upper}.{sln_cfg}|{sln_plat}.Build.0 = {project_cfg}|{project_plat}")
     lines.append("\tEndGlobalSection")
 
     lines.append("\tGlobalSection(SolutionProperties) = preSolution")

@@ -125,60 +125,68 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <PhysXRoot>$(ProjectDir)ThirdParty\PhysX\</PhysXRoot>
+    <PhysXIncludeDirectories>$(PhysXRoot)physx\include;$(PhysXRoot)pxshared\include</PhysXIncludeDirectories>
+    <PhysXBuildConfig Condition="'$(Configuration)'=='Debug'">debug</PhysXBuildConfig>
+    <PhysXBuildConfig Condition="'$(Configuration)'!='Debug'">release</PhysXBuildConfig>
+    <PhysXLibDir>$(PhysXRoot)physx\bin\win.x86_64.vc143.md\$(PhysXBuildConfig)</PhysXLibDir>
+    <PhysXDependencies>PhysXExtensions_static_64.lib;PhysXCooking_64.lib;PhysXPvdSDK_static_64.lib;PhysXVehicle_static_64.lib;PhysX_64.lib;PhysXCommon_64.lib;PhysXFoundation_64.lib;</PhysXDependencies>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(ProjectDir)Bin\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)Build\$(Configuration)\</IntDir>
-    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;$(IncludePath)</IncludePath>
+    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(ProjectDir)Bin\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)Build\$(Configuration)\</IntDir>
-    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;$(IncludePath)</IncludePath>
+    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(ProjectDir)Bin\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)Build\$(Configuration)\</IntDir>
-    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;$(IncludePath)</IncludePath>
-    <LibraryPath>ThirdParty\RmlUi\Debug;ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;$(IncludePath)</IncludePath>
+    <LibraryPath>ThirdParty\RmlUi\Debug;$(PhysXLibDir);ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\debug;$(LibraryPath)</LibraryPath>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(ProjectDir)Bin\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)Build\$(Configuration)\</IntDir>
-    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;$(IncludePath)</IncludePath>
-    <LibraryPath>ThirdParty\RmlUi\Release;ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\release;$(LibraryPath)</LibraryPath>
+    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;$(IncludePath)</IncludePath>
+    <LibraryPath>ThirdParty\RmlUi\Release;$(PhysXLibDir);ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\release;$(LibraryPath)</LibraryPath>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Game|Win32'">
     <OutDir>$(ProjectDir)Bin\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)Build\$(Configuration)\</IntDir>
-    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;$(IncludePath)</IncludePath>
+    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Game|x64'">
     <OutDir>$(ProjectDir)Bin\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)Build\$(Configuration)\</IntDir>
-    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;$(IncludePath)</IncludePath>
-    <LibraryPath>ThirdParty\RmlUi\Release;ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\release;$(LibraryPath)</LibraryPath>
+    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;$(IncludePath)</IncludePath>
+    <LibraryPath>ThirdParty\RmlUi\Release;$(PhysXLibDir);ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\release;$(LibraryPath)</LibraryPath>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ObjViewDebug|x64'">
     <OutDir>$(ProjectDir)Bin\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)Build\$(Configuration)\</IntDir>
-    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;$(IncludePath)</IncludePath>
-    <LibraryPath>ThirdParty\RmlUi\Release;ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\release;$(LibraryPath)</LibraryPath>
+    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;$(IncludePath)</IncludePath>
+    <LibraryPath>ThirdParty\RmlUi\Release;$(PhysXLibDir);ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\release;$(LibraryPath)</LibraryPath>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">
     <OutDir>$(ProjectDir)Bin\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)Build\$(Configuration)\</IntDir>
-    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;$(IncludePath)</IncludePath>
-    <LibraryPath>ThirdParty\RmlUi\Release;ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\release;$(LibraryPath)</LibraryPath>
+    <IncludePath>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;$(IncludePath)</IncludePath>
+    <LibraryPath>ThirdParty\RmlUi\Release;$(PhysXLibDir);ThirdParty\fmod\lib;ThirdParty\fbx\lib\x64\release;$(LibraryPath)</LibraryPath>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -186,7 +194,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;WITH_EDITOR=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -210,7 +218,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;WITH_EDITOR=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -232,7 +240,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;FBXSDK_SHARED;WITH_EDITOR=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -242,13 +250,13 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lua51.lib;rmlui.lib;rmlui_debugger.lib;fmodL_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;$(PhysXLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>lua51.lib;$(PhysXDependencies);rmlui.lib;rmlui_debugger.lib;fmodL_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y "$(ProjectDir)ThirdParty\RmlUi\Debug\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fmod\lib\fmodL.dll" "$(OutDir)"
-xcopy /Y "$(ProjectDir)packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\debug\bin\*.dll" "$(OutDir)"
+xcopy /Y "$(PhysXLibDir)\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\lua\bin\lua51.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\debug\libfbxsdk.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
@@ -264,7 +272,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\debug\libfbxsdk.dll" "$(OutDir)"</
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;FBXSDK_SHARED;WITH_EDITOR=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -274,13 +282,13 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\debug\libfbxsdk.dll" "$(OutDir)"</
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lua51.lib;rmlui.lib;rmlui_debugger.lib;fmod_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;$(PhysXLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>lua51.lib;$(PhysXDependencies);rmlui.lib;rmlui_debugger.lib;fmod_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y "$(ProjectDir)ThirdParty\RmlUi\Release\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fmod\lib\fmod.dll" "$(OutDir)"
-xcopy /Y "$(ProjectDir)packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\bin\*.dll" "$(OutDir)"
+xcopy /Y "$(PhysXLibDir)\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\lua\bin\lua51.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
@@ -296,7 +304,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;WITH_EDITOR=0;WITH_STANDALONE=1;STATS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -320,7 +328,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;FBXSDK_SHARED;WITH_EDITOR=0;WITH_STANDALONE=1;STATS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -330,13 +338,13 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lua51.lib;rmlui.lib;rmlui_debugger.lib;fmod_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;$(PhysXLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>lua51.lib;$(PhysXDependencies);rmlui.lib;rmlui_debugger.lib;fmod_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y "$(ProjectDir)ThirdParty\RmlUi\Release\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fmod\lib\fmod.dll" "$(OutDir)"
-xcopy /Y "$(ProjectDir)packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\bin\*.dll" "$(OutDir)"
+xcopy /Y "$(PhysXLibDir)\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\lua\bin\lua51.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
@@ -352,7 +360,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;FBXSDK_SHARED;WITH_EDITOR=1;IS_OBJ_VIEWER=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -362,13 +370,13 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lua51.lib;rmlui.lib;rmlui_debugger.lib;fmod_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;$(PhysXLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>lua51.lib;$(PhysXDependencies);rmlui.lib;rmlui_debugger.lib;fmod_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y "$(ProjectDir)ThirdParty\RmlUi\Release\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fmod\lib\fmod.dll" "$(OutDir)"
-xcopy /Y "$(ProjectDir)packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\bin\*.dll" "$(OutDir)"
+xcopy /Y "$(PhysXLibDir)\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\lua\bin\lua51.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
@@ -384,7 +392,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;FBXSDK_SHARED;WITH_EDITOR=1;STATS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\include;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Intermediate\Generated;Source\Engine;Source;ThirdParty;ThirdParty\ImGui;ThirdParty\imgui-node-editor;ThirdParty\RmlUi\Include;Source\Editor;Source\ObjViewer;Source\Game;ThirdParty\lua\include;ThirdParty\sol2\include;ThirdParty\fmod\include;ThirdParty\fbx\include;$(PhysXIncludeDirectories);.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -394,13 +402,13 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lua51.lib;rmlui.lib;rmlui_debugger.lib;fmod_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)ThirdParty\lua\lib;$(PhysXLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>lua51.lib;$(PhysXDependencies);rmlui.lib;rmlui_debugger.lib;fmod_vc.lib;libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y "$(ProjectDir)ThirdParty\RmlUi\Release\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fmod\lib\fmod.dll" "$(OutDir)"
-xcopy /Y "$(ProjectDir)packages\NVIDIA.PhysX.4.1.2\installed\x64-windows\bin\*.dll" "$(OutDir)"
+xcopy /Y "$(PhysXLibDir)\*.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\lua\bin\lua51.dll" "$(OutDir)"
 xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
@@ -410,10 +418,6 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Source\Engine\Object\ReferenceCollector.cpp" />
-    <ClCompile Include="Source\Engine\Object\GarbageCollector.cpp" />
-    <ClCompile Include="Source\Engine\Object\GarbageCollectionTest.cpp" />
-    <ClCompile Include="Source\Engine\Particles\Module\ParticleModuleEvent.cpp" />
     <ClCompile Include="Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Source\Editor\EditorRenderPipeline.cpp" />
     <ClCompile Include="Source\Editor\Selection\SelectionManager.cpp" />
@@ -635,11 +639,15 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Mesh\Skeletal\SkeletalMesh.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Static\StaticMesh.cpp" />
     <ClCompile Include="Source\Engine\Object\FName.cpp" />
+    <ClCompile Include="Source\Engine\Object\GarbageCollectionTest.cpp" />
+    <ClCompile Include="Source\Engine\Object\GarbageCollector.cpp" />
     <ClCompile Include="Source\Engine\Object\Object.cpp" />
+    <ClCompile Include="Source\Engine\Object\ReferenceCollector.cpp" />
     <ClCompile Include="Source\Engine\Object\UUIDGenerator.cpp" />
     <ClCompile Include="Source\Engine\Particles\ParticleSystem.cpp" />
     <ClCompile Include="Source\Engine\Particles\ParticleSystemManager.cpp" />
     <ClCompile Include="Source\Engine\Particles\Module\ParticleModuleCollision.cpp" />
+    <ClCompile Include="Source\Engine\Particles\Module\ParticleModuleEvent.cpp" />
     <ClCompile Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.cpp" />
     <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysXPhysicsScene.cpp" />
@@ -757,28 +765,6 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Intermediate\Generated\LuaBindings.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Source\Engine\Object\Ptr\WeakObjectPtr.h" />
-    <ClInclude Include="Source\Engine\Object\ReferenceCollector.h" />
-    <ClInclude Include="Source\Engine\Object\GarbageCollector.h" />
-    <ClInclude Include="Source\Engine\Object\GarbageCollectionTest.h" />
-    <ClInclude Include="Source\Engine\Serialization\GCArchive.h" />
-    <ClInclude Include="Source\Editor\UI\Asset\Material\MaterialEditorWidget.h" />
-    <ClInclude Include="Source\Editor\UI\Panel\EditorPropertyRenderer.h" />
-    <ClInclude Include="Source\Editor\UI\Util\EditorMaterialThumbnailManager.h" />
-    <ClInclude Include="Source\Editor\UI\Util\EditorMeshThumbnailManager.h" />
-    <ClInclude Include="Source\Engine\Component\Particle\ParticleSystemComponent.h" />
-    <ClInclude Include="Source\Engine\Core\Property\MapProperty.h" />
-    <ClInclude Include="Source\Engine\Math\Distribution.h" />
-    <ClInclude Include="Source\Engine\Particles\Module\ParticleModule.h" />
-    <ClInclude Include="Source\Engine\Particles\Module\ParticleModuleCollision.h" />
-    <ClInclude Include="Source\Engine\Particles\Module\ParticleModuleEvent.h" />
-    <ClInclude Include="Source\Engine\Particles\Module\ParticleModuleTypeDataBase.h" />
-    <ClInclude Include="Source\Engine\Particles\ParticleHelper.h" />
-    <ClInclude Include="Source\Engine\Particles\ParticleSystem.h" />
-    <ClInclude Include="Source\Engine\Particles\ParticleSystemManager.h" />
-    <ClInclude Include="Source\Engine\Particles\Runtime\ParticleCollisionEvent.h" />
-    <ClInclude Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.h" />
-    <ClInclude Include="Source\Engine\Particles\Runtime\ParticleRuntimeTypes.h" />
     <ClInclude Include="Source\Editor\EditorEngine.h" />
     <ClInclude Include="Source\Editor\EditorRenderPipeline.h" />
     <ClInclude Include="Source\Editor\PIE\PIETypes.h" />
@@ -1042,12 +1028,16 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Mesh\Static\StaticMesh.h" />
     <ClInclude Include="Source\Engine\Mesh\Static\StaticMeshAsset.h" />
     <ClInclude Include="Source\Engine\Object\FName.h" />
+    <ClInclude Include="Source\Engine\Object\GarbageCollectionTest.h" />
+    <ClInclude Include="Source\Engine\Object\GarbageCollector.h" />
     <ClInclude Include="Source\Engine\Object\Object.h" />
     <ClInclude Include="Source\Engine\Object\ObjectIterator.h" />
+    <ClInclude Include="Source\Engine\Object\ReferenceCollector.h" />
     <ClInclude Include="Source\Engine\Object\UUIDGenerator.h" />
     <ClInclude Include="Source\Engine\Object\Ptr\ObjectPtr.h" />
     <ClInclude Include="Source\Engine\Object\Ptr\SoftObjectPtr.h" />
     <ClInclude Include="Source\Engine\Object\Ptr\SubclassOf.h" />
+    <ClInclude Include="Source\Engine\Object\Ptr\WeakObjectPtr.h" />
     <ClInclude Include="Source\Engine\Object\Reflection\ObjectFactory.h" />
     <ClInclude Include="Source\Engine\Object\Reflection\ObjectMacros.h" />
     <ClInclude Include="Source\Engine\Object\Reflection\UClass.h" />
@@ -1057,6 +1047,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Particles\ParticleSystemManager.h" />
     <ClInclude Include="Source\Engine\Particles\Module\ParticleModule.h" />
     <ClInclude Include="Source\Engine\Particles\Module\ParticleModuleCollision.h" />
+    <ClInclude Include="Source\Engine\Particles\Module\ParticleModuleEvent.h" />
     <ClInclude Include="Source\Engine\Particles\Module\ParticleModuleTypeDataBase.h" />
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleCollisionEvent.h" />
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.h" />
@@ -1171,6 +1162,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Runtime\Launch.h" />
     <ClInclude Include="Source\Engine\Serialization\Archive.h" />
     <ClInclude Include="Source\Engine\Serialization\DuplicateArchive.h" />
+    <ClInclude Include="Source\Engine\Serialization\GCArchive.h" />
     <ClInclude Include="Source\Engine\Serialization\JsonArchive.h" />
     <ClInclude Include="Source\Engine\Serialization\MemoryArchive.h" />
     <ClInclude Include="Source\Engine\Serialization\SceneSaveManager.h" />
@@ -1767,13 +1759,6 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewDebug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="Shaders\Common\MaterialBloom.hlsli">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Game|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewDebug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">true</ExcludedFromBuild>
-    </FxCompile>
     <FxCompile Include="Shaders\Common\ForwardLightData.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -1789,6 +1774,13 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Shaders\Common\Functions.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Game|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewDebug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Shaders\Common\MaterialBloom.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Game|x64'">true</ExcludedFromBuild>
@@ -1935,6 +1927,27 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewDebug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\BloomBlur.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Game|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewDebug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\BloomComposite.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Game|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewDebug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\BloomExtract.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Game|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewDebug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Demo|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="Shaders\PostProcess\CameraFade.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -2058,10 +2071,1225 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
   <ItemGroup>
     <ResourceCompile Include="KraftonEngine.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="ThirdParty\PhysX\physx\include\PxActor.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxAggregate.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxArticulation.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxArticulationBase.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxArticulationJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxArticulationJointReducedCoordinate.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxArticulationLink.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxArticulationReducedCoordinate.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxBatchQuery.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxBatchQueryDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxBroadPhase.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxClient.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxConfig.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxConstraint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxConstraintDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxContact.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxContactModifyCallback.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxDeletionListener.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxFiltering.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxForceMode.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxFoundation.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxImmediateMode.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxLockedData.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxMaterial.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxPhysXConfig.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxPhysics.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxPhysicsAPI.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxPhysicsSerialization.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxPhysicsVersion.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxPruningStructure.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxQueryFiltering.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxQueryReport.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxRigidActor.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxRigidBody.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxRigidDynamic.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxRigidStatic.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxScene.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxSceneDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxSceneLock.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxShape.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxSimulationEventCallback.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxSimulationStatistics.h" />
+    <None Include="ThirdParty\PhysX\physx\include\PxVisualizationParameter.h" />
+    <None Include="ThirdParty\PhysX\physx\include\characterkinematic\PxBoxController.h" />
+    <None Include="ThirdParty\PhysX\physx\include\characterkinematic\PxCapsuleController.h" />
+    <None Include="ThirdParty\PhysX\physx\include\characterkinematic\PxController.h" />
+    <None Include="ThirdParty\PhysX\physx\include\characterkinematic\PxControllerBehavior.h" />
+    <None Include="ThirdParty\PhysX\physx\include\characterkinematic\PxControllerManager.h" />
+    <None Include="ThirdParty\PhysX\physx\include\characterkinematic\PxControllerObstacles.h" />
+    <None Include="ThirdParty\PhysX\physx\include\characterkinematic\PxExtended.h" />
+    <None Include="ThirdParty\PhysX\physx\include\collision\PxCollisionDefs.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxBase.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxCollection.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxCoreUtilityTypes.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxMetaData.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxMetaDataFlags.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxPhysXCommonConfig.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxPhysicsInsertionCallback.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxProfileZone.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxRenderBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxSerialFramework.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxSerializer.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxStringTable.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxTolerancesScale.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\PxTypeInfo.h" />
+    <None Include="ThirdParty\PhysX\physx\include\common\windows\PxWindowsDelayLoadHook.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cooking\PxBVH33MidphaseDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cooking\PxBVH34MidphaseDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cooking\PxBVHStructureDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cooking\PxConvexMeshDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cooking\PxCooking.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cooking\PxMidphaseDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cooking\PxTriangleMeshDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cooking\Pxc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cudamanager\PxCudaContextManager.h" />
+    <None Include="ThirdParty\PhysX\physx\include\cudamanager\PxCudaMemoryManager.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxBinaryConverter.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxBroadPhaseExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxCollectionExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxConstraintExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxContactJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxConvexMeshExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxD6Joint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxD6JointCreate.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxDefaultAllocator.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxDefaultCpuDispatcher.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxDefaultErrorCallback.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxDefaultSimulationFilterShader.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxDefaultStreams.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxDistanceJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxExtensionsAPI.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxFixedJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxJointLimit.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxMassProperties.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxPrismaticJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxRaycastCCD.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxRepXSerializer.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxRepXSimpleType.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxRevoluteJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxRigidActorExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxRigidBodyExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxSceneQueryExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxSerialization.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxShapeExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxSimpleFactory.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxSmoothNormals.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxSphericalJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxStringTableExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\extensions\PxTriangleMeshExt.h" />
+    <None Include="ThirdParty\PhysX\physx\include\filebuf\PxFileBuf.h" />
+    <None Include="ThirdParty\PhysX\physx\include\foundation\PxAssert.h" />
+    <None Include="ThirdParty\PhysX\physx\include\foundation\PxFoundationConfig.h" />
+    <None Include="ThirdParty\PhysX\physx\include\foundation\PxMathUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxBVHStructure.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxBoxGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxCapsuleGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxConvexMesh.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxConvexMeshGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxGeometryHelpers.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxGeometryQuery.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxHeightField.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxHeightFieldDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxHeightFieldFlag.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxHeightFieldGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxHeightFieldSample.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxMeshQuery.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxMeshScale.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxPlaneGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxSimpleTriangleMesh.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxSphereGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxTriangle.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxTriangleMesh.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geometry\PxTriangleMeshGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geomutils\GuContactBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\include\geomutils\GuContactPoint.h" />
+    <None Include="ThirdParty\PhysX\physx\include\gpu\PxGpu.h" />
+    <None Include="ThirdParty\PhysX\physx\include\pvd\PxPvd.h" />
+    <None Include="ThirdParty\PhysX\physx\include\pvd\PxPvdSceneClient.h" />
+    <None Include="ThirdParty\PhysX\physx\include\pvd\PxPvdTransport.h" />
+    <None Include="ThirdParty\PhysX\physx\include\solver\PxSolverDefs.h" />
+    <None Include="ThirdParty\PhysX\physx\include\task\PxCpuDispatcher.h" />
+    <None Include="ThirdParty\PhysX\physx\include\task\PxTask.h" />
+    <None Include="ThirdParty\PhysX\physx\include\task\PxTaskDefine.h" />
+    <None Include="ThirdParty\PhysX\physx\include\task\PxTaskManager.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleComponents.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleDrive.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleDrive4W.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleDriveNW.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleDriveTank.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleNoDrive.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleSDK.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleShaders.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleTireFriction.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleUpdate.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleUtil.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleUtilControl.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleUtilSetup.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleUtilTelemetry.h" />
+    <None Include="ThirdParty\PhysX\physx\include\vehicle\PxVehicleWheels.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\include\windows\CmWindowsLoadLibrary.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\include\windows\CmWindowsModuleUpdateLoader.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmBitMap.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmBlockArray.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmCollection.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmCollection.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmConeLimitHelper.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmFlushPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmIDPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmIO.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmMatrix34.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmPhysXCommon.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmPreallocatingPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmPriorityQueue.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmPtrTable.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmPtrTable.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmQueue.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmRadixSort.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmRadixSort.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmRadixSortBuffered.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmRadixSortBuffered.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmRefCountable.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmRenderBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmRenderOutput.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmRenderOutput.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmScaling.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmSpatialVector.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmTask.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmTaskPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmTmpMem.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmTransformUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmVisualization.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\CmVisualization.h" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\windows\CmWindowsDelayLoadHook.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\common\src\windows\CmWindowsModuleUpdateLoader.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\compiler\resource_x64\resource.h" />
+    <None Include="ThirdParty\PhysX\physx\source\compiler\resource_x86\resource.h" />
+    <None Include="ThirdParty\PhysX\physx\source\fastxml\include\PsFastXml.h" />
+    <None Include="ThirdParty\PhysX\physx\source\fastxml\src\PsFastXml.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\filebuf\include\PsAsciiConversion.h" />
+    <None Include="ThirdParty\PhysX\physx\source\filebuf\include\PsAsciiConversion.inl" />
+    <None Include="ThirdParty\PhysX\physx\source\filebuf\include\PsFileBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\filebuf\include\PsIOStream.h" />
+    <None Include="ThirdParty\PhysX\physx\source\filebuf\include\PsIOStream.inl" />
+    <None Include="ThirdParty\PhysX\physx\source\filebuf\include\PsMemoryBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\Ps.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsAlignedMalloc.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsAlloca.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsAllocator.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsArray.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsAtomic.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsBasicTemplates.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsBitUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsBroadcast.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsCpu.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsFPU.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsFoundation.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsHash.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsHashInternals.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsHashMap.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsHashSet.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsInlineAllocator.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsInlineAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsInlineArray.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsIntrinsics.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsMathUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsMutex.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsSList.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsSocket.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsSort.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsSortInternals.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsString.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsSync.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsTempAllocator.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsThread.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsTime.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsUserAllocated.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsUtilities.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsVecMath.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsVecMathAoSScalar.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsVecMathAoSScalarInline.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsVecMathSSE.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsVecMathUtilities.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsVecQuat.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\PsVecTransform.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\PsUnixAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\PsUnixFPU.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\PsUnixInlineAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\PsUnixIntrinsics.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\PsUnixTrigConstants.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\neon\PsUnixNeonAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\neon\PsUnixNeonInlineAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\sse2\PsUnixSse2AoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\unix\sse2\PsUnixSse2InlineAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\windows\PsWindowsAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\windows\PsWindowsFPU.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\windows\PsWindowsInclude.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\windows\PsWindowsInlineAoS.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\windows\PsWindowsIntrinsics.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\include\windows\PsWindowsTrigConstants.h" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\PsAllocator.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\PsAssert.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\PsFoundation.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\PsMathUtils.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\PsString.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\PsTempAllocator.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\PsUtilities.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixAtomic.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixCpu.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixFPU.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixMutex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixPrintString.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixSList.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixSocket.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixSync.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixThread.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\unix\PsUnixTime.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsUWPThread.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsAtomic.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsCpu.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsFPU.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsMutex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsPrintString.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsSList.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsSocket.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsSync.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsThread.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\foundation\src\windows\PsWindowsTime.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuDistanceSegmentBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuDistanceSegmentSegment.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuIntersectionBoxBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuIntersectionTriangleBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuIntersectionTriangleBoxRef.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuRaycastTests.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuSIMDHelpers.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\include\GuSegment.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuAABBTreeBuild.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuAABBTreeBuild.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuAABBTreeQuery.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuBVHStructure.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuBVHStructure.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuBVHTestsSIMD.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuBounds.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuBounds.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuCCTSweepTests.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuCapsule.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuCenterExtents.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuGeometryQuery.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuGeometryUnion.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuGeometryUnion.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuInternal.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuInternal.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuMTD.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuMTD.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuMeshFactory.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuMeshFactory.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuMetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuOverlapTests.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuOverlapTests.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuRaycastTests.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSerialize.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSerialize.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSphere.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSweepMTD.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSweepMTD.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSweepSharedTests.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSweepSharedTests.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSweepTests.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\GuSweepTests.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\ccd\GuCCDSweepConvexMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\ccd\GuCCDSweepConvexMesh.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\ccd\GuCCDSweepPrimitives.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\common\GuBarycentricCoordinates.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\common\GuBarycentricCoordinates.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\common\GuBoxConversion.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\common\GuEdgeCache.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\common\GuEdgeListData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\common\GuSeparatingAxes.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\common\GuSeparatingAxes.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactBoxBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactCapsuleBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactCapsuleCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactCapsuleConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactCapsuleMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactConvexConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactConvexMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactMethodImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactPlaneBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactPlaneCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactPlaneConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactPolygonPolygon.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactPolygonPolygon.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactSphereBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactSphereCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactSphereMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactSpherePlane.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuContactSphereSphere.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuFeatureCode.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\contact\GuFeatureCode.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuBigConvexData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuBigConvexData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuBigConvexData2.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexEdgeFlags.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexHelper.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexHelper.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexMesh.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexMeshData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexSupportTable.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexSupportTable.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexUtilsInternal.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuConvexUtilsInternal.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuCubeIndex.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuHillClimbing.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuHillClimbing.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuShapeConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\convex\GuShapeConvex.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistancePointBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistancePointBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistancePointSegment.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistancePointTriangle.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistancePointTriangle.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistancePointTriangleSIMD.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistanceSegmentBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistanceSegmentSegment.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistanceSegmentSegmentSIMD.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistanceSegmentTriangle.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistanceSegmentTriangle.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\distance\GuDistanceSegmentTriangleSIMD.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuEPA.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuEPA.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuEPAFacet.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJK.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJKPenetration.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJKRaycast.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJKSimplex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJKSimplex.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJKTest.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJKTest.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJKType.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuGJKUtil.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuVecBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuVecCapsule.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuVecConvex.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuVecConvexHull.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuVecConvexHullNoScale.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuVecPlane.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuVecSphere.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\gjk\GuVecTriangle.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\hf\GuEntityReport.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\hf\GuHeightField.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\hf\GuHeightField.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\hf\GuHeightFieldData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\hf\GuHeightFieldUtil.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\hf\GuHeightFieldUtil.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\hf\GuOverlapTestsHF.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\hf\GuSweepsHF.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionBoxBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionCapsuleTriangle.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionCapsuleTriangle.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionEdgeEdge.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionEdgeEdge.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRay.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRayBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRayBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRayBoxSIMD.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRayCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRayCapsule.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRayPlane.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRaySphere.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRaySphere.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionRayTriangle.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionSphereBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionSphereBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\intersection\GuIntersectionTriangleBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV32.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV32.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV32Build.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV32Build.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4Build.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4Build.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4Settings.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_AABBAABBSweepTest.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_AABBSweep.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_BoxBoxOverlapTest.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_BoxOverlap.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_BoxOverlap_Internal.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_BoxSweep_Internal.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_BoxSweep_Params.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_CapsuleSweep.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_CapsuleSweepAA.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_CapsuleSweep_Internal.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_Common.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_Internal.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_OBBSweep.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_ProcessStreamNoOrder_OBBOBB.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_ProcessStreamNoOrder_SegmentAABB.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_ProcessStreamNoOrder_SegmentAABB_Inflated.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_ProcessStreamNoOrder_SphereAABB.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_ProcessStreamOrdered_OBBOBB.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_ProcessStreamOrdered_SegmentAABB.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_ProcessStreamOrdered_SegmentAABB_Inflated.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_Raycast.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_Slabs.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_Slabs_KajiyaNoOrder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_Slabs_KajiyaOrdered.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_Slabs_SwizzledNoOrder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_Slabs_SwizzledOrdered.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_SphereOverlap.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBV4_SphereSweep.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuBVConstants.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuMeshData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuMeshQuery.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuMidphaseBV4.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuMidphaseInterface.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuMidphaseRTree.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuOverlapTestsMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuRTree.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuRTree.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuRTreeQueries.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuSweepConvexTri.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuSweepMesh.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuSweepsMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangle32.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangleCache.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangleMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangleMesh.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangleMeshBV4.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangleMeshBV4.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangleMeshRTree.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangleMeshRTree.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\mesh\GuTriangleVertexPointers.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactBoxBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactBoxConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactCapsuleBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactCapsuleCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactCapsuleConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactCapsuleHeightField.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactCapsuleMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactConvexCommon.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactConvexCommon.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactConvexConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactConvexHeightField.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactConvexMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactGen.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactGenBoxConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactGenSphereCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactGenUtil.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactMeshCallback.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactPlaneBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactPlaneCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactPlaneConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactSphereBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactSphereCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactSphereConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactSphereHeightField.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactSphereMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactSpherePlane.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMContactSphereSphere.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMShapeConvex.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMShapeConvex.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMTriangleContactGen.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPCMTriangleContactGen.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPersistentContactManifold.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\pcm\GuPersistentContactManifold.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepBoxBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepBoxBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepBoxSphere.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepBoxSphere.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepBoxTriangle_FeatureBased.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepBoxTriangle_FeatureBased.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepBoxTriangle_SAT.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepBoxTriangle_SAT.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepCapsuleBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepCapsuleBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepCapsuleCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepCapsuleCapsule.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepCapsuleTriangle.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepCapsuleTriangle.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepSphereCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepSphereCapsule.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepSphereSphere.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepSphereSphere.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepSphereTriangle.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepSphereTriangle.h" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepTriangleUtils.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\geomutils\src\sweep\GuSweepTriangleUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\immediatemode\src\NpImmediateMode.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\include\PxsMaterialCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\include\PxsMaterialManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\include\PxvConfig.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\include\PxvDynamics.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\include\PxvGeometry.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\include\PxvGlobals.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\include\PxvManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\include\PxvSimStats.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\api\src\px_globals.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\collision\PxcContactMethodImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcConstraintBlockStream.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcContactCache.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcMaterialMethodImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcNpBatch.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcNpCache.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcNpCacheStreamPair.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcNpContactPrepShared.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcNpMemBlockPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcNpThreadContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\pipeline\PxcNpWorkUnit.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\utils\PxcScratchAllocator.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\include\utils\PxcThreadCoherentCache.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcContactCache.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcContactMethodImpl.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcMaterialHeightField.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcMaterialMesh.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcMaterialMethodImpl.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcMaterialShape.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcNpBatch.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcNpCacheStreamPair.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcNpContactPrepShared.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcNpMemBlockPool.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\common\src\pipeline\PxcNpThreadContext.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsBodySim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsCCD.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsContactManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsContactManagerState.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsDefaultMemoryManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsHeapMemoryAllocator.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsIncrementalConstraintPartitioning.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsIslandManagerTypes.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsIslandNodeIndex.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsIslandSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsKernelWrangler.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsMaterialCombiner.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsMemoryManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsNphaseImplementationContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsRigidBody.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsShapeSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsSimpleIslandManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsSimulationController.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxsTransformCache.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\include\PxvNphaseImplementationContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\src\PxsCCD.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\src\PxsContactManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\src\PxsContext.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\src\PxsDefaultMemoryManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\src\PxsIslandSim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\src\PxsMaterialCombiner.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\src\PxsNphaseImplementationContext.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevel\software\src\PxsSimpleIslandManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\include\BpAABBManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\include\BpAABBManagerTasks.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\include\BpBroadPhase.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\include\BpBroadPhaseUpdate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpAABBManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhase.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseABP.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseABP.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseMBP.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseMBP.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseMBPCommon.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseSap.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseSap.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseSapAux.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseSapAux.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseShared.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpBroadPhaseShared.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpMBPTasks.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpMBPTasks.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpSAPTasks.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowlevelaabb\src\BpSAPTasks.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyArticulation.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyArticulationCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyArticulationJointCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyConstraint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyConstraintWriteBack.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyFeatherstoneArticulation.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyFeatherstoneArticulationJointData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyFeatherstoneArticulationUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DySleepingConfigulation.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyThresholdTable.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\include\DyVArticulation.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulation.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationContactPrep.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationContactPrep.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationContactPrepPF.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationFnsDebug.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationFnsScalar.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationFnsSimd.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationHelper.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationHelper.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationPImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationReference.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationSIMD.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationScalar.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationScalar.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyArticulationUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyBodyCoreIntegrator.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyConstraintPartition.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyConstraintPartition.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyConstraintPrep.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyConstraintSetup.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyConstraintSetupBlock.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyContactPrep.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyContactPrep.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyContactPrep4.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyContactPrep4PF.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyContactPrepPF.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyContactPrepShared.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyContactReduction.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyCorrelationBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyDynamics.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyDynamics.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyFeatherstoneArticulation.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyFeatherstoneArticulationLink.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyFeatherstoneForwardDynamic.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyFeatherstoneInverseDynamic.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyFrictionCorrelation.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyFrictionPatch.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyFrictionPatchStreamPair.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyRigidBodyToSolverBody.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverBody.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraint1D.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraint1D4.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraint1DStep.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraintDesc.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraintExtShared.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraintTypes.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraints.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraintsBlock.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverConstraintsShared.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverContact.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverContact4.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverContactPF.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverContactPF4.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverControl.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverControl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverControlPF.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverControlPF.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverExt.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverPFConstraints.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySolverPFConstraintsBlock.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DySpatial.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyTGSContactPrep.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyTGSContactPrep.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyTGSContactPrepBlock.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyTGSDynamics.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyTGSDynamics.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyThreadContext.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyThreadContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\lowleveldynamics\src\DyThresholdTable.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpActor.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpActor.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpActorTemplate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpAggregate.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpAggregate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulation.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulation.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationJoint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationJointReducedCoordinate.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationJointReducedCoordinate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationLink.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationLink.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationReducedCoordinate.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationReducedCoordinate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpArticulationTemplate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpBatchQuery.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpBatchQuery.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpCast.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpConnector.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpConstraint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpConstraint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpFactory.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpFactory.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpMaterial.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpMaterial.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpMaterialManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpMetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpPhysics.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpPhysics.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpPhysicsInsertionCallback.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpPtrTableStorageManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpPvdSceneQueryCollector.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpPvdSceneQueryCollector.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpQueryShared.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpReadCheck.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpReadCheck.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpRigidActorTemplate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpRigidActorTemplateInternal.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpRigidBodyTemplate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpRigidDynamic.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpRigidDynamic.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpRigidStatic.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpRigidStatic.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpScene.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpScene.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpSceneAccessor.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpSceneQueries.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpSceneQueries.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpSerializerAdapter.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpShape.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpShape.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpShapeManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpShapeManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpWriteCheck.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\NpWriteCheck.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\PvdMetaDataBindingData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\PvdMetaDataPvdBinding.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\PvdMetaDataPvdBinding.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\PvdPhysicsClient.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\PvdPhysicsClient.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\PvdTypeNames.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbActor.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbActor.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbAggregate.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbAggregate.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbArticulation.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbArticulationJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbBase.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbBase.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbBody.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbConstraint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbDefs.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbMetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbNpDeps.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbRigidObject.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbRigidStatic.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbScene.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbScene.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbSceneBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbScenePvdClient.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbScenePvdClient.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbShape.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbShape.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\buffering\ScbType.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\device\PhysXIndicator.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\device\nvPhysXtoDrv.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\device\linux\PhysXIndicatorLinux.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\device\windows\PhysXIndicatorWindows.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\gpu\PxGpu.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\gpu\PxPhysXGpuModuleLoader.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physx\src\windows\NpWindowsDelayLoadHook.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctBoxController.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctBoxController.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctCapsuleController.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctCapsuleController.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctCharacterController.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctCharacterController.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctCharacterControllerCallbacks.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctCharacterControllerManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctCharacterControllerManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctController.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctController.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctInternalStructs.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctObstacleContext.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctObstacleContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctSweptBox.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctSweptBox.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctSweptCapsule.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctSweptCapsule.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctSweptVolume.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctSweptVolume.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcharacterkinematic\src\CctUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\Adjacencies.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\Adjacencies.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\BVHStructureBuilder.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\BVHStructureBuilder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\Cooking.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\Cooking.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\CookingUtils.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\CookingUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\EdgeList.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\EdgeList.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\MeshCleaner.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\MeshCleaner.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\Quantizer.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\Quantizer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\BigConvexDataBuilder.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\BigConvexDataBuilder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexHullBuilder.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexHullBuilder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexHullLib.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexHullLib.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexHullUtils.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexHullUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexMeshBuilder.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexMeshBuilder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexPolygonsBuilder.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\ConvexPolygonsBuilder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\QuickHullConvexHullLib.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\QuickHullConvexHullLib.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\VolumeIntegration.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\convex\VolumeIntegration.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\GrbTriangleMeshCooking.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\GrbTriangleMeshCooking.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\HeightFieldCooking.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\HeightFieldCooking.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\MeshBuilder.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\MeshBuilder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\QuickSelect.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\RTreeCooking.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\RTreeCooking.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\TriangleMeshBuilder.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\mesh\TriangleMeshBuilder.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxcooking\src\windows\WindowsCookingDelayLoadHook.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtBroadPhase.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtCollection.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtConstraintHelper.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtContactJoint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtContactJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtConvexMeshExt.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtCpuWorkerThread.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtCpuWorkerThread.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtD6Joint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtD6Joint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtD6JointCreate.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtDefaultCpuDispatcher.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtDefaultCpuDispatcher.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtDefaultErrorCallback.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtDefaultSimulationFilterShader.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtDefaultStreams.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtDistanceJoint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtDistanceJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtExtensions.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtFixedJoint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtFixedJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtInertiaTensor.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtJoint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtJointData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtJointMetaDataExtensions.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtMetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtPlatform.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtPrismaticJoint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtPrismaticJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtPvd.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtPvd.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtPxStringTable.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtRaycastCCD.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtRevoluteJoint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtRevoluteJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtRigidActorExt.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtRigidBodyExt.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtSceneQueryExt.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtSerialization.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtSharedQueueEntryPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtSimpleFactory.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtSmoothNormals.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtSphericalJoint.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtSphericalJoint.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtTaskQueueHelper.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\ExtTriangleMeshExt.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\SnSerialUtils.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\SnSerialUtils.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\SnSerialization.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\SnSerializationRegistry.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\SnSerializationRegistry.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnBinaryDeserialization.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnBinarySerialization.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Align.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Align.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Common.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Convert.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Error.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_MetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_MetaData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Output.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Output.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Union.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnConvX_Union.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnSerializationContext.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Binary\SnSerializationContext.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\File\SnFile.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnJointRepXSerializer.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnJointRepXSerializer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnPxStreamOperators.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepX1_0Defaults.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepX3_1Defaults.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepX3_2Defaults.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepXCollection.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepXCoreSerializer.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepXCoreSerializer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepXSerializerImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepXUpgrader.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnRepXUpgrader.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnSimpleXmlWriter.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlDeserializer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlMemoryAllocator.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlMemoryPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlMemoryPoolStreams.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlReader.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlSerialization.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlSerializer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlSimpleXmlWriter.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlStringToType.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlVisitorReader.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlVisitorWriter.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxextensions\src\serialization\Xml\SnXmlWriter.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxgpu\include\PxPhysXGpu.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\PvdMetaDataDefineProperties.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\PvdMetaDataExtensions.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\PvdMetaDataPropertyVisitor.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\PxAutoGeneratedMetaDataObjectNames.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\PxAutoGeneratedMetaDataObjects.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\PxMetaDataCompare.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\PxMetaDataCppPrefix.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\PxMetaDataObjects.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\include\RepXMetaDataPropertyVisitor.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\src\PxAutoGeneratedMetaDataObjects.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\core\src\PxMetaDataObjects.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\extensions\include\PxExtensionAutoGeneratedMetaDataObjectNames.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\extensions\include\PxExtensionAutoGeneratedMetaDataObjects.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\extensions\include\PxExtensionMetaDataObjects.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxmetadata\extensions\src\PxExtensionAutoGeneratedMetaDataObjects.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleComponents.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleDefaults.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleDrive.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleDrive4W.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleDriveNW.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleDriveTank.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleLinearMath.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleMetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleNoDrive.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleSDK.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleSerialization.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleSerialization.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleSuspLimitConstraintShader.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleSuspWheelTire4.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleSuspWheelTire4.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleTireFriction.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleUpdate.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\PxVehicleWheels.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\VehicleUtilControl.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\VehicleUtilSetup.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\VehicleUtilTelemetry.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\physxmetadata\include\PxVehicleAutoGeneratedMetaDataObjectNames.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\physxmetadata\include\PxVehicleAutoGeneratedMetaDataObjects.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\physxmetadata\include\PxVehicleMetaDataObjects.h" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\physxmetadata\src\PxVehicleAutoGeneratedMetaDataObjects.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\physxvehicle\src\physxmetadata\src\PxVehicleMetaDataObjects.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PsPvd.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PxProfileAllocatorWrapper.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PxPvdClient.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PxPvdDataStream.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PxPvdDataStreamHelpers.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PxPvdErrorCodes.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PxPvdObjectModelBaseTypes.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PxPvdRenderBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\include\PxPvdUserRenderer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileContextProvider.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileContextProviderImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileDataBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileDataParsing.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventBufferAtomic.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventBufferClient.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventBufferClientManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventId.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventImpl.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventMutex.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventNames.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventSender.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEventSerialization.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileEvents.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileMemory.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileMemoryBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileMemoryEventBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileMemoryEvents.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileScopedEvent.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileScopedMutexLock.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileZoneImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileZoneManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxProfileZoneManagerImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvd.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdBits.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdByteStreams.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdCommStreamEventSink.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdCommStreamEvents.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdCommStreamTypes.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdDataStream.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdDefaultFileTransport.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdDefaultFileTransport.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdDefaultSocketTransport.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdDefaultSocketTransport.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdFoundation.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdImpl.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdInternalByteStreams.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdMarshalling.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdMemClient.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdMemClient.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdObjectModelInternalTypeDefs.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdObjectModelInternalTypes.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdObjectModelMetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdObjectModelMetaData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdObjectRegistrar.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdObjectRegistrar.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdProfileZone.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdProfileZoneClient.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdProfileZoneClient.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdUserRenderImpl.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdUserRenderTypes.h" />
+    <None Include="ThirdParty\PhysX\physx\source\pvd\src\PxPvdUserRenderer.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\include\SqPruner.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\include\SqPrunerMergeData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\include\SqPruningStructure.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\include\SqSceneQueryManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqAABBPruner.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqAABBPruner.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqAABBTree.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqAABBTree.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqAABBTreeUpdateMap.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqAABBTreeUpdateMap.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqBounds.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqBounds.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqBucketPruner.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqBucketPruner.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqCompoundPruner.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqCompoundPruner.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqCompoundPruningPool.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqCompoundPruningPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqExtendedBucketPruner.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqExtendedBucketPruner.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqIncrementalAABBPruner.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqIncrementalAABBPruner.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqIncrementalAABBPrunerCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqIncrementalAABBPrunerCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqIncrementalAABBTree.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqIncrementalAABBTree.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqMetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqPruningPool.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqPruningPool.h" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqPruningStructure.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqSceneQueryManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\scenequery\src\SqTypedef.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScActorCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScArticulationCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScArticulationJointCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScBodyCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScConstraintCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScIterators.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScMaterialCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScPhysics.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScRigidCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScScene.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScShapeCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\include\ScStaticCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScActorCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScActorPair.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScActorSim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScActorSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScArticulationCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScArticulationJointCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScArticulationJointSim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScArticulationJointSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScArticulationSim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScArticulationSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScBodyCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScBodySim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScBodySim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScClient.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintGroupNode.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintGroupNode.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintInteraction.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintInteraction.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintProjectionManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintProjectionManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintProjectionTree.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintProjectionTree.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintSim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScConstraintSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScContactReportBuffer.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScContactStream.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScElementInteractionMarker.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScElementInteractionMarker.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScElementSim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScElementSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScElementSimInteraction.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScInteraction.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScInteraction.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScInteractionFlags.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScIterators.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScMetaData.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScNPhaseCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScNPhaseCore.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScObjectIDTracker.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScPhysics.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScRigidCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScRigidSim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScRigidSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScScene.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScShapeCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScShapeInteraction.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScShapeInteraction.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScShapeSim.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScShapeSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScSimStateData.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScSimStats.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScSimStats.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScSimulationController.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScSimulationController.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScSqBoundsManager.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScSqBoundsManager.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScStaticCore.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScStaticSim.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScTriggerInteraction.cpp" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScTriggerInteraction.h" />
+    <None Include="ThirdParty\PhysX\physx\source\simulationcontroller\src\ScTriggerPairs.h" />
+    <None Include="ThirdParty\PhysX\physx\source\task\src\TaskManager.cpp" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\Px.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxAllocatorCallback.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxBitAndData.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxBounds3.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxErrorCallback.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxErrors.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxFlags.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxIO.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxIntrinsics.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxMat33.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxMat44.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxMath.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxMemory.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxPlane.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxPreprocessor.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxProfiler.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxQuat.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxSharedAssert.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxSimpleTypes.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxStrideIterator.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxTransform.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxUnionCast.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxVec2.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxVec3.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\PxVec4.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\unix\PxUnixIntrinsics.h" />
+    <None Include="ThirdParty\PhysX\pxshared\include\foundation\windows\PxWindowsIntrinsics.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\directxtk_desktop_win10.2025.10.28.2\build\native\directxtk_desktop_win10.targets" Condition="Exists('packages\directxtk_desktop_win10.2025.10.28.2\build\native\directxtk_desktop_win10.targets')" />
-    <Import Project="packages\NVIDIA.PhysX.4.1.2\build\native\NVIDIA.PhysX.targets" Condition="Exists('packages\NVIDIA.PhysX.4.1.2\build\native\NVIDIA.PhysX.targets')" />
   </ImportGroup>
   <Target Name="GenerateReflectionHeaders" BeforeTargets="ClCompile">
     <Exec Command="&quot;$(PythonExe)&quot; &quot;$(MSBuildProjectDirectory)\..\Scripts\GenerateHeaders.py&quot; --root &quot;$(MSBuildProjectDirectory)&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
@@ -2071,6 +3299,5 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('packages\directxtk_desktop_win10.2025.10.28.2\build\native\directxtk_desktop_win10.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk_desktop_win10.2025.10.28.2\build\native\directxtk_desktop_win10.targets'))" />
-    <Error Condition="!Exists('packages\NVIDIA.PhysX.4.1.2\build\native\NVIDIA.PhysX.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\NVIDIA.PhysX.4.1.2\build\native\NVIDIA.PhysX.targets'))" />
   </Target>
 </Project>
