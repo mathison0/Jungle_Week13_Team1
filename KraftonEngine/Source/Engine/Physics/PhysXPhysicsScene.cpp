@@ -14,6 +14,8 @@
 // PhysX headers
 #include <PxPhysicsAPI.h>
 
+#include <algorithm>
+
 using namespace physx;
 
 // ============================================================
@@ -619,11 +621,14 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 void FPhysXPhysicsScene::Shutdown()
 {
 	// Body 정리
-	for (auto& Mapping : BodyMappings)
+	for (auto& MappingPtr : BodyMappings)
 	{
+		if (!MappingPtr) continue;
+		FBodyMapping& Mapping = *MappingPtr;
+
 		if (Mapping.Actor)
 		{
-			// BodyInstance 연결 끊기
+			// BodyInstance는 PxActor를 소유하지 않는다. 단순 연결 끊기.
 			Mapping.BodyInstance.TerminateBody();
 
 			if (Scene)
@@ -660,7 +665,7 @@ void FPhysXPhysicsScene::Shutdown()
 //
 // 한 액터의 여러 PrimitiveComponent는 같은 PxRigidActor에 shape로 합쳐진다.
 // shape의 LocalPose는 액터 RootComponent에 대한 상대 transform.
-// userData: PxActor → AActor, PxShape → UPrimitiveComponent.
+// userData: PxActor → FBodyInstance, PxShape → UPrimitiveComponent.
 // ============================================================
 
 void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
@@ -686,19 +691,24 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 			: static_cast<PxRigidActor*>(Physics->createRigidStatic(BodyXf));
 		if (!Body) return;
 
-		FPhysXHelper::SetUserData(Body, OwnerActor);
-		Scene->addActor(*Body);
+		auto NewMapping = std::make_unique<FBodyMapping>();
 
-		FBodyMapping NewMapping;
-		NewMapping.OwnerActor = OwnerActor;
-		NewMapping.Actor = Body;
-		NewMapping.RootComp = RootPrim;
+		NewMapping->OwnerActor = OwnerActor;
+		NewMapping->Actor = Body;
+		NewMapping->RootComp = RootPrim;
 
 		// 현재 단계에서는 Actor 단위 body 1개를 FBodyInstance 1개로 감싼다.
 		// 나중에 Ragdoll에서는 bone별 body마다 FBodyInstance가 생성된다.
-		NewMapping.BodyInstance.InitBody(RootPrim, Body);
-		BodyMappings.push_back(NewMapping);
-		Mapping = &BodyMappings.back();
+		NewMapping->BodyInstance.InitBody(RootPrim, Body);
+
+		// PxActor::userData는 이제 AActor*가 아니라 FBodyInstance*이다.
+		// unique_ptr 내부 객체 주소는 vector 재할당으로 바뀌지 않으므로 안전하다.
+		FPhysXHelper::SetUserData(Body, &NewMapping->BodyInstance);
+
+		Scene->addActor(*Body);
+
+		BodyMappings.push_back(std::move(NewMapping));
+		Mapping = BodyMappings.back().get();
 	}
 
 	// shape 추가
@@ -733,8 +743,7 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	{
 		if (Mapping->Actor)
 		{
-			// wrapper 포인터 먼저 끊기.
-			// 실제 PxActor 제거/release는 Scene이 담당한다.
+			// userData가 BodyInstance를 가리키므로 release 전에 먼저 끊는다.
 			Mapping->BodyInstance.TerminateBody();
 			
 			Scene->removeActor(*Mapping->Actor);
@@ -742,10 +751,19 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 			Mapping->Actor = nullptr;
 		}
 
-		// swap-and-pop
-		// TODO: 대입연산자가 막힘.
-		*Mapping = BodyMappings.back();
-		BodyMappings.pop_back();
+		// Mapping 포인터와 같은 unique_ptr을 찾아 제거한다.
+		BodyMappings.erase(
+			std::remove_if(
+				BodyMappings.begin(),
+				BodyMappings.end(),
+				[Mapping](const std::unique_ptr<FBodyMapping>& Ptr)
+				{
+					return Ptr.get() == Mapping;
+				}
+			),
+			BodyMappings.end()
+		);
+
 		return;
 	}
 
@@ -815,8 +833,10 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	constexpr float TeleportPosThresholdSq = 1.0f;   // 1m² (1m 이상 차이 시만 teleport)
 	constexpr float TeleportRotThreshold = 0.99f;    // ~8° 차이 시만 teleport
 
-	for (auto& Mapping : BodyMappings)
+	for (auto& MappingPtr : BodyMappings)
 	{
+		if (!MappingPtr) continue;
+		FBodyMapping& Mapping = *MappingPtr;
 		if (!Mapping.RootComp || !Mapping.Actor) continue;
 
 		PxTransform NewPose = FPhysXHelper::ToPxTransform(Mapping.RootComp);
@@ -855,8 +875,11 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 
 	// ── Post-simulate: PhysX → Engine Transform 동기화 ──
 	// RootComp에만 transform 적용 → 자식 컴포넌트는 attach로 자동 따라감.
-	for (auto& Mapping : BodyMappings)
+	for (auto& MappingPtr : BodyMappings)
 	{
+		if (!MappingPtr) continue;
+		FBodyMapping& Mapping = *MappingPtr;
+
 		if (!Mapping.RootComp || !Mapping.Actor) continue;
 		if (!Mapping.BodyInstance.IsDynamic()) continue;
 		if (Mapping.BodyInstance.IsKinematic()) continue;
@@ -1003,7 +1026,7 @@ FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByActor(AActor*
 {
 	for (auto& M : BodyMappings)
 	{
-		if (M.OwnerActor == OwnerActor) return &M;
+		if (M && M->OwnerActor == OwnerActor) return M.get();
 	}
 	return nullptr;
 }
@@ -1012,7 +1035,7 @@ const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByActor(A
 {
 	for (const auto& M : BodyMappings)
 	{
-		if (M.OwnerActor == OwnerActor) return &M;
+		if (M && M->OwnerActor == OwnerActor) return M.get();
 	}
 	return nullptr;
 }
@@ -1023,11 +1046,17 @@ const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByActor(A
 FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByComponent(UPrimitiveComponent* Comp)
 {
 	if (!Comp) return nullptr;
+
 	for (auto& M : BodyMappings)
 	{
-		for (UPrimitiveComponent* C : M.Components)
+		if (!M) continue;
+
+		for (UPrimitiveComponent* C : M->Components)
 		{
-			if (C == Comp) return &M;
+			if (C == Comp)
+			{
+				return M.get();
+			}
 		}
 	}
 	return nullptr;
@@ -1036,11 +1065,17 @@ FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByComponent(UPr
 const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByComponent(UPrimitiveComponent* Comp) const
 {
 	if (!Comp) return nullptr;
+
 	for (const auto& M : BodyMappings)
 	{
-		for (UPrimitiveComponent* C : M.Components)
+		if (!M) continue;
+
+		for (UPrimitiveComponent* C : M->Components)
 		{
-			if (C == Comp) return &M;
+			if (C == Comp)
+			{
+				return M.get();
+			}
 		}
 	}
 	return nullptr;
@@ -1164,7 +1199,7 @@ bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && FPhysXHelper::HasUserData(Actor, IgnoreActor))
+			if (IgnoreActor && FPhysXHelper::GetOwnerActorFromPxActor(Actor) == IgnoreActor)
 			{
 				return PxQueryHitType::eNONE;
 			}
@@ -1207,11 +1242,12 @@ bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float
 	if (UPrimitiveComponent* HitComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Block.shape))
 	{
 		OutHit.HitComponent = HitComp;
-		OutHit.HitActor = OutHit.HitComponent->GetOwner();
+		OutHit.HitActor = HitComp->GetOwner();
 	}
-	else if (AActor* HitActor = FPhysXHelper::GetUserData<AActor>(Block.actor))
+	else
 	{
-		OutHit.HitActor = HitActor;
+		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
+		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
 	}
 
 	return true;
@@ -1238,7 +1274,7 @@ bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVecto
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && FPhysXHelper::HasUserData(Actor, IgnoreActor))
+			if (IgnoreActor && FPhysXHelper::GetOwnerActorFromPxActor(Actor) == IgnoreActor)
 			{
 				return PxQueryHitType::eNONE;
 			}
@@ -1278,11 +1314,12 @@ bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVecto
 	if (UPrimitiveComponent* HitComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Block.shape))
 	{
 		OutHit.HitComponent = HitComp;
-		OutHit.HitActor = OutHit.HitComponent->GetOwner();
+		OutHit.HitActor = HitComp->GetOwner();
 	}
-	else if (AActor* HitActor = FPhysXHelper::GetUserData<AActor>(Block.actor))
+	else
 	{
-		OutHit.HitActor = HitActor;
+		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
+		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
 	}
 
 	return true;
@@ -1306,7 +1343,7 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && FPhysXHelper::HasUserData(Actor, IgnoreActor))
+			if (IgnoreActor && FPhysXHelper::GetOwnerActorFromPxActor(Actor) == IgnoreActor)
 			{
 				return PxQueryHitType::eNONE;
 			}
@@ -1353,11 +1390,12 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 		if (UPrimitiveComponent* HitComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Block.shape))
 		{
 			OutHit.HitComponent = HitComp;
-			OutHit.HitActor = OutHit.HitComponent->GetOwner();
+			OutHit.HitActor = HitComp->GetOwner();
 		}
-		else if (AActor* HitActor = FPhysXHelper::GetUserData<AActor>(Block.actor))
+		else
 		{
-			OutHit.HitActor = HitActor;
+			OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
+			OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
 		}
 
 		return true;
@@ -1380,11 +1418,12 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 	if (UPrimitiveComponent* HitComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Block.shape))
 	{
 		OutHit.HitComponent = HitComp;
-		OutHit.HitActor = OutHit.HitComponent->GetOwner();
+		OutHit.HitActor = HitComp->GetOwner();
 	}
-	else if (AActor* HitActor = FPhysXHelper::GetUserData<AActor>(Block.actor))
+	else
 	{
-		OutHit.HitActor = HitActor;
+		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
+		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
 	}
 
 	return true;

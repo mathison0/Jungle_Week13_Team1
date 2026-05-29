@@ -26,12 +26,11 @@ public:
 	FBodyInstance() = default;
 	~FBodyInstance() = default;
 
-	// TODO: RegisterComponent의 *Mapping = BodyMappings.back(); 구문에서 오류 발생해서 임시 주석 처리
-	// FBodyInstance(const FBodyInstance&) = delete;
-	// FBodyInstance& operator=(const FBodyInstance&) = delete;
+	FBodyInstance(const FBodyInstance&) = delete;
+	FBodyInstance& operator=(const FBodyInstance&) = delete;
 
-	// FBodyInstance(FBodyInstance&&) = delete;
-	// FBodyInstance& operator=(FBodyInstance&&) = delete;
+	FBodyInstance(FBodyInstance&&) = delete;
+	FBodyInstance& operator=(FBodyInstance&&) = delete;
 
 	// --- 초기화 / 종료 ---
 	void InitBody(UPrimitiveComponent* InOwnerComponent, physx::PxRigidActor* InRigidActor);

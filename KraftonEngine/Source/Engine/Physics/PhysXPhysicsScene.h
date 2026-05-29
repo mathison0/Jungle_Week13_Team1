@@ -3,7 +3,7 @@
 #include "Physics/IPhysicsScene.h"
 #include "Physics/BodyInstance.h"
 #include "Core/Types/CoreTypes.h"
-#include <vector>
+#include <memory>
 
 class AActor;
 
@@ -106,7 +106,10 @@ private:
 		// Ragdoll 단계에서는 bone body마다 FBodyInstance가 하나씩 생성된다.
 		FBodyInstance BodyInstance;
 	};
-	std::vector<FBodyMapping> BodyMappings;
+	// FBodyInstance 주소가 PxActor::userData에 들어가므로,
+	// vector 재할당으로 주소가 바뀌면 안 된다.
+	// unique_ptr로 FBodyMapping 자체의 주소를 안정화한다.
+	TArray<std::unique_ptr<FBodyMapping>> BodyMappings;
 
 	// 내부 헬퍼
 	FBodyMapping* FindMappingByActor(AActor* OwnerActor);

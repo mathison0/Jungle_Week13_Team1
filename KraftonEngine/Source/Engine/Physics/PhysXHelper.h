@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Component/PrimitiveComponent.h"
+#include "Physics/BodyInstance.h"
 #include "Math/Quat.h"
 #include "Math/Transform.h"
 #include "Math/Vector.h"
@@ -83,5 +84,25 @@ public:
 	static bool HasUserData(const TPhysXObject* Object, const T* Expected)
 	{
 		return GetUserData<T>(Object) == Expected;
+	}
+
+	// --- PhysX userData helpers ---
+	// PxActor::userData는 AActor*가 아니라 FBodyInstance*
+	// PxShape::userData는 기존처럼 UPrimitiveComponent*를 유지
+	static FBodyInstance* GetBodyInstanceFromPxActor(const physx::PxRigidActor* Actor)
+	{
+		return FPhysXHelper::GetUserData<FBodyInstance>(Actor);
+	}
+
+	static AActor* GetOwnerActorFromPxActor(const physx::PxRigidActor* Actor)
+	{
+		FBodyInstance* BodyInstance = GetBodyInstanceFromPxActor(Actor);
+		return BodyInstance ? BodyInstance->GetOwnerActor() : nullptr;
+	}
+
+	static UPrimitiveComponent* GetOwnerComponentFromPxActor(const physx::PxRigidActor* Actor)
+	{
+		FBodyInstance* BodyInstance = GetBodyInstanceFromPxActor(Actor);
+		return BodyInstance ? BodyInstance->GetOwnerComponent() : nullptr;
 	}
 };
