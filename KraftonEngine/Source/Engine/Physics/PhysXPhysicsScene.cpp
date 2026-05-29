@@ -17,6 +17,23 @@
 using namespace physx;
 
 // ============================================================
+// PhysX Core Settings
+// ============================================================
+#ifdef _DEBUG
+// PVD 초기화
+static constexpr bool GEnablePhysXPvd = true;
+
+// PVD 기본 포트. NVIDIA PVD 기본 포트 5425
+static constexpr const char* GPhysXPvdHost = "127.0.0.1";
+static constexpr int32 GPhysXPvdPort = 5425;
+static constexpr uint32 GPhysXPvdTimeoutMs = 1000;
+#endif
+
+// Dispatcher Thread 수
+// TODO: 프로젝트 세팅으로 빼서 개수 조절할 수 있게 만들기 고려
+static constexpr int32 GPhysXWorkerThreadCount = 2;
+
+// ============================================================
 // PhysX Error Callback
 // ============================================================
 class FPhysXErrorCallback : public PxErrorCallback
@@ -43,36 +60,186 @@ static FPhysXErrorCallback GPhysXErrorCallback;
 static PxDefaultAllocator GPhysXAllocator;
 
 // ============================================================
-// PhysX Foundation/Physics 싱글턴
-// PxCreateFoundation은 프로세스당 1회만 허용 — 복수 Scene에서 공유
+// Shared PhysX Core
+// 
+// PhysX Foundation / Physics는 프로세스 단위로 공유
+// 여러 World / 여러 PhysicsScene이 생겨도 중복 생성하지 않음.
 // ============================================================
 static PxFoundation* GSharedFoundation = nullptr;
 static PxPhysics* GSharedPhysics = nullptr;
-static int32 GSharedRefCount = 0;
+#ifdef _DEBUG
+static PxPvd* GSharedPvd = nullptr;
+static PxPvdTransport* GSharedPvdTransport = nullptr;
+#endif
 
-static void AcquireSharedPhysX(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics)
+static int32 GSharedRefCount = 0;
+static bool GSharedExtensionsInitialized = false;
+
+// Release Helper Function
+// Fallback으로 해제할 일이 너무 많아서 해제 함수를 따로 개설
+#ifdef _DEBUG
+static void ReleasePvd()
+{
+	if (GSharedPvd) { GSharedPvd->release(); GSharedPvd = nullptr; }
+}
+static void ReleasePvdTransport()
+{
+	if (GSharedPvdTransport) { GSharedPvdTransport->release(); GSharedPvdTransport = nullptr; }
+}
+#endif
+static void ReleaseFoundation()
+{
+	if (GSharedFoundation) { GSharedFoundation->release(); GSharedFoundation = nullptr; }
+}
+static void ReleasePhysics()
+{
+	if (GSharedPhysics) { GSharedPhysics->release(); GSharedPhysics = nullptr; }
+}
+
+#ifdef _DEBUG
+static void TryCreatedSharedPvd()
+{
+	if (!GEnablePhysXPvd) return;
+	if (!GSharedFoundation) return;
+	if (GSharedPvd) return;
+
+	GSharedPvd = PxCreatePvd(*GSharedFoundation);
+	if (!GSharedPvd)
+	{
+		UE_LOG("[PhysX] PVD Creation Failed. Continue without PVD.");
+		return;
+	}
+
+	GSharedPvdTransport = PxDefaultPvdSocketTransportCreate(
+		GPhysXPvdHost,
+		GPhysXPvdPort,
+		GPhysXPvdTimeoutMs
+	);
+
+	if (!GSharedPvdTransport)
+	{
+		UE_LOG("[PhysX] PVD Transport Creation Failed. Continue without PVD.");
+		ReleasePvd();
+		return;
+	}
+
+	const PxPvdInstrumentationFlags Flags =
+		PxPvdInstrumentationFlag::eDEBUG |
+		PxPvdInstrumentationFlag::ePROFILE |
+		PxPvdInstrumentationFlag::eMEMORY;
+	
+	const bool bConnected = GSharedPvd->connect(*GSharedPvdTransport, Flags);
+	if (!bConnected) 
+	{
+		UE_LOG("[PhysX] PVD Connection Failed. Continue without PVD.");
+		
+		ReleasePvdTransport();
+		ReleasePvd();
+
+		return;
+	}
+
+	UE_LOG("[PhysX] PVD Connected (%s:%d)", GPhysXPvdHost, GPhysXPvdPort);
+}
+#endif
+
+
+// Foundation, Physics, Extensions
+#ifdef _DEBUG
+static bool AcquireSharedPhysX(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics, PxPvd*& OutPvd, PxPvdTransport*& OutPvdTransport)
+#else
+static bool AcquireSharedPhysX(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics)
+#endif
 {
 	if (GSharedRefCount == 0)
 	{
 		GSharedFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, GPhysXAllocator, GPhysXErrorCallback);
-		if (GSharedFoundation)
+		if (!GSharedFoundation)
 		{
-			GSharedPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *GSharedFoundation, PxTolerancesScale());
+			UE_LOG("[PhysX] Failed to Create PxFoundation");
+			return false;
 		}
+
+#ifdef _DEBUG
+		TryCreatedSharedPvd();
+
+		GSharedPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *GSharedFoundation, PxTolerancesScale(), true, GSharedPvd);
+#else
+		GSharedPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *GSharedFoundation, PxTolerancesScale(), true, nullptr);
+#endif
+		if (!GSharedPhysics)
+		{
+			UE_LOG("[PhysX] Failed to Create PxPhysics.");
+
+#ifdef _DEBUG
+			ReleasePvdTransport();
+			ReleasePvd();
+#endif
+			ReleaseFoundation();
+			return false;
+		}
+
+		// Joint, Constraint, Vehicle Extension 전용 확장
+#ifdef _DEBUG
+		if (!PxInitExtensions(*GSharedPhysics, GSharedPvd))
+#else
+		if (!PxInitExtensions(*GSharedPhysics, nullptr))
+#endif
+		{
+			UE_LOG("[PhysX] PxInitExtensions failed");
+
+			ReleasePhysics();
+#ifdef _DEBUG
+			ReleasePvdTransport();
+			ReleasePvd();
+#endif
+			ReleaseFoundation();
+			return false;
+		}
+		GSharedExtensionsInitialized = true;
+		UE_LOG("[PhysX] Shared Foundation / Physics / Extension Initialized!");
 	}
 	++GSharedRefCount;
 	OutFoundation = GSharedFoundation;
 	OutPhysics = GSharedPhysics;
+#ifdef _DEBUG
+	OutPvd = GSharedPvd;
+	OutPvdTransport = GSharedPvdTransport;
+#endif
+
+	return true;
 }
 
+// 마지막 Scene이 사라질 때만 실제 PhysX 객체 해제
 static void ReleaseSharedPhysX()
 {
-	if (--GSharedRefCount <= 0)
+	if (GSharedRefCount <= 0) { GSharedRefCount = 0; return; }
+	--GSharedRefCount;
+	if (GSharedRefCount > 0) return;
+	
+	if (GSharedExtensionsInitialized)
 	{
-		if (GSharedPhysics) { GSharedPhysics->release(); GSharedPhysics = nullptr; }
-		if (GSharedFoundation) { GSharedFoundation->release(); GSharedFoundation = nullptr; }
-		GSharedRefCount = 0;
+		PxCloseExtensions();
+		GSharedExtensionsInitialized = false;
+		UE_LOG("[PhysX] Extension Closed");
 	}
+
+	ReleasePhysics();
+
+#ifdef _DEBUG
+	if (GSharedPvd && GSharedPvd->isConnected())
+	{
+		GSharedPvd->disconnect();
+	}
+
+	ReleasePvdTransport();
+	ReleasePvd();
+#endif
+
+	ReleaseFoundation();
+
+	GSharedRefCount = 0;
+	UE_LOG("[PhysX] Shared Foundation / Physics released.");
 }
 
 // ============================================================
@@ -374,7 +541,16 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	World = InWorld;
 
 	// Foundation / Physics — 프로세스 싱글턴 공유
-	AcquireSharedPhysX(Foundation, Physics);
+#ifdef _DEBUG
+	if (!AcquireSharedPhysX(Foundation, Physics, Pvd, PvdTransport))
+#else
+	if (!AcquireSharedPhysX(Foundation, Physics))
+#endif
+	{
+		UE_LOG("[PhysX] Failed to acquire shared PhysX Core.");
+		return;
+	}
+
 	if (!Foundation || !Physics)
 	{
 		UE_LOG("[PhysX] Failed to create Foundation or Physics");
@@ -382,7 +558,12 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	}
 
 	// CPU Dispatcher
-	Dispatcher = PxDefaultCpuDispatcherCreate(2);
+	Dispatcher = PxDefaultCpuDispatcherCreate(GPhysXWorkerThreadCount);
+	if (!Dispatcher)
+	{
+		UE_LOG("[PhysX] Failed to create CPU dispatcher.");
+		return;
+	}
 
 	// Event callback
 	EventCallback = new FPhysXSimulationCallback();
@@ -393,6 +574,10 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	SceneDesc.cpuDispatcher = Dispatcher;
 	SceneDesc.filterShader = KraftonFilterShader;
 	SceneDesc.simulationEventCallback = EventCallback;
+	SceneDesc.flags |= PxSceneFlag::eENABLE_CCD;			// 빠르게 움직이는 dynamic body가 얇은 collider를 관통하는 문제 감소
+	SceneDesc.flags |= PxSceneFlag::eENABLE_PCM;			// 접촉점 안정성을 높여 stacked body, ragdoll contact jitter를 줄이는 데 유리
+	SceneDesc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;	// 전체 body 순회 대신 "움직인 actor"만 동기화
+
 	Scene = Physics->createScene(SceneDesc);
 
 	if (!Scene)
@@ -401,8 +586,32 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 		return;
 	}
 
+#ifdef _DEBUG
+	// PVD Scene Client 설정
+	if (PxPvdSceneClient* PvdClient = Scene->getScenePvdClient())
+	{
+		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
+		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
+		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
+
+		// PVD Settings
+		Scene->setVisualizationParameter(PxVisualizationParameter::eSCALE, 1.0f);				// PVD / PhysX debug visualization Scale
+		Scene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, 1.0f);	// Collision shape
+		Scene->setVisualizationParameter(PxVisualizationParameter::eBODY_AXES, 1.0f);			// Actor 축
+		Scene->setVisualizationParameter(PxVisualizationParameter::eBODY_MASS_AXES, 1.0f);		// Body mass axes
+		Scene->setVisualizationParameter(PxVisualizationParameter::eCONTACT_NORMAL, 1.0f);		// Contact normal
+		Scene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LOCAL_FRAMES, 1.0f);	// Joint local frame
+		Scene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LIMITS, 1.0f);		// Joint limit
+	}
+#endif
+
 	// Default material (static friction, dynamic friction, restitution)
-	DefaultMaterial = Physics->createMaterial(0.5f, 0.5f, 0.3f);
+	// TODO: PhysicalMaterial 구현 후 Fallback으로
+	DefaultMaterial = Physics->createMaterial(
+		0.5f,	// static Friction
+		0.5f,	// dynamic Friction
+		0.3f	// restitution
+	);
 
 	UE_LOG("[PhysX] Initialized successfully (Scene=%p)", Scene);
 }
@@ -414,6 +623,10 @@ void FPhysXPhysicsScene::Shutdown()
 	{
 		if (Mapping.Actor)
 		{
+			if (Scene)
+			{
+				Scene->removeActor(*Mapping.Actor);
+			}
 			Mapping.Actor->release();
 			Mapping.Actor = nullptr;
 		}
@@ -428,9 +641,15 @@ void FPhysXPhysicsScene::Shutdown()
 	// Foundation/Physics는 공유 싱글턴 — release 카운트 감소만
 	Foundation = nullptr;
 	Physics = nullptr;
+#ifdef _DEBUG
+	Pvd = nullptr;
+	PvdTransport = nullptr;
+#endif
 	ReleaseSharedPhysX();
 
 	World = nullptr;
+
+	UE_LOG("[PhysX] Scene shutdown complete.");
 }
 
 // ============================================================

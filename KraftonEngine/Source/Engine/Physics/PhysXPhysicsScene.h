@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Physics/IPhysicsScene.h"
 #include "Core/Types/CoreTypes.h"
@@ -16,6 +16,12 @@ namespace physx
 	class PxMaterial;
 	class PxRigidActor;
 	class PxShape;
+
+#ifdef _DEBUG
+	// PVD(PhysX Visual Debugger) 관련 객체
+	class PxPvd;
+	class PxPvdTransport;
+#endif
 }
 
 class FPhysXSimulationCallback;
@@ -78,6 +84,13 @@ private:
 	physx::PxDefaultCpuDispatcher* Dispatcher = nullptr;
 	physx::PxMaterial* DefaultMaterial = nullptr;
 	FPhysXSimulationCallback* EventCallback = nullptr;
+
+#ifdef _DEBUG
+	// PVD는 전역 PhysX 객체와 같이 공유
+	// Scene 단위 소유가 아니기 때문에 관찰용 포인터만 보관
+	physx::PxPvd* Pvd = nullptr;
+	physx::PxPvdTransport* PvdTransport = nullptr;
+#endif
 
 	// Actor 단위 매핑 — 한 액터의 여러 컴포넌트가 같은 PxRigidActor에 shape로 합쳐진다.
 	struct FBodyMapping
