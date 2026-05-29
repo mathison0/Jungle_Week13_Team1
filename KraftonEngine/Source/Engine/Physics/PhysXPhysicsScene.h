@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Physics/IPhysicsScene.h"
+#include "Physics/BodyInstance.h"
 #include "Core/Types/CoreTypes.h"
 #include <vector>
 
@@ -95,10 +96,15 @@ private:
 	// Actor 단위 매핑 — 한 액터의 여러 컴포넌트가 같은 PxRigidActor에 shape로 합쳐진다.
 	struct FBodyMapping
 	{
-		AActor* OwnerActor = nullptr;            // 키
-		physx::PxRigidActor* Actor = nullptr;    // PhysX rigid (Dynamic/Static)
-		UPrimitiveComponent* RootComp = nullptr; // 트랜스폼 동기화 기준 (Actor->RootComponent)
-		TArray<UPrimitiveComponent*> Components; // 등록된 컴포넌트들 (shape 1:1 매칭)
+		AActor* OwnerActor = nullptr;             // 키
+		physx::PxRigidActor* Actor = nullptr;     // 기존 코드 호환용. 다음 단계에서 제거 또는 축소 예정.
+		UPrimitiveComponent* RootComp = nullptr;  // 트랜스폼 동기화 기준
+		TArray<UPrimitiveComponent*> Components;  // 등록된 컴포넌트들
+
+		// 새 runtime body wrapper.
+		// 지금은 Actor 단위 compound body 1개에 FBodyInstance 1개를 붙인다.
+		// Ragdoll 단계에서는 bone body마다 FBodyInstance가 하나씩 생성된다.
+		FBodyInstance BodyInstance;
 	};
 	std::vector<FBodyMapping> BodyMappings;
 

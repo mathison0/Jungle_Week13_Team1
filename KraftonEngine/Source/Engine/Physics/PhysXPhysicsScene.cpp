@@ -20,8 +20,8 @@ using namespace physx;
 // PhysX Core Settings
 // ============================================================
 #ifdef _DEBUG
-// PVD 초기화
-static constexpr bool GEnablePhysXPvd = true;
+// PVD 초기화, 기본 비활성화
+static constexpr bool GEnablePhysXPvd = false;
 
 // PVD 기본 포트. NVIDIA PVD 기본 포트 5425
 static constexpr const char* GPhysXPvdHost = "127.0.0.1";
@@ -592,16 +592,16 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	{
 		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
 		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
-		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
+		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, false);
 
 		// PVD Settings
-		Scene->setVisualizationParameter(PxVisualizationParameter::eSCALE, 1.0f);				// PVD / PhysX debug visualization Scale
-		Scene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, 1.0f);	// Collision shape
-		Scene->setVisualizationParameter(PxVisualizationParameter::eBODY_AXES, 1.0f);			// Actor 축
-		Scene->setVisualizationParameter(PxVisualizationParameter::eBODY_MASS_AXES, 1.0f);		// Body mass axes
-		Scene->setVisualizationParameter(PxVisualizationParameter::eCONTACT_NORMAL, 1.0f);		// Contact normal
-		Scene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LOCAL_FRAMES, 1.0f);	// Joint local frame
-		Scene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LIMITS, 1.0f);		// Joint limit
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eSCALE, 1.0f);				// PVD / PhysX debug visualization Scale
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, 1.0f);	// Collision shape
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eBODY_AXES, 1.0f);			// Actor 축
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eBODY_MASS_AXES, 1.0f);		// Body mass axes
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eCONTACT_NORMAL, 1.0f);		// Contact normal
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LOCAL_FRAMES, 1.0f);	// Joint local frame
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LIMITS, 1.0f);		// Joint limit
 	}
 #endif
 
@@ -623,6 +623,9 @@ void FPhysXPhysicsScene::Shutdown()
 	{
 		if (Mapping.Actor)
 		{
+			// BodyInstance 연결 끊기
+			Mapping.BodyInstance.TerminateBody();
+
 			if (Scene)
 			{
 				Scene->removeActor(*Mapping.Actor);
@@ -690,6 +693,10 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 		NewMapping.OwnerActor = OwnerActor;
 		NewMapping.Actor = Body;
 		NewMapping.RootComp = RootPrim;
+
+		// 현재 단계에서는 Actor 단위 body 1개를 FBodyInstance 1개로 감싼다.
+		// 나중에 Ragdoll에서는 bone별 body마다 FBodyInstance가 생성된다.
+		NewMapping.BodyInstance.InitBody(RootPrim, Body);
 		BodyMappings.push_back(NewMapping);
 		Mapping = &BodyMappings.back();
 	}
@@ -726,11 +733,17 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	{
 		if (Mapping->Actor)
 		{
+			// wrapper 포인터 먼저 끊기.
+			// 실제 PxActor 제거/release는 Scene이 담당한다.
+			Mapping->BodyInstance.TerminateBody();
+			
 			Scene->removeActor(*Mapping->Actor);
 			Mapping->Actor->release();
+			Mapping->Actor = nullptr;
 		}
 
 		// swap-and-pop
+		// TODO: 대입연산자가 막힘.
 		*Mapping = BodyMappings.back();
 		BodyMappings.pop_back();
 		return;
@@ -845,15 +858,12 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	for (auto& Mapping : BodyMappings)
 	{
 		if (!Mapping.RootComp || !Mapping.Actor) continue;
+		if (!Mapping.BodyInstance.IsDynamic()) continue;
+		if (Mapping.BodyInstance.IsKinematic()) continue;
+		if (Mapping.BodyInstance.IsInstanceSleeping()) continue;
 
-		PxRigidDynamic* Dynamic = Mapping.Actor->is<PxRigidDynamic>();
-		if (!Dynamic) continue;
-		if (Dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC) continue;
-		if (Dynamic->isSleeping()) continue;
-
-		PxTransform Pose = Dynamic->getGlobalPose();
-		FVector NewPos = FPhysXHelper::ToFVector(Pose.p);
-		FQuat NewRot = FPhysXHelper::ToFQuat(Pose.q);
+		FVector NewPos = Mapping.BodyInstance.GetEngineWorldLocation();
+		FQuat NewRot = Mapping.BodyInstance.GetEngineWorldRotation();
 
 		Mapping.RootComp->SetWorldLocation(NewPos);
 		Mapping.RootComp->SetRelativeRotation(NewRot);
@@ -1043,28 +1053,22 @@ const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByCompone
 void FPhysXPhysicsScene::AddForce(UPrimitiveComponent* Comp, const FVector& Force)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->addForce(FPhysXHelper::ToPxVec3(Force));
+	if (!M) return;
+	M->BodyInstance.AddForce(Force);
 }
 
 void FPhysXPhysicsScene::AddForceAtLocation(UPrimitiveComponent* Comp, const FVector& Force, const FVector& WorldLocation)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	PxRigidBodyExt::addForceAtPos(*Dyn, FPhysXHelper::ToPxVec3(Force), FPhysXHelper::ToPxVec3(WorldLocation));
+	if (!M) return;
+	M->BodyInstance.AddForceAtLocation(Force, WorldLocation);
 }
 
 void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Torque)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->addTorque(FPhysXHelper::ToPxVec3(Torque));
+	if (!M) return;
+	M->BodyInstance.AddTorque(Torque);
 }
 
 // ============================================================
@@ -1074,37 +1078,32 @@ void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Tor
 FVector FPhysXPhysicsScene::GetLinearVelocity(UPrimitiveComponent* Comp) const
 {
 	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return { 0, 0, 0 };
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return { 0, 0, 0 };
-	return FPhysXHelper::ToFVector(Dyn->getLinearVelocity());
+	if (!M) return FVector(0, 0, 0);
+	return M->BodyInstance.GetLinearVelocity();
 }
 
 void FPhysXPhysicsScene::SetLinearVelocity(UPrimitiveComponent* Comp, const FVector& Vel)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->setLinearVelocity(FPhysXHelper::ToPxVec3(Vel));
+	if (!M) return;
+
+	M->BodyInstance.SetLinearVelocity(Vel);
 }
 
 FVector FPhysXPhysicsScene::GetAngularVelocity(UPrimitiveComponent* Comp) const
 {
 	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return { 0, 0, 0 };
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return { 0, 0, 0 };
-	return FPhysXHelper::ToFVector(Dyn->getAngularVelocity());
+	if (!M) return FVector(0, 0, 0);
+
+	return M->BodyInstance.GetAngularVelocity();
 }
 
 void FPhysXPhysicsScene::SetAngularVelocity(UPrimitiveComponent* Comp, const FVector& Vel)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->setAngularVelocity(FPhysXHelper::ToPxVec3(Vel));
+	if (!M) return;
+
+	M->BodyInstance.SetAngularVelocity(Vel);
 }
 
 // ============================================================
@@ -1114,42 +1113,29 @@ void FPhysXPhysicsScene::SetAngularVelocity(UPrimitiveComponent* Comp, const FVe
 void FPhysXPhysicsScene::SetMass(UPrimitiveComponent* Comp, float NewMass)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-
-	// setMassAndUpdateInertia(rigid, mass, com=NULL)는 COM을 shape 분포로
-	// 자동 재계산하면서 이전 setCMassLocalPose를 덮어쓴다. RootComp의
-	// CenterOfMassOffset을 명시 전달해 보존.
-	PxVec3 LocalCOM = M->RootComp ? FPhysXHelper::ToPxVec3(M->RootComp->GetCenterOfMass()) : PxVec3(0);
-	PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, NewMass, &LocalCOM);
+	if (!M) return;
+	M->BodyInstance.SetBodyMass(NewMass);
 }
 
 float FPhysXPhysicsScene::GetMass(UPrimitiveComponent* Comp) const
 {
 	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return 1.0f;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return 1.0f;
-	return Dyn->getMass();
+	if (!M) return 1.f;
+	return M->BodyInstance.GetBodyMass();
 }
 
 void FPhysXPhysicsScene::SetCenterOfMass(UPrimitiveComponent* Comp, const FVector& LocalOffset)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->setCMassLocalPose(PxTransform(FPhysXHelper::ToPxVec3(LocalOffset)));
+	if (!M) return;
+	M->BodyInstance.SetCenterOfMassLocal(LocalOffset);
 }
 
 FVector FPhysXPhysicsScene::GetCenterOfMass(UPrimitiveComponent* Comp) const
 {
 	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return { 0, 0, 0 };
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return { 0, 0, 0 };
-	return FPhysXHelper::ToFVector(Dyn->getCMassLocalPose().p);
+	if (!M) return FVector(0.f, 0.f, 0.f);
+	return M->BodyInstance.GetCenterOfMassLocal();
 }
 
 // ============================================================
