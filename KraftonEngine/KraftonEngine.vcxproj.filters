@@ -2924,6 +2924,9 @@
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysXConverter.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysXPhysicsScene.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>

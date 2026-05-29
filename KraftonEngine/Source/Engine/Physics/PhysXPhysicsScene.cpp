@@ -1,4 +1,5 @@
 ﻿#include "Physics/PhysXPhysicsScene.h"
+#include "Physics/PhysXHelper.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/ShapeComponent.h"
 #include "Component/Shape/BoxComponent.h"
@@ -119,8 +120,8 @@ public:
 			const bool bEnd = CP.events.isSet(PxPairFlag::eNOTIFY_TOUCH_LOST);
 			if (!bBegin && !bEnd) continue;
 
-			auto* CompA = CP.shapes[0] ? static_cast<UPrimitiveComponent*>(CP.shapes[0]->userData) : nullptr;
-			auto* CompB = CP.shapes[1] ? static_cast<UPrimitiveComponent*>(CP.shapes[1]->userData) : nullptr;
+			auto* CompA = FPhysXHelper::GetUserData<UPrimitiveComponent>(CP.shapes[0]);
+			auto* CompB = FPhysXHelper::GetUserData<UPrimitiveComponent>(CP.shapes[1]);
 			if (!CompA || !CompB) continue;
 
 			if (bEnd)
@@ -149,8 +150,8 @@ public:
 
 			if (NumPoints > 0)
 			{
-				ContactPos    = FVector(ContactPoints[0].position.x, ContactPoints[0].position.y, ContactPoints[0].position.z);
-				ContactNormal = FVector(ContactPoints[0].normal.x,   ContactPoints[0].normal.y,   ContactPoints[0].normal.z);
+				ContactPos    = FPhysXHelper::ToFVector(ContactPoints[0].position);
+				ContactNormal = FPhysXHelper::ToFVector(ContactPoints[0].normal);
 				Penetration   = ContactPoints[0].separation; // 음수 = 관통
 			}
 
@@ -194,8 +195,8 @@ public:
 			if (TP.flags & (PxTriggerPairFlag::eREMOVED_SHAPE_TRIGGER | PxTriggerPairFlag::eREMOVED_SHAPE_OTHER))
 				continue;
 
-			auto* TriggerComp = TP.triggerShape ? static_cast<UPrimitiveComponent*>(TP.triggerShape->userData) : nullptr;
-			auto* OtherComp   = TP.otherShape   ? static_cast<UPrimitiveComponent*>(TP.otherShape->userData)   : nullptr;
+			auto* TriggerComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(TP.triggerShape);
+			auto* OtherComp   = FPhysXHelper::GetUserData<UPrimitiveComponent>(TP.otherShape);
 			if (!TriggerComp || !OtherComp) continue;
 
 			const bool bBegin = (TP.status == PxPairFlag::eNOTIFY_TOUCH_FOUND);
@@ -265,36 +266,6 @@ private:
 	std::vector<FQueuedTrigger> PendingTriggers;
 };
 
-// ============================================================
-// Transform 변환 유틸
-// ============================================================
-static PxVec3 ToPxVec3(const FVector& V)
-{
-	return PxVec3(V.X, V.Y, V.Z);
-}
-
-static PxQuat ToPxQuat(const FQuat& Q)
-{
-	return PxQuat(Q.X, Q.Y, Q.Z, Q.W);
-}
-
-static FVector ToFVector(const PxVec3& V)
-{
-	return FVector(V.x, V.y, V.z);
-}
-
-static FQuat ToFQuat(const PxQuat& Q)
-{
-	return FQuat(Q.x, Q.y, Q.z, Q.w);
-}
-
-static PxTransform GetPxTransform(UPrimitiveComponent* Comp)
-{
-	FVector Pos = Comp->GetWorldLocation();
-	FQuat Rot = Comp->GetWorldMatrix().ToQuat();
-	return PxTransform(ToPxVec3(Pos), ToPxQuat(Rot));
-}
-
 // Compound body의 mass와 center-of-mass를 RootComponent의 값으로 갱신.
 // shape 추가/제거 후 inertia 재계산이 필요하므로 RegisterComponent /
 // UnregisterComponent 끝에서 호출된다.
@@ -303,7 +274,7 @@ static void ApplyRootMassAndCOM(PxRigidDynamic* Dyn, UPrimitiveComponent* Root)
 	if (!Dyn || !Root) return;
 	const float MassKg = (Root->GetMass() > 0.0f) ? Root->GetMass() : 1.0f;
 	PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, MassKg);
-	Dyn->setCMassLocalPose(PxTransform(ToPxVec3(Root->GetCenterOfMass())));
+	Dyn->setCMassLocalPose(PxTransform(FPhysXHelper::ToPxVec3(Root->GetCenterOfMass())));
 }
 
 // ============================================================
@@ -486,14 +457,14 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 		if (!RootPrim) RootPrim = Comp;
 
 		const bool bDynamic = RootPrim->GetSimulatePhysics();
-		PxTransform BodyXf = GetPxTransform(RootPrim);
+		PxTransform BodyXf = FPhysXHelper::ToPxTransform(RootPrim);
 
 		PxRigidActor* Body = bDynamic
 			? static_cast<PxRigidActor*>(Physics->createRigidDynamic(BodyXf))
 			: static_cast<PxRigidActor*>(Physics->createRigidStatic(BodyXf));
 		if (!Body) return;
 
-		Body->userData = OwnerActor;
+		FPhysXHelper::SetUserData(Body, OwnerActor);
 		Scene->addActor(*Body);
 
 		FBodyMapping NewMapping;
@@ -616,7 +587,7 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	{
 		if (!Mapping.RootComp || !Mapping.Actor) continue;
 
-		PxTransform NewPose = GetPxTransform(Mapping.RootComp);
+		PxTransform NewPose = FPhysXHelper::ToPxTransform(Mapping.RootComp);
 
 		if (PxRigidDynamic* Dynamic = Mapping.Actor->is<PxRigidDynamic>())
 		{
@@ -662,8 +633,8 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		if (Dynamic->isSleeping()) continue;
 
 		PxTransform Pose = Dynamic->getGlobalPose();
-		FVector NewPos = ToFVector(Pose.p);
-		FQuat NewRot = ToFQuat(Pose.q);
+		FVector NewPos = FPhysXHelper::ToFVector(Pose.p);
+		FQuat NewRot = FPhysXHelper::ToFQuat(Pose.q);
 
 		Mapping.RootComp->SetWorldLocation(NewPos);
 		Mapping.RootComp->SetRelativeRotation(NewRot);
@@ -733,7 +704,7 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 		FVector LocalPos = InvRootRot.RotateVector(CompPos - RootPos);
 		FQuat LocalRot = InvRootRot * CompRot;
 
-		LocalPose = PxTransform(ToPxVec3(LocalPos), ToPxQuat(LocalRot));
+		LocalPose = FPhysXHelper::ToPxTransform(LocalPos, LocalRot);
 	}
 
 	// Capsule 등 축 보정을 LocalPose의 회전 부분에 합성
@@ -774,7 +745,7 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 	}
 
 	// userData: shape 단위로 PrimitiveComponent 매핑 — 콜백에서 역참조용
-	Shape->userData = Comp;
+	FPhysXHelper::SetUserData(Shape, Comp);
 
 	return Shape;
 }
@@ -791,7 +762,7 @@ void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimiti
 
 	for (PxShape* Shape : Shapes)
 	{
-		if (Shape && Shape->userData == Comp)
+		if (FPhysXHelper::HasUserData(Shape, Comp))
 		{
 			Mapping.Actor->detachShape(*Shape);
 			break;
@@ -856,7 +827,7 @@ void FPhysXPhysicsScene::AddForce(UPrimitiveComponent* Comp, const FVector& Forc
 	if (!M || !M->Actor) return;
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return;
-	Dyn->addForce(ToPxVec3(Force));
+	Dyn->addForce(FPhysXHelper::ToPxVec3(Force));
 }
 
 void FPhysXPhysicsScene::AddForceAtLocation(UPrimitiveComponent* Comp, const FVector& Force, const FVector& WorldLocation)
@@ -865,7 +836,7 @@ void FPhysXPhysicsScene::AddForceAtLocation(UPrimitiveComponent* Comp, const FVe
 	if (!M || !M->Actor) return;
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return;
-	PxRigidBodyExt::addForceAtPos(*Dyn, ToPxVec3(Force), ToPxVec3(WorldLocation));
+	PxRigidBodyExt::addForceAtPos(*Dyn, FPhysXHelper::ToPxVec3(Force), FPhysXHelper::ToPxVec3(WorldLocation));
 }
 
 void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Torque)
@@ -874,7 +845,7 @@ void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Tor
 	if (!M || !M->Actor) return;
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return;
-	Dyn->addTorque(ToPxVec3(Torque));
+	Dyn->addTorque(FPhysXHelper::ToPxVec3(Torque));
 }
 
 // ============================================================
@@ -887,7 +858,7 @@ FVector FPhysXPhysicsScene::GetLinearVelocity(UPrimitiveComponent* Comp) const
 	if (!M || !M->Actor) return { 0, 0, 0 };
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return { 0, 0, 0 };
-	return ToFVector(Dyn->getLinearVelocity());
+	return FPhysXHelper::ToFVector(Dyn->getLinearVelocity());
 }
 
 void FPhysXPhysicsScene::SetLinearVelocity(UPrimitiveComponent* Comp, const FVector& Vel)
@@ -896,7 +867,7 @@ void FPhysXPhysicsScene::SetLinearVelocity(UPrimitiveComponent* Comp, const FVec
 	if (!M || !M->Actor) return;
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return;
-	Dyn->setLinearVelocity(ToPxVec3(Vel));
+	Dyn->setLinearVelocity(FPhysXHelper::ToPxVec3(Vel));
 }
 
 FVector FPhysXPhysicsScene::GetAngularVelocity(UPrimitiveComponent* Comp) const
@@ -905,7 +876,7 @@ FVector FPhysXPhysicsScene::GetAngularVelocity(UPrimitiveComponent* Comp) const
 	if (!M || !M->Actor) return { 0, 0, 0 };
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return { 0, 0, 0 };
-	return ToFVector(Dyn->getAngularVelocity());
+	return FPhysXHelper::ToFVector(Dyn->getAngularVelocity());
 }
 
 void FPhysXPhysicsScene::SetAngularVelocity(UPrimitiveComponent* Comp, const FVector& Vel)
@@ -914,7 +885,7 @@ void FPhysXPhysicsScene::SetAngularVelocity(UPrimitiveComponent* Comp, const FVe
 	if (!M || !M->Actor) return;
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return;
-	Dyn->setAngularVelocity(ToPxVec3(Vel));
+	Dyn->setAngularVelocity(FPhysXHelper::ToPxVec3(Vel));
 }
 
 // ============================================================
@@ -931,7 +902,7 @@ void FPhysXPhysicsScene::SetMass(UPrimitiveComponent* Comp, float NewMass)
 	// setMassAndUpdateInertia(rigid, mass, com=NULL)는 COM을 shape 분포로
 	// 자동 재계산하면서 이전 setCMassLocalPose를 덮어쓴다. RootComp의
 	// CenterOfMassOffset을 명시 전달해 보존.
-	PxVec3 LocalCOM = M->RootComp ? ToPxVec3(M->RootComp->GetCenterOfMass()) : PxVec3(0);
+	PxVec3 LocalCOM = M->RootComp ? FPhysXHelper::ToPxVec3(M->RootComp->GetCenterOfMass()) : PxVec3(0);
 	PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, NewMass, &LocalCOM);
 }
 
@@ -950,7 +921,7 @@ void FPhysXPhysicsScene::SetCenterOfMass(UPrimitiveComponent* Comp, const FVecto
 	if (!M || !M->Actor) return;
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return;
-	Dyn->setCMassLocalPose(PxTransform(ToPxVec3(LocalOffset)));
+	Dyn->setCMassLocalPose(PxTransform(FPhysXHelper::ToPxVec3(LocalOffset)));
 }
 
 FVector FPhysXPhysicsScene::GetCenterOfMass(UPrimitiveComponent* Comp) const
@@ -959,7 +930,7 @@ FVector FPhysXPhysicsScene::GetCenterOfMass(UPrimitiveComponent* Comp) const
 	if (!M || !M->Actor) return { 0, 0, 0 };
 	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
 	if (!Dyn) return { 0, 0, 0 };
-	return ToFVector(Dyn->getCMassLocalPose().p);
+	return FPhysXHelper::ToFVector(Dyn->getCMassLocalPose().p);
 }
 
 // ============================================================
@@ -988,7 +959,7 @@ bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && Actor && Actor->userData == IgnoreActor)
+			if (IgnoreActor && FPhysXHelper::HasUserData(Actor, IgnoreActor))
 			{
 				return PxQueryHitType::eNONE;
 			}
@@ -1018,24 +989,24 @@ bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float
 	FilterData.flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC | PxQueryFlag::ePREFILTER;
 	FChannelRaycastFilter FilterCallback(IgnoreActor, TraceChannel);
 
-	bool bStatus = Scene->raycast(ToPxVec3(Start), ToPxVec3(Dir), MaxDist, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
+	bool bStatus = Scene->raycast(FPhysXHelper::ToPxVec3(Start), FPhysXHelper::ToPxVec3(Dir), MaxDist, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
 	if (!bStatus || !Hit.hasBlock) return false;
 
 	const PxRaycastHit& Block = Hit.block;
 	OutHit.bHit = true;
 	OutHit.Distance = Block.distance;
-	OutHit.WorldHitLocation = ToFVector(Block.position);
-	OutHit.ImpactNormal = ToFVector(Block.normal);
+	OutHit.WorldHitLocation = FPhysXHelper::ToFVector(Block.position);
+	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
 	OutHit.WorldNormal = OutHit.ImpactNormal;
 
-	if (Block.shape && Block.shape->userData)
+	if (UPrimitiveComponent* HitComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Block.shape))
 	{
-		OutHit.HitComponent = static_cast<UPrimitiveComponent*>(Block.shape->userData);
+		OutHit.HitComponent = HitComp;
 		OutHit.HitActor = OutHit.HitComponent->GetOwner();
 	}
-	else if (Block.actor && Block.actor->userData)
+	else if (AActor* HitActor = FPhysXHelper::GetUserData<AActor>(Block.actor))
 	{
-		OutHit.HitActor = static_cast<AActor*>(Block.actor->userData);
+		OutHit.HitActor = HitActor;
 	}
 
 	return true;
@@ -1062,7 +1033,7 @@ bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVecto
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && Actor && Actor->userData == IgnoreActor)
+			if (IgnoreActor && FPhysXHelper::HasUserData(Actor, IgnoreActor))
 			{
 				return PxQueryHitType::eNONE;
 			}
@@ -1089,24 +1060,24 @@ bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVecto
 	FilterData.flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC | PxQueryFlag::ePREFILTER;
 	FObjectTypeRaycastFilter FilterCallback(IgnoreActor, ObjectTypeMask);
 
-	bool bStatus = Scene->raycast(ToPxVec3(Start), ToPxVec3(Dir), MaxDist, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
+	bool bStatus = Scene->raycast(FPhysXHelper::ToPxVec3(Start), FPhysXHelper::ToPxVec3(Dir), MaxDist, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
 	if (!bStatus || !Hit.hasBlock) return false;
 
 	const PxRaycastHit& Block = Hit.block;
 	OutHit.bHit = true;
 	OutHit.Distance = Block.distance;
-	OutHit.WorldHitLocation = ToFVector(Block.position);
-	OutHit.ImpactNormal = ToFVector(Block.normal);
+	OutHit.WorldHitLocation = FPhysXHelper::ToFVector(Block.position);
+	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
 	OutHit.WorldNormal = OutHit.ImpactNormal;
 
-	if (Block.shape && Block.shape->userData)
+	if (UPrimitiveComponent* HitComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Block.shape))
 	{
-		OutHit.HitComponent = static_cast<UPrimitiveComponent*>(Block.shape->userData);
+		OutHit.HitComponent = HitComp;
 		OutHit.HitActor = OutHit.HitComponent->GetOwner();
 	}
-	else if (Block.actor && Block.actor->userData)
+	else if (AActor* HitActor = FPhysXHelper::GetUserData<AActor>(Block.actor))
 	{
-		OutHit.HitActor = static_cast<AActor*>(Block.actor->userData);
+		OutHit.HitActor = HitActor;
 	}
 
 	return true;
@@ -1130,14 +1101,12 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && Actor && Actor->userData == IgnoreActor)
+			if (IgnoreActor && FPhysXHelper::HasUserData(Actor, IgnoreActor))
 			{
 				return PxQueryHitType::eNONE;
 			}
 
-			UPrimitiveComponent* Comp = Shape && Shape->userData
-				? static_cast<UPrimitiveComponent*>(Shape->userData)
-				: nullptr;
+			UPrimitiveComponent* Comp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Shape);
 			if (!Comp || !Cast<UShapeComponent>(Comp))
 			{
 				return PxQueryHitType::eNONE;
@@ -1165,7 +1134,7 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 	if (Radius <= 0.0f)
 	{
 		PxRaycastBuffer RayHit;
-		const bool bStatus = Scene->raycast(ToPxVec3(Start), ToPxVec3(Dir), MaxDist, RayHit,
+		const bool bStatus = Scene->raycast(FPhysXHelper::ToPxVec3(Start), FPhysXHelper::ToPxVec3(Dir), MaxDist, RayHit,
 			PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
 		if (!bStatus || !RayHit.hasBlock) return false;
 
@@ -1173,17 +1142,17 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 		OutHit.bHit = true;
 		OutHit.Distance = Block.distance;
 		OutHit.WorldHitLocation = Start + Dir * Block.distance;
-		OutHit.ImpactNormal = ToFVector(Block.normal);
+		OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
 		OutHit.WorldNormal = OutHit.ImpactNormal;
 
-		if (Block.shape && Block.shape->userData)
+		if (UPrimitiveComponent* HitComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Block.shape))
 		{
-			OutHit.HitComponent = static_cast<UPrimitiveComponent*>(Block.shape->userData);
+			OutHit.HitComponent = HitComp;
 			OutHit.HitActor = OutHit.HitComponent->GetOwner();
 		}
-		else if (Block.actor && Block.actor->userData)
+		else if (AActor* HitActor = FPhysXHelper::GetUserData<AActor>(Block.actor))
 		{
-			OutHit.HitActor = static_cast<AActor*>(Block.actor->userData);
+			OutHit.HitActor = HitActor;
 		}
 
 		return true;
@@ -1191,8 +1160,8 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 
 	PxSweepBuffer Hit;
 	const PxSphereGeometry SweepGeometry(Radius);
-	const PxTransform StartPose(ToPxVec3(Start));
-	const bool bStatus = Scene->sweep(SweepGeometry, StartPose, ToPxVec3(Dir), MaxDist, Hit,
+	const PxTransform StartPose(FPhysXHelper::ToPxVec3(Start));
+	const bool bStatus = Scene->sweep(SweepGeometry, StartPose, FPhysXHelper::ToPxVec3(Dir), MaxDist, Hit,
 		PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
 	if (!bStatus || !Hit.hasBlock) return false;
 
@@ -1200,17 +1169,17 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 	OutHit.bHit = true;
 	OutHit.Distance = Block.distance;
 	OutHit.WorldHitLocation = Start + Dir * Block.distance;
-	OutHit.ImpactNormal = ToFVector(Block.normal);
+	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
 	OutHit.WorldNormal = OutHit.ImpactNormal;
 
-	if (Block.shape && Block.shape->userData)
+	if (UPrimitiveComponent* HitComp = FPhysXHelper::GetUserData<UPrimitiveComponent>(Block.shape))
 	{
-		OutHit.HitComponent = static_cast<UPrimitiveComponent*>(Block.shape->userData);
+		OutHit.HitComponent = HitComp;
 		OutHit.HitActor = OutHit.HitComponent->GetOwner();
 	}
-	else if (Block.actor && Block.actor->userData)
+	else if (AActor* HitActor = FPhysXHelper::GetUserData<AActor>(Block.actor))
 	{
-		OutHit.HitActor = static_cast<AActor*>(Block.actor->userData);
+		OutHit.HitActor = HitActor;
 	}
 
 	return true;
