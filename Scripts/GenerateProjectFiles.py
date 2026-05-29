@@ -180,7 +180,7 @@ ADDITIONAL_DEPENDENCIES = [
 
 # NuGet packages (id, version) — restored via packages.config
 NUGET_PACKAGES = [
-    ("directxtk_desktop_win10", "2025.10.28.2"),
+    ("directxtk_desktop_win10", "2026.5.8.1"),
 ]
 
 NS = "http://schemas.microsoft.com/developer/msbuild/2003"
