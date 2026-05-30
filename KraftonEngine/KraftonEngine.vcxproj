@@ -650,6 +650,11 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Particles\Module\ParticleModuleEvent.cpp" />
     <ClCompile Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.cpp" />
     <ClCompile Include="Source\Engine\Physics\BodyInstance.cpp" />
+    <ClCompile Include="Source\Engine\Physics\BodySetup.cpp" />
+    <ClCompile Include="Source\Engine\Physics\BodySetupCore.cpp" />
+    <ClCompile Include="Source\Engine\Physics\ConstraintInstance.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysicsAsset.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysicsGeometry.cpp" />
     <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysXPhysicsScene.cpp" />
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp" />
@@ -1054,6 +1059,11 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.h" />
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleRuntimeTypes.h" />
     <ClInclude Include="Source\Engine\Physics\BodyInstance.h" />
+    <ClInclude Include="Source\Engine\Physics\BodySetup.h" />
+    <ClInclude Include="Source\Engine\Physics\BodySetupCore.h" />
+    <ClInclude Include="Source\Engine\Physics\ConstraintInstance.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysicsAsset.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysicsGeometry.h" />
     <ClInclude Include="Source\Engine\Physics\IPhysicsScene.h" />
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h" />
     <ClInclude Include="Source\Engine\Physics\PhysXHelper.h" />
