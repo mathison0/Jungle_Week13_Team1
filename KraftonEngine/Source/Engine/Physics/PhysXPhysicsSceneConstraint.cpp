@@ -16,17 +16,6 @@ using namespace physx;
 // ================================================================
 
 // --- Constraint Helper Section ---
-static PxD6Motion::Enum ToPxD6Motion(ELinearConstraintMotion Motion)
-{
-	switch (Motion)
-	{
-	case ELinearConstraintMotion::Free:		return PxD6Motion::eFREE;
-	case ELinearConstraintMotion::Limited:	return PxD6Motion::eLIMITED;
-	case ELinearConstraintMotion::Locked:
-	default:								return PxD6Motion::eLOCKED;
-	}
-}
-
 static PxD6Motion::Enum ToPxD6Motion(EAngularConstraintMotion Motion)
 {
 	switch (Motion)
@@ -38,43 +27,24 @@ static PxD6Motion::Enum ToPxD6Motion(EAngularConstraintMotion Motion)
 	}
 }
 
-static bool IsAnyLinearMotionLimited(const FConstraintOption& Option)
-{
-	return Option.XMotion == ELinearConstraintMotion::Limited
-		|| Option.YMotion == ELinearConstraintMotion::Limited
-		|| Option.ZMotion == ELinearConstraintMotion::Limited;
-}
-
 static bool IsAnySwingMotionLimited(const FConstraintOption& Option)
 {
 	return Option.Swing1Motion == EAngularConstraintMotion::Limited
 		|| Option.Swing2Motion == EAngularConstraintMotion::Limited;
 }
 
-static bool IsAnyAngularMotionFreeOrLimited(const FConstraintOption& Option)
-{
-	return Option.TwistMotion != EAngularConstraintMotion::Locked
-		|| Option.Swing1Motion != EAngularConstraintMotion::Locked
-		|| Option.Swing2Motion != EAngularConstraintMotion::Locked;
-}
-
-static void ApplyContraintOptionToD6Joint(PxD6Joint* Joint,
-	const FConstraintOption& Option, const PxTolerancesScale& Scale)
+// Ragdoll v1 joint 설정:
+// - Linear는 항상 Locked (본이 분리되지 않음)
+// - Angular는 twist/swing limit만 적용
+// - projection은 고정 기본값으로 켜서 joint가 크게 벌어졌을 때 위치를 보정한다 (안정화용)
+static void ApplyContraintOptionToD6Joint(PxD6Joint* Joint, const FConstraintOption& Option)
 {
 	if (!Joint) return;
 
-	// --- Linear DOF ---
-	Joint->setMotion(PxD6Axis::eX, ToPxD6Motion(Option.XMotion));
-	Joint->setMotion(PxD6Axis::eY, ToPxD6Motion(Option.YMotion));
-	Joint->setMotion(PxD6Axis::eZ, ToPxD6Motion(Option.ZMotion));
-
-	if (IsAnyLinearMotionLimited(Option))
-	{
-		const float LinearLimit = FMath::ClampMin(Option.LinearLimit, 0.0f);
-
-		// Physx D6의 Linear Limit은 Limited Linear Axis 전체에 공통 적용
-		Joint->setLinearLimit(PxJointLinearLimit(Scale, LinearLimit));
-	}
+	// --- Linear DOF: ragdoll 본은 분리되지 않으므로 전부 Locked ---
+	Joint->setMotion(PxD6Axis::eX, PxD6Motion::eLOCKED);
+	Joint->setMotion(PxD6Axis::eY, PxD6Motion::eLOCKED);
+	Joint->setMotion(PxD6Axis::eZ, PxD6Motion::eLOCKED);
 
 	// --- Angular DOF ---
 	Joint->setMotion(PxD6Axis::eTWIST, ToPxD6Motion(Option.TwistMotion));
@@ -97,28 +67,12 @@ static void ApplyContraintOptionToD6Joint(PxD6Joint* Joint,
 		Joint->setSwingLimit(PxJointLimitCone(Swing1Rad, Swing2Rad));
 	}
 
-	// --- Projection ---
-	Joint->setConstraintFlag(PxConstraintFlag::ePROJECTION, Option.bEnableProjection);
-	if (Option.bEnableProjection)
-	{
-		Joint->setProjectionLinearTolerance(FMath::ClampMin(Option.ProjectionLinearTolerance, 0.0f));
-		Joint->setProjectionAngularTolerance(FMath::ClampMin(Option.ProjectionAngularToleranceDegrees * FMath::DegToRad, 0.0f));
-	}
-
-	// --- Angular Drive ---
-	if (Option.bAngularDriveEnabled && IsAnyAngularMotionFreeOrLimited(Option))
-	{
-		const float ForceLimit = Option.AngularDriveForceLimit > 0.0f ? Option.AngularDriveForceLimit : PX_MAX_F32;
-		const PxD6JointDrive Drive(
-			FMath::ClampMin(Option.AngularDriveStiffness, 0.0f),
-			FMath::ClampMin(Option.AngularDriveDamping, 0.0f),
-			ForceLimit,
-			false);
-
-		// Slerp Drive
-		Joint->setDrive(PxD6Drive::eSLERP, Drive);
-		Joint->setDrivePosition(PxTransform(PxIdentity));
-	}
+	// --- Projection (고정 기본값) ---
+	// joint가 크게 벌어졌을 때 solver가 위치를 보정해 ragdoll 안정성을 높인다.
+	// 세부 tolerance는 옵션으로 노출하지 않고 상수로 둔다.
+	Joint->setConstraintFlag(PxConstraintFlag::ePROJECTION, true);
+	Joint->setProjectionLinearTolerance(1.0f);
+	Joint->setProjectionAngularTolerance(10.0f * FMath::DegToRad);
 }
 
 FConstraintInstance* FPhysXPhysicsScene::CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
@@ -183,7 +137,7 @@ FConstraintInstance* FPhysXPhysicsScene::CreateConstraint(FBodyInstance* Parent,
 		return nullptr;
 	}
 
-	ApplyContraintOptionToD6Joint(Joint, Option, Physics->getTolerancesScale());
+	ApplyContraintOptionToD6Joint(Joint, Option);
 
 	// Joint Relase는 FConstraintInstance::TerminateConstraint가 담당
 	NewConstraint->SetConstraintHandle(Joint);
