@@ -105,6 +105,11 @@ static void ConfigureCreatedShape(PxShape* Shape, const FPhysXShapeDesc& Desc)
 	if (ShouldCreateTriggerShape(Desc.Collision))
 	{
 		Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
+		// scene query 자동 제외. 이 flag를 끄지 않으면 trigger shape도 raycast/sweep에
+		// 그대로 잡힌다(PxShape.h: trigger는 eSCENE_QUERY_SHAPE가 켜져 있으면 query에 참여).
+		// 특히 RaycastByObjectTypes는 ObjectType만 보고 응답을 보지 않아 trigger가 hit으로 새어 나온다.
+		// trigger overlap은 simulation callback으로 처리하므로 query 제외해도 이벤트는 유지된다.
+		Shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
 		Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
 	}
 
