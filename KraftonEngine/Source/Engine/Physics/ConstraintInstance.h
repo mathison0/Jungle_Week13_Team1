@@ -2,6 +2,11 @@
 
 #include "Core/Types/CoreTypes.h"
 #include "Math/Transform.h"
+#include "Object/FName.h"
+#include "Object/Reflection/ObjectMacros.h"
+#include "Object/Reflection/UStruct.h"
+
+#include "Source/Engine/Physics/ConstraintInstance.generated.h"
 
 class FBodyInstance;
 
@@ -97,13 +102,15 @@ struct FConstraintOption
 //   - Joint는 PxRigidActor를 참조하므로 Constraints를 먼저 release한다
 //   - 그 다음 Bodies를 release한다
 // ============================================================================
+USTRUCT()
 struct FConstraintInstance
 {
+    GENERATED_BODY()
+
     FString ConstraintName;
 
-	// PhysicsAsset / SkeletalMesh 단계에서 bone name으로 body를 resolve함 (저장용 이름 보관)
-    FString ParentBoneName;
-    FString ChildBoneName;
+    FName ParentBoneName;
+    FName ChildBoneName;
 
 	// Body Local 기준 Joint Frame
     FTransform ParentFrame;	// ParentBody 로컬 공간에 있는 Joint 기준 좌표계
