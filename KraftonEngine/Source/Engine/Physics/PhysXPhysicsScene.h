@@ -97,7 +97,6 @@ public:
 		const FString& ConstraintName = FString());
 
 	void DestroyConstraint(FConstraintInstance* Constraint);
-	void DestoryConstraintsForBody(FBodyInstance* BodyInstance);
 
 private:
 	UWorld* World = nullptr;
