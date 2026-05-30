@@ -15,6 +15,7 @@ class FPrimitiveSceneProxy;
 class FScene;
 class FMeshBuffer;
 class FOctree;
+class UPhysicalMaterial;
 
 // Overlap/Hit 델리게이트 시그니처
 // OnComponentBeginOverlap(OverlappedComp, OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult)
@@ -204,6 +205,10 @@ public:
 	FComponentHitSignature OnComponentHit;
 	FComponentEndHitSignature OnComponentEndHit;
 
+	// --- Physical Mode ---
+	void SetPhysicalMaterialOverride(UPhysicalMaterial* InPhysicalMaterial);
+	UPhysicalMaterial* GetPhysicalMaterialOverride() const { return PhysicalMaterialOverride; }
+
 protected:
 	void OnTransformDirty() override;
 	void EnsureWorldAABBUpdated() const;
@@ -249,4 +254,8 @@ protected:
 
 	FOctree* OctreeNode = nullptr;
 	bool bInOctreeOverflow = false;
+
+	// Component 단위 물리 재질 override
+	// 이후 UBodySetup이 들어오면 : Component Override > BodySetup PhysMaterial > Scene Default 순서로 확장한다
+	UPhysicalMaterial* PhysicalMaterialOverride = nullptr;
 };

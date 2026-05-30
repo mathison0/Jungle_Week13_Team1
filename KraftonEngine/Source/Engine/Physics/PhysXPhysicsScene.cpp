@@ -10,6 +10,7 @@
 #include "Math/Quat.h"
 #include "Object/Object.h"  // IsAliveObject
 #include "Core/Logging/Log.h"
+#include "Physics/PhysicalMaterial.h"
 
 // PhysX headers
 #include <PxPhysicsAPI.h>
@@ -446,6 +447,32 @@ static void ApplyRootMassAndCOM(PxRigidDynamic* Dyn, UPrimitiveComponent* Root)
 	Dyn->setCMassLocalPose(PxTransform(FPhysXHelper::ToPxVec3(Root->GetCenterOfMass())));
 }
 
+static PxMaterial* TryGetOrCreatePxMaterial(UPrimitiveComponent* Comp, UPhysicalMaterial* DefaultPhysicalMaterial, PxMaterial* DefaultMaterial, PxPhysics* Physics)
+{
+	if (!Physics) return DefaultMaterial;
+
+	if (Comp)
+	{
+		if (UPhysicalMaterial* OverrideMaterial = Comp->GetPhysicalMaterialOverride())
+		{
+			if (PxMaterial* PxMat = OverrideMaterial->GetOrCreatePxMaterial(Physics))
+			{
+				return PxMat;
+			}
+		}
+	}
+
+	if (DefaultPhysicalMaterial)
+	{
+		if (PxMaterial* PxMat = DefaultPhysicalMaterial->GetOrCreatePxMaterial(Physics))
+		{
+			return PxMat;
+		}
+	}
+
+	return DefaultMaterial;
+}
+
 // ============================================================
 // Collision Filtering
 // ============================================================
@@ -607,13 +634,18 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	}
 #endif
 
+	// --- Material ---
+	
 	// Default material (static friction, dynamic friction, restitution)
-	// TODO: PhysicalMaterial 구현 후 Fallback으로
-	DefaultMaterial = Physics->createMaterial(
-		0.5f,	// static Friction
-		0.5f,	// dynamic Friction
-		0.3f	// restitution
-	);
+	// TODO: PhysicalMaterial 구현 후 Fallback으로 만들기
+	DefaultPhysicalMaterial = UObjectManager::Get().CreateObject<UPhysicalMaterial>();
+	DefaultMaterial = DefaultPhysicalMaterial->GetOrCreatePxMaterial(Physics);
+	if (!DefaultMaterial)
+	{
+		UE_LOG("[PhysX] Failed to Create Default Physical Material");
+		return;
+	}
+
 
 	UE_LOG("[PhysX] Initialized successfully (Scene=%p)", Scene);
 }
@@ -641,7 +673,13 @@ void FPhysXPhysicsScene::Shutdown()
 	}
 	BodyMappings.clear();
 
-	if (DefaultMaterial) { DefaultMaterial->release(); DefaultMaterial = nullptr; }
+	if (DefaultPhysicalMaterial)
+	{
+		UObjectManager::Get().DestroyObject(DefaultPhysicalMaterial);
+		DefaultPhysicalMaterial = nullptr;
+	}
+	DefaultMaterial = nullptr;
+
 	if (Scene) { Scene->release(); Scene = nullptr; }
 	if (EventCallback) { delete EventCallback; EventCallback = nullptr; }
 	if (Dispatcher) { Dispatcher->release(); Dispatcher = nullptr; }
@@ -939,7 +977,14 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 
 	if (!bHasGeom) return nullptr;
 
-	PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *DefaultMaterial);
+	PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Comp, DefaultPhysicalMaterial, DefaultMaterial, Physics);
+	if (!ShapeMaterial)
+	{
+		UE_LOG("[PhysX] Failed to resolve material for component. Comp=%p", Comp);
+		return nullptr;
+	}
+
+	PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *ShapeMaterial);
 	if (!Shape) return nullptr;
 
 	// Local pose: Comp의 RootComp 대비 상대 transform.

@@ -26,6 +26,7 @@ namespace physx
 }
 
 class FPhysXSimulationCallback;
+class UPhysicalMaterial;
 
 // ============================================================
 // FPhysXPhysicsScene — PhysX 4.1 기반 물리 시스템
@@ -83,7 +84,11 @@ private:
 	physx::PxPhysics* Physics = nullptr;
 	physx::PxScene* Scene = nullptr;
 	physx::PxDefaultCpuDispatcher* Dispatcher = nullptr;
+
+	// DefaultMaterialOverride가 생성한 PxMaterial Cache (직접 ReleaseX)
 	physx::PxMaterial* DefaultMaterial = nullptr;
+	UPhysicalMaterial* DefaultPhysicalMaterial = nullptr;
+
 	FPhysXSimulationCallback* EventCallback = nullptr;
 
 #ifdef _DEBUG
