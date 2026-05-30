@@ -1,5 +1,8 @@
-﻿#include "Physics/PhysXPhysicsScene.h"
+#include "Physics/PhysXPhysicsScene.h"
 #include "Physics/PhysXCore.h"
+#include "Physics/PhysXCollision.h"
+#include "Physics/PhysXQueryUtils.h"
+#include "Physics/PhysXSimulationCallback.h"
 #include "Physics/PhysXHelper.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/ShapeComponent.h"
@@ -25,201 +28,6 @@ using namespace physx;
 // Dispatcher Thread 수
 // TODO: 프로젝트 세팅으로 빼서 개수 조절할 수 있게 만들기 고려
 static constexpr int32 GPhysXWorkerThreadCount = 2;
-
-// ============================================================
-// PhysX Simulation Event Callback
-//
-// PhysX 의 onContact / onTrigger 는 Scene->fetchResults(true) 진행 중에 호출되며,
-// 그 안에서 직접 게임 측 핸들러(NotifyComponentHit 등)를 호출하면 핸들러가
-// World->DestroyActor 같은 scene-mutating 작업을 해서 fetchResults 와 겹쳐 크래쉬한다.
-//
-// 따라서 콜백은 이벤트를 큐에 적재만 하고, FPhysXPhysicsScene::Tick 의 post-simulate
-// 단계 끝에서 DispatchPendingEvents 가 한꺼번에 게임 측 Notify 를 호출한다. 이 시점은
-// simulate/fetchResults 외부이므로 핸들러가 자유롭게 actor/component 를 추가/제거해도 안전.
-// ============================================================
-class FPhysXSimulationCallback : public PxSimulationEventCallback
-{
-public:
-	struct FQueuedHit
-	{
-		UPrimitiveComponent* Self      = nullptr;  // Notify 가 호출되는 대상
-		UPrimitiveComponent* Other     = nullptr;
-		FVector              NormalImpulse{0,0,0};
-		FHitResult           Hit;
-		bool                 bBegin = true;       // false = end
-	};
-
-	struct FQueuedTrigger
-	{
-		UPrimitiveComponent* Self  = nullptr;
-		UPrimitiveComponent* Other = nullptr;
-		bool                 bBegin = true;        // false = end
-	};
-
-	// Block 접촉 → 큐에 적재
-	void onContact(const PxContactPairHeader& PairHeader,
-		const PxContactPair* Pairs, PxU32 Count) override
-	{
-		if (PairHeader.flags & PxContactPairHeaderFlag::eREMOVED_ACTOR_0
-			|| PairHeader.flags & PxContactPairHeaderFlag::eREMOVED_ACTOR_1)
-			return;
-
-		for (PxU32 i = 0; i < Count; ++i)
-		{
-			const PxContactPair& CP = Pairs[i];
-			const bool bBegin = CP.events.isSet(PxPairFlag::eNOTIFY_TOUCH_FOUND);
-			const bool bEnd = CP.events.isSet(PxPairFlag::eNOTIFY_TOUCH_LOST);
-			if (!bBegin && !bEnd) continue;
-
-			FBodyInstance* BodyA = FPhysXHelper::GetBodyInstanceFromPxShape(CP.shapes[0]);
-			FBodyInstance* BodyB = FPhysXHelper::GetBodyInstanceFromPxShape(CP.shapes[1]);
-			UPrimitiveComponent* CompA = BodyA ? BodyA->GetOwnerComponent() : nullptr;
-			UPrimitiveComponent* CompB = BodyB ? BodyB->GetOwnerComponent() : nullptr;
-			if (!CompA || !CompB) continue;
-
-			if (bEnd)
-			{
-				FQueuedHit A;
-				A.Self = CompA;
-				A.Other = CompB;
-				A.bBegin = false;
-				PendingHits.push_back(A);
-
-				FQueuedHit B;
-				B.Self = CompB;
-				B.Other = CompA;
-				B.bBegin = false;
-				PendingHits.push_back(B);
-				continue;
-			}
-
-			// Contact point — 큐 dispatch 시점에 PxContactPair 가 이미 무효이므로 여기서 모두 추출.
-			PxContactPairPoint ContactPoints[1];
-			PxU32 NumPoints = CP.extractContacts(ContactPoints, 1);
-
-			FVector ContactPos(0, 0, 0);
-			FVector ContactNormal(0, 0, 1);
-			float Penetration = 0.0f;
-
-			if (NumPoints > 0)
-			{
-				ContactPos    = FPhysXHelper::ToFVector(ContactPoints[0].position);
-				ContactNormal = FPhysXHelper::ToFVector(ContactPoints[0].normal);
-				Penetration   = ContactPoints[0].separation; // 음수 = 관통
-			}
-
-			const FVector NormalImpulse = ContactNormal * Penetration;
-
-			FQueuedHit A;
-			A.Self                = CompA;
-			A.Other               = CompB;
-			A.NormalImpulse       = NormalImpulse;
-			A.Hit.bHit            = true;
-			A.Hit.HitComponent    = CompB;
-			A.Hit.HitActor        = CompB->GetOwner();
-			A.Hit.WorldHitLocation= ContactPos;
-			A.Hit.ImpactNormal    = ContactNormal;
-			A.Hit.WorldNormal     = ContactNormal;
-			A.Hit.PenetrationDepth= -Penetration;
-			PendingHits.push_back(A);
-
-			FQueuedHit B;
-			B.Self                 = CompB;
-			B.Other                = CompA;
-			B.NormalImpulse        = NormalImpulse * -1.0f;
-			B.Hit.bHit             = true;
-			B.Hit.HitComponent     = CompA;
-			B.Hit.HitActor         = CompA->GetOwner();
-			B.Hit.WorldHitLocation = ContactPos;
-			B.Hit.ImpactNormal     = ContactNormal * -1.0f;
-			B.Hit.WorldNormal      = ContactNormal * -1.0f;
-			B.Hit.PenetrationDepth = -Penetration;
-			PendingHits.push_back(B);
-		}
-	}
-
-	// Trigger 진입/이탈 → 큐에 적재
-	void onTrigger(PxTriggerPair* Pairs, PxU32 Count) override
-	{
-		for (PxU32 i = 0; i < Count; ++i)
-		{
-			const PxTriggerPair& TP = Pairs[i];
-
-			if (TP.flags & (PxTriggerPairFlag::eREMOVED_SHAPE_TRIGGER | PxTriggerPairFlag::eREMOVED_SHAPE_OTHER))
-				continue;
-
-			FBodyInstance* TriggerBody = FPhysXHelper::GetBodyInstanceFromPxShape(TP.triggerShape);
-			FBodyInstance* OtherBody   = FPhysXHelper::GetBodyInstanceFromPxShape(TP.otherShape);
-			UPrimitiveComponent* TriggerComp = TriggerBody ? TriggerBody->GetOwnerComponent() : nullptr;
-			UPrimitiveComponent* OtherComp   = OtherBody ? OtherBody->GetOwnerComponent() : nullptr;
-			if (!TriggerComp || !OtherComp) continue;
-
-			const bool bBegin = (TP.status == PxPairFlag::eNOTIFY_TOUCH_FOUND);
-			const bool bEnd   = (TP.status == PxPairFlag::eNOTIFY_TOUCH_LOST);
-			if (!bBegin && !bEnd) continue;
-
-			if (TriggerComp->GetGenerateOverlapEvents())
-			{
-				PendingTriggers.push_back({ TriggerComp, OtherComp, bBegin });
-			}
-			if (OtherComp->GetGenerateOverlapEvents())
-			{
-				PendingTriggers.push_back({ OtherComp, TriggerComp, bBegin });
-			}
-		}
-	}
-
-	// FPhysXPhysicsScene::Tick 끝에서 호출. simulate/fetchResults 바깥이므로 핸들러가
-	// 자유롭게 World->DestroyActor / SpawnActor / RegisterComponent 호출 가능.
-	// 핸들러 도중 다른 컴포넌트가 destroy되는 경우 대비해 dispatch 직전에 IsAliveObject
-	// 검증 — destroy된 포인터를 만지지 않는다.
-	void DispatchPendingEvents()
-	{
-		// move-out — dispatch 도중 새 이벤트가 큐에 들어오는 일은 없지만, 안전하게 swap 후 처리.
-		std::vector<FQueuedHit> HitsToDispatch;
-		HitsToDispatch.swap(PendingHits);
-		std::vector<FQueuedTrigger> TriggersToDispatch;
-		TriggersToDispatch.swap(PendingTriggers);
-
-		for (FQueuedHit& E : HitsToDispatch)
-		{
-			if (!IsAliveObject(E.Self) || !IsAliveObject(E.Other)) continue;
-			AActor* OtherActor = E.Other->GetOwner();
-			if (E.bBegin)
-			{
-				E.Self->NotifyComponentHit(E.Self, OtherActor, E.Other, E.NormalImpulse, E.Hit);
-			}
-			else
-			{
-				E.Self->NotifyComponentEndHit(E.Self, OtherActor, E.Other);
-			}
-		}
-
-		for (FQueuedTrigger& E : TriggersToDispatch)
-		{
-			if (!IsAliveObject(E.Self) || !IsAliveObject(E.Other)) continue;
-			AActor* OtherActor = E.Other->GetOwner();
-			if (E.bBegin)
-			{
-				FHitResult DummyHit;
-				E.Self->NotifyComponentBeginOverlap(E.Self, OtherActor, E.Other, 0, false, DummyHit);
-			}
-			else
-			{
-				E.Self->NotifyComponentEndOverlap(E.Self, OtherActor, E.Other, 0);
-			}
-		}
-	}
-
-	void onConstraintBreak(PxConstraintInfo*, PxU32) override {}
-	void onWake(PxActor**, PxU32) override {}
-	void onSleep(PxActor**, PxU32) override {}
-	void onAdvance(const PxRigidBody* const*, const PxTransform*, const PxU32) override {}
-
-private:
-	std::vector<FQueuedHit>     PendingHits;
-	std::vector<FQueuedTrigger> PendingTriggers;
-};
 
 // Compound body의 mass와 center-of-mass를 RootComponent의 값으로 갱신.
 // shape 추가/제거 후 inertia 재계산이 필요하므로 RegisterComponent /
@@ -256,94 +64,6 @@ static PxMaterial* TryGetOrCreatePxMaterial(UPrimitiveComponent* Comp, UPhysical
 	}
 
 	return DefaultMaterial;
-}
-
-// ============================================================
-// Collision Filtering
-// ============================================================
-// filterData 레이아웃:
-//   word0 = 자신의 ObjectType (ECollisionChannel)
-//   word1 = Block 비트마스크 (해당 채널에 Block 응답인 비트)
-//   word2 = Overlap 비트마스크 (해당 채널에 Overlap 응답인 비트)
-//   word3 = 소유 액터 UUID — 같은 액터의 두 컴포넌트끼리 충돌을 무시하기 위함
-//           (Native 측 O(N²) 루프의 `if (A->GetOwner() == B->GetOwner()) continue;` 가드와 동일 의미)
-//           Owner가 없거나 UUID가 0이면 가드 미적용.
-
-static void SetupFilterData(PxShape* Shape, UPrimitiveComponent* Comp)
-{
-	PxFilterData Filter;
-	Filter.word0 = static_cast<PxU32>(Comp->GetCollisionObjectType());
-	Filter.word1 = 0;
-	Filter.word2 = 0;
-	Filter.word3 = Comp->GetOwner() ? Comp->GetOwner()->GetUUID() : 0;
-
-	for (int32 Ch = 0; Ch < static_cast<int32>(ECollisionChannel::ActiveCount); ++Ch)
-	{
-		ECollisionResponse R = Comp->GetCollisionResponseToChannel(static_cast<ECollisionChannel>(Ch));
-		if (R == ECollisionResponse::Block)   Filter.word1 |= (1u << Ch);
-		if (R == ECollisionResponse::Overlap) Filter.word2 |= (1u << Ch);
-	}
-
-	Shape->setSimulationFilterData(Filter);
-	Shape->setQueryFilterData(Filter);
-}
-
-// PxFilterShader — 엔진의 채널/응답 매트릭스를 PhysX에서 처리
-// 양쪽 모두 상대 채널에 대해 Block이면 물리 충돌, 한쪽이라도 Overlap이면 트리거, 그 외 무시
-static PxFilterFlags KraftonFilterShader(
-	PxFilterObjectAttributes attributes0, PxFilterData filterData0,
-	PxFilterObjectAttributes attributes1, PxFilterData filterData1,
-	PxPairFlags& pairFlags, const void* /*constantBlock*/, PxU32 /*constantBlockSize*/)
-{
-	// 같은 액터(같은 owner UUID)의 두 컴포넌트끼리는 충돌 무시.
-	// Native 측 O(N²) 루프의 same-owner 가드와 동일 의미. 차량 차체-바퀴처럼
-	// 한 액터가 여러 콜라이더를 가질 때 자기끼리 충돌 시뮬레이션되는 문제를 막는다.
-	if (filterData0.word3 != 0 && filterData0.word3 == filterData1.word3)
-	{
-		return PxFilterFlag::eKILL;
-	}
-
-	// 트리거 처리 — 한쪽이라도 트리거면 오버랩 통지만
-	if (PxFilterObjectIsTrigger(attributes0) || PxFilterObjectIsTrigger(attributes1))
-	{
-		pairFlags = PxPairFlag::eTRIGGER_DEFAULT;
-		return PxFilterFlag::eDEFAULT;
-	}
-
-	PxU32 channelA = filterData0.word0; // A의 ObjectType
-	PxU32 channelB = filterData1.word0; // B의 ObjectType
-
-	// A가 B의 채널에 대해 Block인지, B가 A의 채널에 대해 Block인지
-	bool bABlocksB = (filterData0.word1 & (1u << channelB)) != 0;
-	bool bBBlocksA = (filterData1.word1 & (1u << channelA)) != 0;
-
-	// 양쪽 모두 Block → 물리 충돌 + contact 콜백
-	if (bABlocksB && bBBlocksA)
-	{
-		pairFlags = PxPairFlag::eCONTACT_DEFAULT
-			| PxPairFlag::eNOTIFY_TOUCH_FOUND
-			| PxPairFlag::eNOTIFY_TOUCH_LOST
-			| PxPairFlag::eNOTIFY_CONTACT_POINTS;
-		return PxFilterFlag::eDEFAULT;
-	}
-
-	// 한쪽이라도 Overlap → 겹침 감지만 (물리적 밀어내기 없음).
-	// 일반적으로 이 케이스는 위 trigger shape 분기에서 이미 처리되지만, 등록 시점에
-	// trigger flag로 분류되지 않은 simulation shape pair인데 응답이 Overlap인 경우의
-	// 안전망. eSOLVE_CONTACT 명시 제외 + eDETECT_DISCRETE_CONTACT + NOTIFY로 detection만.
-	bool bAOverlapsB = (filterData0.word2 & (1u << channelB)) != 0;
-	bool bBOverlapsA = (filterData1.word2 & (1u << channelA)) != 0;
-
-	if (bAOverlapsB || bBOverlapsA)
-	{
-		pairFlags = PxPairFlag::eDETECT_DISCRETE_CONTACT
-			| PxPairFlag::eNOTIFY_TOUCH_FOUND
-			| PxPairFlag::eNOTIFY_TOUCH_LOST;
-		return PxFilterFlag::eDEFAULT;
-	}
-
-	// Ignore — 쌍 완전히 제거
-	return PxFilterFlag::eKILL;
 }
 
 // ============================================================
@@ -386,7 +106,7 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	PxSceneDesc SceneDesc(Physics->getTolerancesScale());
 	SceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f); // Z-up, m 단위
 	SceneDesc.cpuDispatcher = Dispatcher;
-	SceneDesc.filterShader = KraftonFilterShader;
+	SceneDesc.filterShader = FPhysXCollision::FilterShader;
 	SceneDesc.simulationEventCallback = EventCallback;
 	SceneDesc.flags |= PxSceneFlag::eENABLE_CCD;			// 빠르게 움직이는 dynamic body가 얇은 collider를 관통하는 문제 감소
 	SceneDesc.flags |= PxSceneFlag::eENABLE_PCM;			// 접촉점 안정성을 높여 stacked body, ragdoll contact jitter를 줄이는 데 유리
@@ -830,7 +550,7 @@ static void ConfigureCreatedShape(PxShape* Shape, UPrimitiveComponent* Comp, FBo
 		return;
 	}
 
-	SetupFilterData(Shape, Comp);
+	FPhysXCollision::SetupFilterData(Shape, Comp);
 
 	if (bShouldBeTrigger)
 	{
@@ -1133,22 +853,7 @@ bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float
 	if (!bStatus || !Hit.hasBlock) return false;
 
 	const PxRaycastHit& Block = Hit.block;
-	OutHit.bHit = true;
-	OutHit.Distance = Block.distance;
-	OutHit.WorldHitLocation = FPhysXHelper::ToFVector(Block.position);
-	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
-	OutHit.WorldNormal = OutHit.ImpactNormal;
-
-	if (FBodyInstance* HitBody = FPhysXHelper::GetBodyInstanceFromPxShape(Block.shape))
-	{
-		OutHit.HitComponent = HitBody->GetOwnerComponent();
-		OutHit.HitActor = HitBody->GetOwnerActor();
-	}
-	else
-	{
-		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
-		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
-	}
+	FPhysXQueryUtils::FillRaycastHit(Block, OutHit);
 
 	return true;
 }
@@ -1205,22 +910,7 @@ bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVecto
 	if (!bStatus || !Hit.hasBlock) return false;
 
 	const PxRaycastHit& Block = Hit.block;
-	OutHit.bHit = true;
-	OutHit.Distance = Block.distance;
-	OutHit.WorldHitLocation = FPhysXHelper::ToFVector(Block.position);
-	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
-	OutHit.WorldNormal = OutHit.ImpactNormal;
-
-	if (FBodyInstance* HitBody = FPhysXHelper::GetBodyInstanceFromPxShape(Block.shape))
-	{
-		OutHit.HitComponent = HitBody->GetOwnerComponent();
-		OutHit.HitActor = HitBody->GetOwnerActor();
-	}
-	else
-	{
-		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
-		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
-	}
+	FPhysXQueryUtils::FillRaycastHit(Block, OutHit);
 
 	return true;
 }
@@ -1282,22 +972,8 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 		if (!bStatus || !RayHit.hasBlock) return false;
 
 		const PxRaycastHit& Block = RayHit.block;
-		OutHit.bHit = true;
-		OutHit.Distance = Block.distance;
+		FPhysXQueryUtils::FillRaycastHit(Block, OutHit);
 		OutHit.WorldHitLocation = Start + Dir * Block.distance;
-		OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
-		OutHit.WorldNormal = OutHit.ImpactNormal;
-
-		if (FBodyInstance* HitBody = FPhysXHelper::GetBodyInstanceFromPxShape(Block.shape))
-		{
-			OutHit.HitComponent = HitBody->GetOwnerComponent();
-			OutHit.HitActor = HitBody->GetOwnerActor();
-		}
-		else
-		{
-			OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
-			OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
-		}
 
 		return true;
 	}
@@ -1310,22 +986,7 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 	if (!bStatus || !Hit.hasBlock) return false;
 
 	const PxSweepHit& Block = Hit.block;
-	OutHit.bHit = true;
-	OutHit.Distance = Block.distance;
-	OutHit.WorldHitLocation = Start + Dir * Block.distance;
-	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
-	OutHit.WorldNormal = OutHit.ImpactNormal;
-
-	if (FBodyInstance* HitBody = FPhysXHelper::GetBodyInstanceFromPxShape(Block.shape))
-	{
-		OutHit.HitComponent = HitBody->GetOwnerComponent();
-		OutHit.HitActor = HitBody->GetOwnerActor();
-	}
-	else
-	{
-		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
-		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
-	}
+	FPhysXQueryUtils::FillSweepHit(Block, Start, Dir, OutHit);
 
 	return true;
 }

@@ -657,8 +657,11 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Physics\PhysicsAsset.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysicsGeometry.cpp" />
     <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysXCollision.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysXCore.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysXPhysicsScene.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysXQueryUtils.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysXSimulationCallback.cpp" />
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp" />
     <ClCompile Include="Source\Engine\Platform\DirectoryWatcher.cpp" />
     <ClCompile Include="Source\Engine\Platform\Paths.cpp" />
@@ -1069,9 +1072,12 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Physics\PhysicsGeometry.h" />
     <ClInclude Include="Source\Engine\Physics\IPhysicsScene.h" />
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysXCollision.h" />
     <ClInclude Include="Source\Engine\Physics\PhysXCore.h" />
     <ClInclude Include="Source\Engine\Physics\PhysXHelper.h" />
     <ClInclude Include="Source\Engine\Physics\PhysXPhysicsScene.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysXQueryUtils.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysXSimulationCallback.h" />
     <ClInclude Include="Source\Engine\Platform\ConsoleHelper.h" />
     <ClInclude Include="Source\Engine\Platform\CrashDump.h" />
     <ClInclude Include="Source\Engine\Platform\DirectoryWatcher.h" />

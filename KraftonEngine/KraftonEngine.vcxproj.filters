@@ -1739,7 +1739,16 @@
     <ClCompile Include="Source\Engine\Physics\PhysXCore.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysXCollision.cpp">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysXQueryUtils.cpp">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysXPhysicsScene.cpp">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysXSimulationCallback.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp">
@@ -2966,10 +2975,19 @@
     <ClInclude Include="Source\Engine\Physics\PhysXCore.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysXCollision.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysXConverter.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysXPhysicsScene.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysXQueryUtils.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysXSimulationCallback.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Platform\ConsoleHelper.h">
