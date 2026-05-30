@@ -1067,14 +1067,12 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 	return Shape;
 }
 
-// TODO(PhysX): 현재 PxShape::userData는 FBodyInstance*이다.
-// 따라서 Component 단위 detach를 위해서는 Shape -> Component 역매핑이 따로 필요하다.
-// BodyMapping 제거 / BodySetup 기반 구조 전환 시 함께 정리한다.
-// 지금은 Actor 전체 release 경로를 기준으로 동작시키며,
-// 개별 Component unregister / RebuildBody 경로에서는 ghost shape가 남을 수 있다.
-// 다음 작업에서 바로 수정 예정입니다.
 void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
 {
+	// TODO(Physics): PxShape::userData는 FBodyInstance*이다.
+	// 따라서 Component 단위 detach를 하려면 Shape -> Component 역매핑이 필요하다.
+	// BodyMapping 제거 / BodySetup 기반 생성 경로로 전환할 때 함께 정리한다.
+	// 현재는 Actor 전체 release 경로를 기준으로 동작시킨다.
 	if (!Mapping.Actor || !Comp) return;
 
 	const PxU32 NumShapes = Mapping.Actor->getNbShapes();
