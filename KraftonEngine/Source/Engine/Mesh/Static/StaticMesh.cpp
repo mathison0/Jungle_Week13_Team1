@@ -1,5 +1,6 @@
 #include "Mesh/Static/StaticMesh.h"
 #include "Object/Reflection/ObjectFactory.h"
+#include "Object/Object.h"
 #include "Mesh/MeshManager.h"
 #include "Serialization/WindowsArchive.h"
 #include "Mesh/Importer/ObjImporter.h"
@@ -33,6 +34,16 @@ void UStaticMesh::Serialize(FArchive& Ar)
 	// 2. 머티리얼 데이터 직렬화 (필수!)
 	Ar << StaticMaterials;
 
+	if (Ar.IsSaving())
+	{
+		EnsureBodySetup();
+	}
+	SerializeProperties(Ar, PF_Save);
+	if (BodySetup)
+	{
+		BodySetup->SetOuter(this);
+	}
+
 	// 3. 로딩 시 Section → MaterialIndex 매핑 캐싱 (매 프레임 문자열 비교 방지)
 	if (Ar.IsLoading())
 	{
@@ -48,6 +59,7 @@ void UStaticMesh::Serialize(FArchive& Ar)
 				}
 			}
 		}
+		EnsureBodySetup();
 	}
 }
 
@@ -115,6 +127,7 @@ void UStaticMesh::InitResources(ID3D11Device* InDevice)
 void UStaticMesh::SetStaticMeshAsset(FStaticMesh* InMesh)
 {
 	StaticMeshAsset = InMesh;
+	EnsureBodySetup();
 	// 현재는 static mesh asset이 로드 후 고정된다고 보고, 메시 변경 dirty 갱신은 비활성화합니다.
 	// MarkMeshTrianglePickingBVHDirty();
 
@@ -140,6 +153,20 @@ void UStaticMesh::SetStaticMeshAsset(FStaticMesh* InMesh)
 FStaticMesh* UStaticMesh::GetStaticMeshAsset() const
 {
 	return StaticMeshAsset;
+}
+
+UBodySetup* UStaticMesh::EnsureBodySetup()
+{
+	if (!BodySetup)
+	{
+		BodySetup = UObjectManager::Get().CreateObject<UBodySetup>(this);
+	}
+	else
+	{
+		BodySetup->SetOuter(this);
+	}
+
+	return BodySetup;
 }
 
 void UStaticMesh::SetStaticMaterials(TArray<FStaticMaterial>&& InMaterials)
