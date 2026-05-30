@@ -27,18 +27,30 @@ void USkeletalMesh::Serialize(FArchive& Ar)
 	Ar << SkeletalMaterials;
 	Ar << SkeletalMeshAsset->MorphTargets;
 
+	if (Ar.IsSaving())
+	{
+		EnsurePhysicsAsset();
+	}
+	SerializeProperties(Ar, PF_Save);
+	if (PhysicsAsset)
+	{
+		PhysicsAsset->SetOuter(this);
+	}
+
 	if (Ar.IsLoading())
 	{
 		SkeletalMeshAsset->NormalizeBonePoseData();
         SyncSkeletonBindingFromAsset();
 		CacheSectionMaterialIndices();
 		SkeletalMeshAsset->bBoundsValid = false;
+		EnsurePhysicsAsset();
 	}
 }
 
 void USkeletalMesh::SetSkeletalMeshAsset(FSkeletalMesh* InMesh)
 {
 	SkeletalMeshAsset = InMesh;
+	EnsurePhysicsAsset();
 	if (SkeletalMeshAsset)
 	{
 		SkeletalMeshAsset->NormalizeBonePoseData();
@@ -50,6 +62,20 @@ void USkeletalMesh::SetSkeletalMeshAsset(FSkeletalMesh* InMesh)
 FSkeletalMesh* USkeletalMesh::GetSkeletalMeshAsset() const
 {
 	return SkeletalMeshAsset;
+}
+
+UPhysicsAsset* USkeletalMesh::EnsurePhysicsAsset()
+{
+	if (!PhysicsAsset)
+	{
+		PhysicsAsset = UObjectManager::Get().CreateObject<UPhysicsAsset>(this);
+	}
+	else
+	{
+		PhysicsAsset->SetOuter(this);
+	}
+
+	return PhysicsAsset;
 }
 
 void USkeletalMesh::SetSkeletalMaterials(TArray<FSkeletalMaterial>&& InMaterials)
