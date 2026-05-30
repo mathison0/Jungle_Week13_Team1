@@ -9,6 +9,7 @@
 #include "Physics/PhysicalMaterial.h"
 #include "Physics/PhysXCollision.h"
 #include "Physics/PhysXHelper.h"
+#include "Physics/PhysXShapeDesc.h"
 
 #include <PxPhysicsAPI.h>
 
@@ -16,18 +17,15 @@
 
 using namespace physx;
 
-static PxMaterial* TryGetOrCreatePxMaterial(UPrimitiveComponent* Comp, UPhysicalMaterial* DefaultPhysicalMaterial, PxMaterial* DefaultMaterial, PxPhysics* Physics)
+static PxMaterial* TryGetOrCreatePxMaterial(const FPhysXShapeMaterialDesc& Material, UPhysicalMaterial* DefaultPhysicalMaterial, PxMaterial* DefaultMaterial, PxPhysics* Physics)
 {
 	if (!Physics) return DefaultMaterial;
 
-	if (Comp)
+	if (Material.OverrideMaterial)
 	{
-		if (UPhysicalMaterial* OverrideMaterial = Comp->GetPhysicalMaterialOverride())
+		if (PxMaterial* PxMat = Material.OverrideMaterial->GetOrCreatePxMaterial(Physics))
 		{
-			if (PxMaterial* PxMat = OverrideMaterial->GetOrCreatePxMaterial(Physics))
-			{
-				return PxMat;
-			}
+			return PxMat;
 		}
 	}
 
@@ -42,12 +40,11 @@ static PxMaterial* TryGetOrCreatePxMaterial(UPrimitiveComponent* Comp, UPhysical
 	return DefaultMaterial;
 }
 
-static PxTransform BuildComponentLocalPose(UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp)
+static FTransform BuildComponentLocalTransform(UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp)
 {
-	PxTransform LocalPose(PxIdentity);
 	if (!Comp || Comp == RootComp || !RootComp)
 	{
-		return LocalPose;
+		return FTransform();
 	}
 
 	FVector RootPos = RootComp->GetWorldLocation();
@@ -59,16 +56,11 @@ static PxTransform BuildComponentLocalPose(UPrimitiveComponent* RootComp, UPrimi
 	FVector LocalPos = InvRootRot.RotateVector(CompPos - RootPos);
 	FQuat LocalRot = InvRootRot * CompRot;
 
-	return FPhysXHelper::ToPxTransform(LocalPos, LocalRot);
+	return FTransform(LocalPos, LocalRot, FVector::OneVector);
 }
 
-static bool ShouldCreateTriggerShape(UPrimitiveComponent* Comp)
+static bool ShouldCreateTriggerShape(const FPhysXShapeCollisionDesc& Collision)
 {
-	if (!Comp)
-	{
-		return false;
-	}
-
 	// Trigger flag 결정:
 	//   1) GenerateOverlapEvents=true (명시적 trigger 의도)  OR
 	//   2) 어떤 active 채널에도 Block 응답이 없음 (= simulation 의미 없음, overlap 이벤트만 의도)
@@ -79,14 +71,14 @@ static bool ShouldCreateTriggerShape(UPrimitiveComponent* Comp)
 	//
 	// 같은 PxActor 안에 simulation shape와 trigger shape가 섞이면 PhysX가 거부하므로
 	// 같은 액터의 모든 컴포넌트가 같은 종류여야 안전 (현재 ATriggerVolumeBase는 BoxComponent 1개라 OK).
-	if (Comp->GetGenerateOverlapEvents())
+	if (Collision.bGenerateOverlapEvents)
 	{
 		return true;
 	}
 
 	for (int32 Ch = 0; Ch < static_cast<int32>(ECollisionChannel::ActiveCount); ++Ch)
 	{
-		if (Comp->GetCollisionResponseToChannel(static_cast<ECollisionChannel>(Ch)) == ECollisionResponse::Block)
+		if (Collision.Responses.GetResponse(static_cast<ECollisionChannel>(Ch)) == ECollisionResponse::Block)
 		{
 			return false;
 		}
@@ -94,61 +86,120 @@ static bool ShouldCreateTriggerShape(UPrimitiveComponent* Comp)
 	return true;
 }
 
-static void ConfigureCreatedShape(PxShape* Shape, UPrimitiveComponent* Comp, FBodyInstance* BodyInstance, bool bShouldBeTrigger)
+static EPhysXBodyType GetBodyType(const PxRigidActor* Actor)
 {
-	if (!Shape || !Comp)
+	if (const PxRigidDynamic* Dynamic = Actor ? Actor->is<PxRigidDynamic>() : nullptr)
+	{
+		return Dynamic->getRigidBodyFlags().isSet(PxRigidBodyFlag::eKINEMATIC)
+			? EPhysXBodyType::Kinematic
+			: EPhysXBodyType::Dynamic;
+	}
+
+	return EPhysXBodyType::Static;
+}
+
+static FPhysXShapeCollisionDesc BuildCollisionDesc(UPrimitiveComponent* Comp)
+{
+	FPhysXShapeCollisionDesc Collision;
+	if (!Comp)
+	{
+		return Collision;
+	}
+
+	Collision.CollisionEnabled = Comp->GetCollisionEnabled();
+	Collision.ObjectType = Comp->GetCollisionObjectType();
+	Collision.Responses = Comp->GetCollisionResponseContainer();
+	Collision.OwnerActorId = Comp->GetOwner() ? Comp->GetOwner()->GetUUID() : 0;
+	Collision.bGenerateOverlapEvents = Comp->GetGenerateOverlapEvents();
+	return Collision;
+}
+
+static bool BuildShapeDescFromComponent(PxRigidActor* Actor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp, FPhysXShapeDesc& OutDesc)
+{
+	if (!Actor || !Comp) return false;
+
+	OutDesc = FPhysXShapeDesc();
+	OutDesc.BodyType = GetBodyType(Actor);
+	OutDesc.LocalTransform = BuildComponentLocalTransform(RootComp, Comp);
+	OutDesc.Collision = BuildCollisionDesc(Comp);
+	OutDesc.Material.OverrideMaterial = Comp->GetPhysicalMaterialOverride();
+	OutDesc.BodyInstance = Comp->GetBodyInstance();
+
+	if (auto* Box = Cast<UBoxComponent>(Comp))
+	{
+		OutDesc.ShapeType = EPhysXShapeType::Box;
+		OutDesc.BoxHalfExtent = Box->GetScaledBoxExtent();
+		return true;
+	}
+
+	if (auto* Sphere = Cast<USphereComponent>(Comp))
+	{
+		OutDesc.ShapeType = EPhysXShapeType::Sphere;
+		OutDesc.Radius = Sphere->GetScaledSphereRadius();
+		return true;
+	}
+
+	if (auto* Capsule = Cast<UCapsuleComponent>(Comp))
+	{
+		OutDesc.ShapeType = EPhysXShapeType::Capsule;
+		OutDesc.Radius = Capsule->GetScaledCapsuleRadius();
+		OutDesc.HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+
+		// Capsule은 PhysX에서 X축 기준이므로 로컬 회전 보정 필요
+		OutDesc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 0.0f, 1.0f), PxHalfPi);
+		return true;
+	}
+
+	return false;
+}
+
+static bool BuildPxGeometry(const FPhysXShapeDesc& Desc, PxGeometryHolder& OutGeometry)
+{
+	switch (Desc.ShapeType)
+	{
+	case EPhysXShapeType::Box:
+		OutGeometry = PxBoxGeometry(Desc.BoxHalfExtent.X, Desc.BoxHalfExtent.Y, Desc.BoxHalfExtent.Z);
+		return true;
+	case EPhysXShapeType::Sphere:
+		OutGeometry = PxSphereGeometry(Desc.Radius);
+		return true;
+	case EPhysXShapeType::Capsule:
+		OutGeometry = PxCapsuleGeometry(Desc.Radius, Desc.HalfHeight - Desc.Radius);
+		return true;
+	default:
+		return false;
+	}
+}
+
+static void ConfigureCreatedShape(PxShape* Shape, const FPhysXShapeDesc& Desc)
+{
+	if (!Shape)
 	{
 		return;
 	}
 
-	FPhysXCollision::SetupFilterData(Shape, Comp);
+	FPhysXCollision::SetupFilterData(Shape, Desc.Collision);
 
-	if (bShouldBeTrigger)
+	if (ShouldCreateTriggerShape(Desc.Collision))
 	{
 		Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
 		Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
 	}
 
-	FPhysXHelper::SetShapeBodyRecord(Shape, BodyInstance);
+	FPhysXHelper::SetShapeBodyRecord(Shape, Desc.BodyInstance);
 }
 
 PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
 {
 	if (!Mapping.Actor || !DefaultMaterial || !Comp) return nullptr;
 
-	const PxTransform ComponentLocalPose = BuildComponentLocalPose(Mapping.RootComp, Comp);
-	const bool bShouldBeTrigger = ShouldCreateTriggerShape(Comp);
+	FPhysXShapeDesc Desc;
+	if (!BuildShapeDescFromComponent(Mapping.Actor, Mapping.RootComp, Comp, Desc)) return nullptr;
 
-	// Shape Component 타입에 따라 PxGeometry 결정
 	PxGeometryHolder Geom;
-	bool bHasGeom = false;
+	if (!BuildPxGeometry(Desc, Geom)) return nullptr;
 
-	// Capsule은 PhysX에서 X축 기준이므로 로컬 회전 보정 필요
-	PxQuat ShapeAxisRot = PxQuat(PxIdentity);
-
-	if (auto* Box = Cast<UBoxComponent>(Comp))
-	{
-		FVector Ext = Box->GetScaledBoxExtent();
-		Geom = PxBoxGeometry(Ext.X, Ext.Y, Ext.Z);
-		bHasGeom = true;
-	}
-	else if (auto* Sphere = Cast<USphereComponent>(Comp))
-	{
-		Geom = PxSphereGeometry(Sphere->GetScaledSphereRadius());
-		bHasGeom = true;
-	}
-	else if (auto* Capsule = Cast<UCapsuleComponent>(Comp))
-	{
-		float Radius = Capsule->GetScaledCapsuleRadius();
-		float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
-		Geom = PxCapsuleGeometry(Radius, HalfHeight - Radius);
-		ShapeAxisRot = PxQuat(PxHalfPi, PxVec3(0.0f, 0.0f, 1.0f));
-		bHasGeom = true;
-	}
-
-	if (!bHasGeom) return nullptr;
-
-	PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Comp, DefaultPhysicalMaterial, DefaultMaterial, Physics);
+	PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Desc.Material, DefaultPhysicalMaterial, DefaultMaterial, Physics);
 	if (!ShapeMaterial)
 	{
 		UE_LOG("[PhysX] Failed to resolve material for component. Comp=%p", Comp);
@@ -158,12 +209,9 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 	PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *ShapeMaterial);
 	if (!Shape) return nullptr;
 
-	// Capsule 등 축 보정을 LocalPose의 회전 부분에 합성
-	PxTransform LocalPose = ComponentLocalPose;
-	LocalPose.q = LocalPose.q * ShapeAxisRot;
-	Shape->setLocalPose(LocalPose);
+	Shape->setLocalPose(FPhysXHelper::ToPxTransform(Desc.LocalTransform));
 
-	ConfigureCreatedShape(Shape, Comp, Comp->GetBodyInstance(), bShouldBeTrigger);
+	ConfigureCreatedShape(Shape, Desc);
 
 	return Shape;
 }

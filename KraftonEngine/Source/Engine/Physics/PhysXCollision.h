@@ -3,6 +3,7 @@
 #include <PxPhysicsAPI.h>
 
 class UPrimitiveComponent;
+struct FPhysXShapeCollisionDesc;
 
 // ============================================================
 // FPhysXCollision
@@ -13,6 +14,7 @@ class UPrimitiveComponent;
 namespace FPhysXCollision
 {
 	void SetupFilterData(physx::PxShape* Shape, UPrimitiveComponent* Comp);
+	void SetupFilterData(physx::PxShape* Shape, const FPhysXShapeCollisionDesc& Collision);
 
 	physx::PxFilterFlags FilterShader(
 		physx::PxFilterObjectAttributes Attributes0, physx::PxFilterData FilterData0,

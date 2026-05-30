@@ -2996,6 +2996,9 @@
     <ClInclude Include="Source\Engine\Physics\PhysXQueryUtils.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysXShapeDesc.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysXSimulationCallback.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>

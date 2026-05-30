@@ -2,6 +2,7 @@
 
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/AActor.h"
+#include "Physics/PhysXShapeDesc.h"
 
 using namespace physx;
 
@@ -12,21 +13,43 @@ using namespace physx;
 //   word3 = 소유 액터 UUID - 같은 액터의 두 컴포넌트끼리 충돌을 무시하기 위함
 //           Native 측 O(N^2) 루프의 same-owner 가드와 동일 의미.
 //           Owner가 없거나 UUID가 0이면 가드 미적용.
-void FPhysXCollision::SetupFilterData(PxShape* Shape, UPrimitiveComponent* Comp)
+static PxFilterData BuildFilterData(const FPhysXShapeCollisionDesc& Collision)
 {
 	PxFilterData Filter;
-	Filter.word0 = static_cast<PxU32>(Comp->GetCollisionObjectType());
+	Filter.word0 = static_cast<PxU32>(Collision.ObjectType);
 	Filter.word1 = 0;
 	Filter.word2 = 0;
-	Filter.word3 = Comp->GetOwner() ? Comp->GetOwner()->GetUUID() : 0;
+	Filter.word3 = Collision.OwnerActorId;
 
 	for (int32 Ch = 0; Ch < static_cast<int32>(ECollisionChannel::ActiveCount); ++Ch)
 	{
-		ECollisionResponse R = Comp->GetCollisionResponseToChannel(static_cast<ECollisionChannel>(Ch));
+		ECollisionResponse R = Collision.Responses.GetResponse(static_cast<ECollisionChannel>(Ch));
 		if (R == ECollisionResponse::Block)   Filter.word1 |= (1u << Ch);
 		if (R == ECollisionResponse::Overlap) Filter.word2 |= (1u << Ch);
 	}
 
+	return Filter;
+}
+
+void FPhysXCollision::SetupFilterData(PxShape* Shape, UPrimitiveComponent* Comp)
+{
+	if (!Shape || !Comp) return;
+
+	FPhysXShapeCollisionDesc Collision;
+	Collision.CollisionEnabled = Comp->GetCollisionEnabled();
+	Collision.ObjectType = Comp->GetCollisionObjectType();
+	Collision.Responses = Comp->GetCollisionResponseContainer();
+	Collision.OwnerActorId = Comp->GetOwner() ? Comp->GetOwner()->GetUUID() : 0;
+	Collision.bGenerateOverlapEvents = Comp->GetGenerateOverlapEvents();
+
+	SetupFilterData(Shape, Collision);
+}
+
+void FPhysXCollision::SetupFilterData(PxShape* Shape, const FPhysXShapeCollisionDesc& Collision)
+{
+	if (!Shape) return;
+
+	PxFilterData Filter = BuildFilterData(Collision);
 	Shape->setSimulationFilterData(Filter);
 	Shape->setQueryFilterData(Filter);
 }
