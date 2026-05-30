@@ -168,3 +168,60 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetup(
 		OutDescs.push_back(Desc);
 	}
 }
+
+void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(
+	UBodySetup* BodySetup,
+	EPhysXBodyType BodyType,
+	const FPhysXShapeCollisionDesc& Collision,
+	const FPhysXShapeMaterialDesc& Material,
+	FBodyInstance* BodyInstance,
+	TArray<FPhysXShapeDesc>& OutDescs)
+{
+	if (!BodySetup) return;
+
+	const FKAggregateGeom& AggGeom = BodySetup->GetAggGeom();
+
+	for (const FKSphereElem& Sphere : AggGeom.SphereElems)
+	{
+		FPhysXShapeDesc Desc;
+		Desc.BodyType = BodyType;
+		Desc.ShapeType = EPhysXShapeType::Sphere;
+		Desc.Radius = Sphere.Radius;
+		Desc.LocalTransform = Sphere.Transform;
+		Desc.Collision = Collision;
+		Desc.Material = Material;
+		Desc.BodyInstance = BodyInstance;
+		OutDescs.push_back(Desc);
+	}
+
+	for (const FKBoxElem& Box : AggGeom.BoxElems)
+	{
+		FPhysXShapeDesc Desc;
+		Desc.BodyType = BodyType;
+		Desc.ShapeType = EPhysXShapeType::Box;
+		Desc.BoxHalfExtent = Box.Extent;
+		Desc.LocalTransform = Box.Transform;
+		Desc.Collision = Collision;
+		Desc.Material = Material;
+		Desc.BodyInstance = BodyInstance;
+		OutDescs.push_back(Desc);
+	}
+
+	// ConvexElems는 이번 구현에서 생성하지 않는다.
+
+	for (const FKSphylElem& Sphyl : AggGeom.SphylElems)
+	{
+		FPhysXShapeDesc Desc;
+		Desc.BodyType = BodyType;
+		Desc.ShapeType = EPhysXShapeType::Capsule;
+		Desc.Radius = Sphyl.Radius;
+		Desc.HalfHeight = Sphyl.Length * 0.5f + Sphyl.Radius;
+		Desc.LocalTransform = Sphyl.Transform;
+		// Capsule은 PhysX에서 X축 기준이므로 로컬 회전 보정 필요.
+		Desc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 0.0f, 1.0f), FMath::Pi * 0.5f);
+		Desc.Collision = Collision;
+		Desc.Material = Material;
+		Desc.BodyInstance = BodyInstance;
+		OutDescs.push_back(Desc);
+	}
+}

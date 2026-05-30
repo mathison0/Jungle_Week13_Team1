@@ -1757,6 +1757,9 @@
     <ClCompile Include="Source\Engine\Physics\PhysXPhysicsSceneQuery.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysXPhysicsSceneAdapter.cpp">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysXShapeDesc.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>

@@ -116,6 +116,27 @@ static void ConfigureCreatedShape(PxShape* Shape, const FPhysXShapeDesc& Desc)
 	FPhysXHelper::SetShapeBodyRecord(Shape, Desc.BodyInstance);
 }
 
+// FPhysXShapeDesc 하나를 주어진 actor에 PxShape로 생성한다.
+// ShapeComponent / BodySetup / Ragdoll 경로가 같은 shape 생성 절차를 공유한다.
+PxShape* FPhysXPhysicsScene::CreateShapeOnActor(PxRigidActor* Actor, const FPhysXShapeDesc& Desc)
+{
+	if (!Actor || !DefaultMaterial) return nullptr;
+
+	PxGeometryHolder Geom;
+	if (!BuildPxGeometry(Desc, Geom)) return nullptr;
+
+	PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Desc.Material, DefaultPhysicalMaterial, DefaultMaterial, Physics);
+	if (!ShapeMaterial) return nullptr;
+
+	PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Actor, Geom.any(), *ShapeMaterial);
+	if (!Shape) return nullptr;
+
+	Shape->setLocalPose(FPhysXHelper::ToPxTransform(Desc.LocalTransform));
+	ConfigureCreatedShape(Shape, Desc);
+
+	return Shape;
+}
+
 PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
 {
 	if (!Mapping.Actor || !DefaultMaterial || !Comp) return nullptr;
@@ -123,24 +144,7 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 	FPhysXShapeDesc Desc;
 	if (!FPhysXShapeDescUtils::MakeShapeDescFromShapeComponent(Mapping.RootComp, Comp, GetBodyType(Mapping.Actor), Desc)) return nullptr;
 
-	PxGeometryHolder Geom;
-	if (!BuildPxGeometry(Desc, Geom)) return nullptr;
-
-	PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Desc.Material, DefaultPhysicalMaterial, DefaultMaterial, Physics);
-	if (!ShapeMaterial)
-	{
-		UE_LOG("[PhysX] Failed to resolve material for component. Comp=%p", Comp);
-		return nullptr;
-	}
-
-	PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *ShapeMaterial);
-	if (!Shape) return nullptr;
-
-	Shape->setLocalPose(FPhysXHelper::ToPxTransform(Desc.LocalTransform));
-
-	ConfigureCreatedShape(Shape, Desc);
-
-	return Shape;
+	return CreateShapeOnActor(Mapping.Actor, Desc);
 }
 
 bool FPhysXPhysicsScene::AddShapesFromBodySetup(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
@@ -154,18 +158,10 @@ bool FPhysXPhysicsScene::AddShapesFromBodySetup(FBodyMapping& Mapping, UPrimitiv
 	bool bAnyCreated = false;
 	for (const FPhysXShapeDesc& Desc : Descs)
 	{
-		PxGeometryHolder Geom;
-		if (!BuildPxGeometry(Desc, Geom)) continue;
-
-		PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Desc.Material, DefaultPhysicalMaterial, DefaultMaterial, Physics);
-		if (!ShapeMaterial) continue;
-
-		PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *ShapeMaterial);
-		if (!Shape) continue;
-
-		Shape->setLocalPose(FPhysXHelper::ToPxTransform(Desc.LocalTransform));
-		ConfigureCreatedShape(Shape, Desc);
-		bAnyCreated = true;
+		if (CreateShapeOnActor(Mapping.Actor, Desc) != nullptr)
+		{
+			bAnyCreated = true;
+		}
 	}
 	return bAnyCreated;
 }

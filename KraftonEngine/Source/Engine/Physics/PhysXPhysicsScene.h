@@ -9,6 +9,8 @@
 #include <memory>
 
 class AActor;
+class UBodySetup;
+struct FPhysXShapeDesc;
 
 // Forward declarations — PhysX types
 namespace physx
@@ -98,6 +100,14 @@ public:
 
 	void DestroyConstraint(FConstraintInstance* Constraint);
 
+	// --- PhysicsAsset / Ragdoll Adapter ---
+	// PhysicsAsset/Ragdoll 빌더가 사용할 body 생성/해제 진입점.
+	// BodySetup 1개를 world transform 위치에 독립 body로 만든다 (compound BodyMappings와 별개).
+	// 호출자가 반환 핸들을 보관하고, joint는 CreateConstraint로, 해제는 DestroyBody로 한다.
+	FBodyInstance* CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
+		const FTransform& WorldTransform, bool bDynamic);
+	void DestroyBody(FBodyInstance* Body);
+
 private:
 	UWorld* World = nullptr;
 
@@ -136,12 +146,19 @@ private:
 	// Shutdown / body unregister시 Bodies보다 먼저 release
 	TArray<std::unique_ptr<FConstraintInstance>> Constraints;
 
+	// Adapter(CreateBodyFromBodySetup)로 만든 독립 body. compound BodyMappings와 별개로
+	// scene이 FBodyInstance를 소유하고, Shutdown / DestroyBody에서 PxRigidActor까지 정리한다.
+	TArray<std::unique_ptr<FBodyInstance>> AdapterBodies;
+
 	// 내부 헬퍼
 	FBodyMapping* FindMappingByActor(AActor* OwnerActor);
 	const FBodyMapping* FindMappingByActor(AActor* OwnerActor) const;
 	FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp);
 	const FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp) const;
 	void DestroyConstraintsForBody(FBodyInstance* Body);
+
+	// FPhysXShapeDesc 하나를 주어진 actor에 PxShape로 생성. 실패 시 nullptr.
+	physx::PxShape* CreateShapeOnActor(physx::PxRigidActor* Actor, const FPhysXShapeDesc& Desc);
 
 	// Comp의 geometry를 Mapping의 PxRigidActor에 shape로 추가. 실패 시 nullptr.
 	physx::PxShape* AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);

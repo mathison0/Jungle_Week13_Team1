@@ -72,4 +72,15 @@ namespace FPhysXShapeDescUtils
 		UPrimitiveComponent* Comp,
 		EPhysXBodyType BodyType,
 		TArray<FPhysXShapeDesc>& OutDescs);
+
+	// PhysicsAsset BodySetup의 AggGeom → bone-local shape desc 변환.
+	// ragdoll body는 각 bone world transform에 배치되므로 elem transform을 그대로
+	// body-local pose로 쓴다. 컴포넌트 transform/scale 경로를 거치지 않는다. ConvexElems는 건너뛴다.
+	void MakeShapeDescsFromBodySetupAsset(
+		UBodySetup* BodySetup,
+		EPhysXBodyType BodyType,
+		const FPhysXShapeCollisionDesc& Collision,
+		const FPhysXShapeMaterialDesc& Material,
+		FBodyInstance* BodyInstance,
+		TArray<FPhysXShapeDesc>& OutDescs);
 }
