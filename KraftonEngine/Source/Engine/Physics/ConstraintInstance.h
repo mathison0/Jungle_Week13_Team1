@@ -2,6 +2,7 @@
 
 #include "Core/Types/CoreTypes.h"
 #include "Math/Transform.h"
+#include "Object/FName.h"
 
 class FBodyInstance;
 
@@ -14,8 +15,8 @@ struct FConstraintInstance
 {
     FString ConstraintName;
 
-    FString ParentBoneName;
-    FString ChildBoneName;
+    FName ParentBoneName;
+    FName ChildBoneName;
 
     FTransform ParentFrame;
     FTransform ChildFrame;
