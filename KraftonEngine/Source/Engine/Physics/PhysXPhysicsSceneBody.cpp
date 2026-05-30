@@ -1,10 +1,6 @@
 #include "Physics/PhysXPhysicsScene.h"
 
 #include "Component/PrimitiveComponent.h"
-#include "Component/Shape/BoxComponent.h"
-#include "Component/Shape/CapsuleComponent.h"
-#include "Component/Shape/SphereComponent.h"
-#include "GameFramework/AActor.h"
 #include "Core/Logging/Log.h"
 #include "Physics/PhysicalMaterial.h"
 #include "Physics/PhysXCollision.h"
@@ -38,25 +34,6 @@ static PxMaterial* TryGetOrCreatePxMaterial(const FPhysXShapeMaterialDesc& Mater
 	}
 
 	return DefaultMaterial;
-}
-
-static FTransform BuildComponentLocalTransform(UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp)
-{
-	if (!Comp || Comp == RootComp || !RootComp)
-	{
-		return FTransform();
-	}
-
-	FVector RootPos = RootComp->GetWorldLocation();
-	FQuat RootRot = RootComp->GetWorldMatrix().ToQuat();
-	FVector CompPos = Comp->GetWorldLocation();
-	FQuat CompRot = Comp->GetWorldMatrix().ToQuat();
-
-	FQuat InvRootRot = RootRot.Inverse();
-	FVector LocalPos = InvRootRot.RotateVector(CompPos - RootPos);
-	FQuat LocalRot = InvRootRot * CompRot;
-
-	return FTransform(LocalPos, LocalRot, FVector::OneVector);
 }
 
 static bool ShouldCreateTriggerShape(const FPhysXShapeCollisionDesc& Collision)
@@ -96,61 +73,6 @@ static EPhysXBodyType GetBodyType(const PxRigidActor* Actor)
 	}
 
 	return EPhysXBodyType::Static;
-}
-
-static FPhysXShapeCollisionDesc BuildCollisionDesc(UPrimitiveComponent* Comp)
-{
-	FPhysXShapeCollisionDesc Collision;
-	if (!Comp)
-	{
-		return Collision;
-	}
-
-	Collision.CollisionEnabled = Comp->GetCollisionEnabled();
-	Collision.ObjectType = Comp->GetCollisionObjectType();
-	Collision.Responses = Comp->GetCollisionResponseContainer();
-	Collision.OwnerActorId = Comp->GetOwner() ? Comp->GetOwner()->GetUUID() : 0;
-	Collision.bGenerateOverlapEvents = Comp->GetGenerateOverlapEvents();
-	return Collision;
-}
-
-static bool BuildShapeDescFromComponent(PxRigidActor* Actor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp, FPhysXShapeDesc& OutDesc)
-{
-	if (!Actor || !Comp) return false;
-
-	OutDesc = FPhysXShapeDesc();
-	OutDesc.BodyType = GetBodyType(Actor);
-	OutDesc.LocalTransform = BuildComponentLocalTransform(RootComp, Comp);
-	OutDesc.Collision = BuildCollisionDesc(Comp);
-	OutDesc.Material.OverrideMaterial = Comp->GetPhysicalMaterialOverride();
-	OutDesc.BodyInstance = Comp->GetBodyInstance();
-
-	if (auto* Box = Cast<UBoxComponent>(Comp))
-	{
-		OutDesc.ShapeType = EPhysXShapeType::Box;
-		OutDesc.BoxHalfExtent = Box->GetScaledBoxExtent();
-		return true;
-	}
-
-	if (auto* Sphere = Cast<USphereComponent>(Comp))
-	{
-		OutDesc.ShapeType = EPhysXShapeType::Sphere;
-		OutDesc.Radius = Sphere->GetScaledSphereRadius();
-		return true;
-	}
-
-	if (auto* Capsule = Cast<UCapsuleComponent>(Comp))
-	{
-		OutDesc.ShapeType = EPhysXShapeType::Capsule;
-		OutDesc.Radius = Capsule->GetScaledCapsuleRadius();
-		OutDesc.HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
-
-		// Capsule은 PhysX에서 X축 기준이므로 로컬 회전 보정 필요
-		OutDesc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 0.0f, 1.0f), PxHalfPi);
-		return true;
-	}
-
-	return false;
 }
 
 static bool BuildPxGeometry(const FPhysXShapeDesc& Desc, PxGeometryHolder& OutGeometry)
@@ -194,7 +116,7 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 	if (!Mapping.Actor || !DefaultMaterial || !Comp) return nullptr;
 
 	FPhysXShapeDesc Desc;
-	if (!BuildShapeDescFromComponent(Mapping.Actor, Mapping.RootComp, Comp, Desc)) return nullptr;
+	if (!FPhysXShapeDescUtils::MakeShapeDescFromShapeComponent(Mapping.RootComp, Comp, GetBodyType(Mapping.Actor), Desc)) return nullptr;
 
 	PxGeometryHolder Geom;
 	if (!BuildPxGeometry(Desc, Geom)) return nullptr;

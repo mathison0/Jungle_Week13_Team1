@@ -6,6 +6,7 @@
 #include "Math/Vector.h"
 
 class FBodyInstance;
+class UPrimitiveComponent;
 class UPhysicalMaterial;
 
 // PhysX body 생성 방식 분류.
@@ -55,3 +56,12 @@ struct FPhysXShapeDesc
 	FPhysXShapeMaterialDesc Material;
 	FBodyInstance* BodyInstance = nullptr;
 };
+
+namespace FPhysXShapeDescUtils
+{
+	bool MakeShapeDescFromShapeComponent(
+		UPrimitiveComponent* RootComp,
+		UPrimitiveComponent* ShapeComp,
+		EPhysXBodyType BodyType,
+		FPhysXShapeDesc& OutDesc);
+}
