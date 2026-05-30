@@ -562,7 +562,10 @@ float UPrimitiveComponent::GetMass() const
 
 void UPrimitiveComponent::SetGenerateOverlapEvents(bool bInGenerateOverlapEvents)
 {
+	if (bGenerateOverlapEvents == bInGenerateOverlapEvents) return;
 	bGenerateOverlapEvents = bInGenerateOverlapEvents;
+	// 이 값은 PhysX shape의 trigger flag 결정에 쓰이므로 런타임 변경 시 body 재구성 필요.
+	NotifyPhysicsBodyDirty();
 }
 
 void UPrimitiveComponent::NotifyComponentBeginOverlap(
