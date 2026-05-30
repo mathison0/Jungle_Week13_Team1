@@ -2055,6 +2055,7 @@
     <ClCompile Include="Intermediate\Generated\LuaBindings.generated.cpp">
       <Filter>Intermediate\Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -4991,6 +4992,9 @@
     <ClInclude Include="ThirdParty\sol2\include\sol\utility\to_string.hpp">
       <Filter>ThirdParty\sol2\include\sol\utility</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.h" />
+    <ClInclude Include="Source\Engine\Physics\Vehicle\SuspensionSystem.h" />
+    <ClInclude Include="Source\Engine\Physics\Vehicle\UVehicleWheel.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KraftonEngine.rc" />
