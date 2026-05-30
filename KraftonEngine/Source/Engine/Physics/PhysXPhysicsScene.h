@@ -2,7 +2,10 @@
 
 #include "Physics/IPhysicsScene.h"
 #include "Physics/BodyInstance.h"
+#include "Physics/ConstraintInstance.h"
 #include "Core/Types/CoreTypes.h"
+#include "Math/Transform.h"
+
 #include <memory>
 
 class AActor;
@@ -26,6 +29,7 @@ namespace physx
 }
 
 class FPhysXSimulationCallback;
+class UPhysicalMaterial;
 
 // ============================================================
 // FPhysXPhysicsScene — PhysX 4.1 기반 물리 시스템
@@ -49,20 +53,24 @@ public:
 
 	void Tick(float DeltaTime) override;
 
+	// --- Force, Torque ----
 	void AddForce(UPrimitiveComponent* Comp, const FVector& Force) override;
 	void AddForceAtLocation(UPrimitiveComponent* Comp, const FVector& Force, const FVector& WorldLocation) override;
 	void AddTorque(UPrimitiveComponent* Comp, const FVector& Torque) override;
 
+	// --- Velocity (선속도, 각속도) ---
 	FVector GetLinearVelocity(UPrimitiveComponent* Comp) const override;
 	void SetLinearVelocity(UPrimitiveComponent* Comp, const FVector& Vel) override;
 	FVector GetAngularVelocity(UPrimitiveComponent* Comp) const override;
 	void SetAngularVelocity(UPrimitiveComponent* Comp, const FVector& Vel) override;
-
+	
+	// ---  Mass ---
 	void SetMass(UPrimitiveComponent* Comp, float Mass) override;
 	float GetMass(UPrimitiveComponent* Comp) const override;
 	void SetCenterOfMass(UPrimitiveComponent* Comp, const FVector& LocalOffset) override;
 	FVector GetCenterOfMass(UPrimitiveComponent* Comp) const override;
 
+	// --- Ray Section ---
 	bool Raycast(const FVector& Start, const FVector& Dir, float MaxDist, FHitResult& OutHit,
 		ECollisionChannel TraceChannel = ECollisionChannel::WorldStatic,
 		const AActor* IgnoreActor = nullptr) const override;
@@ -75,6 +83,22 @@ public:
 		ECollisionChannel TraceChannel = ECollisionChannel::WorldStatic,
 		const AActor* IgnoreActor = nullptr) const override;
 
+	// --- Body Instance ---
+	// PhysX 전용 Body Lookup
+	// Constraint 생성자는 Body Instance 요구 -> 외부에서 Component->BodyInstance 획득
+	FBodyInstance* GetBodyInstance(UPrimitiveComponent* Comp);
+	const FBodyInstance* GetBodyInstance(UPrimitiveComponent* Comp) const;
+
+	// --- Constraint Instance ---
+	FConstraintInstance* CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
+		const FConstraintOption& Option,
+		const FTransform& ParentFrame,
+		const FTransform& ChildFrame,
+		const FString& ConstraintName = FString());
+
+	void DestroyConstraint(FConstraintInstance* Constraint);
+	void DestoryConstraintsForBody(FBodyInstance* BodyInstance);
+
 private:
 	UWorld* World = nullptr;
 
@@ -83,7 +107,11 @@ private:
 	physx::PxPhysics* Physics = nullptr;
 	physx::PxScene* Scene = nullptr;
 	physx::PxDefaultCpuDispatcher* Dispatcher = nullptr;
+
+	// DefaultMaterialOverride가 생성한 PxMaterial Cache (직접 ReleaseX)
 	physx::PxMaterial* DefaultMaterial = nullptr;
+	UPhysicalMaterial* DefaultPhysicalMaterial = nullptr;
+
 	FPhysXSimulationCallback* EventCallback = nullptr;
 
 #ifdef _DEBUG
@@ -111,11 +139,16 @@ private:
 	// unique_ptr로 FBodyMapping 자체의 주소를 안정화한다.
 	TArray<std::unique_ptr<FBodyMapping>> BodyMappings;
 
+	// Constraint 는 PxRigidActor를 참조
+	// Shutdown / body unregister시 Bodies보다 먼저 release
+	TArray<std::unique_ptr<FConstraintInstance>> Constraints;
+
 	// 내부 헬퍼
 	FBodyMapping* FindMappingByActor(AActor* OwnerActor);
 	const FBodyMapping* FindMappingByActor(AActor* OwnerActor) const;
 	FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp);
 	const FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp) const;
+	void DestroyConstraintsForBody(FBodyInstance* Body);
 
 	// Comp의 geometry를 Mapping의 PxRigidActor에 shape로 추가. 실패 시 nullptr.
 	physx::PxShape* AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);

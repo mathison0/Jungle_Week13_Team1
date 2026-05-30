@@ -88,10 +88,15 @@ public:
 
 	// --- PhysX userData helpers ---
 	// PxActor::userData는 AActor*가 아니라 FBodyInstance*
-	// PxShape::userData는 기존처럼 UPrimitiveComponent*를 유지
+	// PxShape::userData도 FBodyInstance*
 	static FBodyInstance* GetBodyInstanceFromPxActor(const physx::PxRigidActor* Actor)
 	{
 		return FPhysXHelper::GetUserData<FBodyInstance>(Actor);
+	}
+
+	static FBodyInstance* GetBodyInstanceFromPxShape(const physx::PxShape* Shape)
+	{
+		return FPhysXHelper::GetUserData<FBodyInstance>(Shape);
 	}
 
 	static AActor* GetOwnerActorFromPxActor(const physx::PxRigidActor* Actor)
@@ -103,6 +108,18 @@ public:
 	static UPrimitiveComponent* GetOwnerComponentFromPxActor(const physx::PxRigidActor* Actor)
 	{
 		FBodyInstance* BodyInstance = GetBodyInstanceFromPxActor(Actor);
+		return BodyInstance ? BodyInstance->GetOwnerComponent() : nullptr;
+	}
+
+	static AActor* GetOwnerActorFromPxShape(const physx::PxShape* Shape)
+	{
+		FBodyInstance* BodyInstance = GetBodyInstanceFromPxShape(Shape);
+		return BodyInstance ? BodyInstance->GetOwnerActor() : nullptr;
+	}
+
+	static UPrimitiveComponent* GetOwnerComponentFromPxShape(const physx::PxShape* Shape)
+	{
+		FBodyInstance* BodyInstance = GetBodyInstanceFromPxShape(Shape);
 		return BodyInstance ? BodyInstance->GetOwnerComponent() : nullptr;
 	}
 };
