@@ -76,6 +76,9 @@ public:
     const TArray<FConstraintInstance*>& GetConstraints() const { return Constraints; }
 
 protected:
+    void BeginPlay() override;
+    void EndPlay() override;
+
     // 매 프레임 AnimInstance 평가 → 결과 포즈를 SetBoneLocalTransforms 로 푸시.
     // 이 경로가 CPU skinning 과 bounds dirty 를 한 번에 처리한다.
     void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction) override;

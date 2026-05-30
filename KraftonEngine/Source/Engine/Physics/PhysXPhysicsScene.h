@@ -9,6 +9,7 @@
 #include <memory>
 
 class AActor;
+class USkeletalMeshComponent;
 
 // Forward declarations — PhysX types
 namespace physx
@@ -50,6 +51,8 @@ public:
 	void RegisterComponent(UPrimitiveComponent* Comp) override;
 	void UnregisterComponent(UPrimitiveComponent* Comp) override;
 	void RebuildBody(UPrimitiveComponent* Comp) override;
+	bool InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp) override;
+	void DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp) override;
 
 	void Tick(float DeltaTime) override;
 
@@ -136,6 +139,7 @@ private:
 	// Constraint 는 PxRigidActor를 참조
 	// Shutdown / body unregister시 Bodies보다 먼저 release
 	TArray<std::unique_ptr<FConstraintInstance>> Constraints;
+	TArray<USkeletalMeshComponent*> SkeletalPhysicsComponents;
 
 	// 내부 헬퍼
 	FBodyMapping* FindMappingByActor(AActor* OwnerActor);

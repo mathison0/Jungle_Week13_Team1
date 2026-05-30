@@ -10,6 +10,7 @@
 #include "Asset/AssetRegistry.h"
 #include "Core/Logging/Log.h"
 #include "GameFramework/AActor.h"
+#include "GameFramework/World.h"
 #include "Math/Quat.h"
 #include "Math/Vector.h"
 #include "Mesh/Skeletal/SkeletalMesh.h"
@@ -17,6 +18,7 @@
 #include "Object/Object.h"
 #include "Object/Reflection/ObjectFactory.h"
 #include "Object/Reflection/UClass.h"
+#include "Physics/IPhysicsScene.h"
 #include "Render/Proxy/SkeletalMeshSceneProxy.h"
 #include "Serialization/Archive.h"
 
@@ -31,6 +33,38 @@ USkeletalMeshComponent::~USkeletalMeshComponent()
 FPrimitiveSceneProxy* USkeletalMeshComponent::CreateSceneProxy()
 {
     return new FSkeletalMeshSceneProxy(this);
+}
+
+void USkeletalMeshComponent::BeginPlay()
+{
+    Super::BeginPlay();
+
+    if (Owner)
+    {
+        if (UWorld* World = Owner->GetWorld())
+        {
+            if (IPhysicsScene* PhysicsScene = World->GetPhysicsScene())
+            {
+                PhysicsScene->InstantiatePhysicsAssetBodies(this);
+            }
+        }
+    }
+}
+
+void USkeletalMeshComponent::EndPlay()
+{
+    if (Owner)
+    {
+        if (UWorld* World = Owner->GetWorld())
+        {
+            if (IPhysicsScene* PhysicsScene = World->GetPhysicsScene())
+            {
+                PhysicsScene->DestroyPhysicsAssetBodies(this);
+            }
+        }
+    }
+
+    Super::EndPlay();
 }
 
 void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InMesh)

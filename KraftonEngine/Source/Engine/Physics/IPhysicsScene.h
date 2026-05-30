@@ -8,6 +8,7 @@
 class UWorld;
 class AActor;
 class UPrimitiveComponent;
+class USkeletalMeshComponent;
 struct FHitResult;
 
 // 물리 백엔드 선택
@@ -39,6 +40,12 @@ public:
 	// PhysX는 actor 단위로 unregister + register (compound shape의 다른 컴포넌트도 함께 재등록),
 	// Native는 BodyState만 갱신.
 	virtual void RebuildBody(UPrimitiveComponent* Comp) = 0;
+
+	// SkeletalMesh PhysicsAsset runtime state.
+	// StaticMesh는 UPrimitiveComponent::BodyInstance 하나를 쓰고,
+	// SkeletalMesh는 PhysicsAsset body/constraint를 component runtime 배열에 instantiate한다.
+	virtual bool InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp) { return false; }
+	virtual void DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp) {}
 
 	// --- 시뮬레이션 ---
 	virtual void Tick(float DeltaTime) = 0;

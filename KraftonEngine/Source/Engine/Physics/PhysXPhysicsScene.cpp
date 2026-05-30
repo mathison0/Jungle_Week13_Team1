@@ -5,13 +5,20 @@
 #include "Component/Shape/BoxComponent.h"
 #include "Component/Shape/SphereComponent.h"
 #include "Component/Shape/CapsuleComponent.h"
+#include "Component/Primitive/StaticMeshComponent.h"
+#include "Component/Primitive/SkeletalMeshComponent.h"
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
 #include "Math/Quat.h"
 #include "Object/Object.h"  // IsAliveObject
 #include "Core/Logging/Log.h"
 #include "Physics/PhysicalMaterial.h"
+#include "Physics/PhysicsAsset.h"
+#include "Physics/BodySetup.h"
+#include "Physics/PhysicsGeometry.h"
 #include "Math/MathUtils.h"
+#include "Mesh/Static/StaticMesh.h"
+#include "Mesh/Skeletal/SkeletalMesh.h"
 
 // PhysX headers
 #include <PxPhysicsAPI.h>
@@ -658,6 +665,13 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 
 void FPhysXPhysicsScene::Shutdown()
 {
+	TArray<USkeletalMeshComponent*> SkeletalComponentsToDestroy = SkeletalPhysicsComponents;
+	for (USkeletalMeshComponent* SkeletalComp : SkeletalComponentsToDestroy)
+	{
+		DestroyPhysicsAssetBodies(SkeletalComp);
+	}
+	SkeletalPhysicsComponents.clear();
+
 	// Constraint는 PxRigidActor를 참조한다.
 	// 따라서 Bodies보다 먼저 release
 	for (auto& ConstraintPtr : Constraints)
@@ -1063,12 +1077,124 @@ static void ConfigureCreatedShape(PxShape* Shape, UPrimitiveComponent* Comp, FBo
 	FPhysXHelper::SetUserData(Shape, BodyInstance);
 }
 
+static float AbsScale(float Value)
+{
+	return std::abs(Value);
+}
+
+static PxTransform BuildElemLocalPose(const FTransform& ElemTransform)
+{
+	return FPhysXHelper::ToPxTransform(ElemTransform.Location, ElemTransform.Rotation);
+}
+
+static PxShape* AddAggGeomShapesToActor(
+	PxRigidActor* Actor,
+	const FKAggregateGeom& AggGeom,
+	UPrimitiveComponent* OwnerComp,
+	FBodyInstance* BodyInstance,
+	PxMaterial* ShapeMaterial,
+	const PxTransform& BaseLocalPose,
+	bool bShouldBeTrigger)
+{
+	if (!Actor || !OwnerComp || !BodyInstance || !ShapeMaterial)
+	{
+		return nullptr;
+	}
+
+	PxShape* FirstCreatedShape = nullptr;
+
+	auto ConfigureAggShape = [&](PxShape* Shape, const FTransform& ElemTransform)
+	{
+		if (!Shape) return;
+		Shape->setLocalPose(BaseLocalPose * BuildElemLocalPose(ElemTransform));
+		ConfigureCreatedShape(Shape, OwnerComp, BodyInstance, bShouldBeTrigger);
+		if (!FirstCreatedShape)
+		{
+			FirstCreatedShape = Shape;
+		}
+	};
+
+	for (const FKSphereElem& Sphere : AggGeom.SphereElems)
+	{
+		const float Scale = std::max(AbsScale(Sphere.Transform.Scale.X), std::max(AbsScale(Sphere.Transform.Scale.Y), AbsScale(Sphere.Transform.Scale.Z)));
+		PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Actor, PxSphereGeometry(Sphere.Radius * Scale), *ShapeMaterial);
+		ConfigureAggShape(Shape, Sphere.Transform);
+	}
+
+	for (const FKBoxElem& Box : AggGeom.BoxElems)
+	{
+		const FVector& S = Box.Transform.Scale;
+		const PxVec3 Extents(
+			Box.Extent.X * AbsScale(S.X),
+			Box.Extent.Y * AbsScale(S.Y),
+			Box.Extent.Z * AbsScale(S.Z));
+		PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Actor, PxBoxGeometry(Extents), *ShapeMaterial);
+		ConfigureAggShape(Shape, Box.Transform);
+	}
+
+	for (const FKSphylElem& Capsule : AggGeom.SphylElems)
+	{
+		const float RadiusScale = std::max(AbsScale(Capsule.Transform.Scale.Y), AbsScale(Capsule.Transform.Scale.Z));
+		const float LengthScale = AbsScale(Capsule.Transform.Scale.X);
+		const float Radius = Capsule.Radius * RadiusScale;
+		const float HalfHeight = FMath::ClampMin(Capsule.Length * 0.5f * LengthScale, Radius);
+		PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Actor, PxCapsuleGeometry(Radius, HalfHeight), *ShapeMaterial);
+		if (Shape)
+		{
+			PxTransform LocalPose = BaseLocalPose * BuildElemLocalPose(Capsule.Transform);
+			LocalPose.q = LocalPose.q * PxQuat(PxHalfPi, PxVec3(0.0f, 0.0f, 1.0f));
+			Shape->setLocalPose(LocalPose);
+			ConfigureCreatedShape(Shape, OwnerComp, BodyInstance, bShouldBeTrigger);
+			if (!FirstCreatedShape)
+			{
+				FirstCreatedShape = Shape;
+			}
+		}
+	}
+
+	if (!AggGeom.ConvexElems.empty())
+	{
+		UE_LOG("[PhysX] Convex AggGeom conversion is not implemented yet. Count=%zu", AggGeom.ConvexElems.size());
+	}
+
+	return FirstCreatedShape;
+}
+
 PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
 {
 	if (!Mapping.Actor || !DefaultMaterial || !Comp) return nullptr;
 
 	const PxTransform ComponentLocalPose = BuildComponentLocalPose(Mapping.RootComp, Comp);
 	const bool bShouldBeTrigger = ShouldCreateTriggerShape(Comp);
+
+	if (UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>(Comp))
+	{
+		if (UStaticMesh* StaticMesh = StaticMeshComp->GetStaticMesh())
+		{
+			if (UBodySetup* BodySetup = StaticMesh->GetBodySetup())
+			{
+				if (BodySetup->HasGeometry())
+				{
+					PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Comp, DefaultPhysicalMaterial, DefaultMaterial, Physics);
+					if (!ShapeMaterial)
+					{
+						UE_LOG("[PhysX] Failed to resolve material for StaticMesh BodySetup. Comp=%p", Comp);
+						return nullptr;
+					}
+
+					PxShape* FirstShape = AddAggGeomShapesToActor(
+						Mapping.Actor,
+						BodySetup->GetAggGeom(),
+						Comp,
+						Comp->GetBodyInstance(),
+						ShapeMaterial,
+						ComponentLocalPose,
+						bShouldBeTrigger);
+					return FirstShape;
+				}
+			}
+		}
+	}
 
 	// Shape Component 타입에 따라 PxGeometry 결정
 	PxGeometryHolder Geom;
@@ -1568,6 +1694,185 @@ const FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Co
 
 	const FBodyInstance* BodyInstance = Comp->GetBodyInstance();
 	return BodyInstance && BodyInstance->IsValidBodyInstance() ? BodyInstance : nullptr;
+}
+
+bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp)
+{
+	if (!Comp || !Scene || !Physics || !DefaultMaterial)
+	{
+		return false;
+	}
+
+	DestroyPhysicsAssetBodies(Comp);
+
+	USkeletalMesh* SkeletalMesh = Comp->GetSkeletalMesh();
+	UPhysicsAsset* PhysicsAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
+	if (!PhysicsAsset || !PhysicsAsset->HasAnyBodySetup())
+	{
+		return false;
+	}
+
+	if (std::find(SkeletalPhysicsComponents.begin(), SkeletalPhysicsComponents.end(), Comp) == SkeletalPhysicsComponents.end())
+	{
+		SkeletalPhysicsComponents.push_back(Comp);
+	}
+
+	PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Comp, DefaultPhysicalMaterial, DefaultMaterial, Physics);
+	if (!ShapeMaterial)
+	{
+		UE_LOG("[PhysX] Failed to resolve material for PhysicsAsset. Comp=%p", Comp);
+		return false;
+	}
+
+	TArray<FBodyInstance*>& RuntimeBodies = Comp->GetBodies();
+	RuntimeBodies.clear();
+	RuntimeBodies.reserve(PhysicsAsset->BodySetups.size());
+
+	for (int32 BodySetupIndex = 0; BodySetupIndex < static_cast<int32>(PhysicsAsset->BodySetups.size()); ++BodySetupIndex)
+	{
+		UBodySetup* BodySetup = PhysicsAsset->BodySetups[BodySetupIndex];
+		if (!BodySetup || !BodySetup->HasGeometry())
+		{
+			continue;
+		}
+
+		const FString BoneNameString = BodySetup->GetBoneName().ToString();
+		const int32 BoneIndex = Comp->FindBoneIndex(BoneNameString);
+		if (BoneIndex < 0)
+		{
+			UE_LOG("[PhysX] PhysicsAsset body skipped. Bone not found: %s", BoneNameString.c_str());
+			continue;
+		}
+
+		FTransform BoneWorldTransform;
+		if (!Comp->GetBoneWorldTransformByIndex(BoneIndex, BoneWorldTransform))
+		{
+			continue;
+		}
+
+		PxRigidDynamic* BodyActor = Physics->createRigidDynamic(FPhysXHelper::ToPxTransform(BoneWorldTransform));
+		if (!BodyActor)
+		{
+			continue;
+		}
+
+		FBodyInstance* RuntimeBody = new FBodyInstance();
+		RuntimeBody->InitBody(Comp, BodyActor);
+		RuntimeBody->SetBodyIndex(BodySetupIndex);
+		RuntimeBody->SetBoneIndex(BoneIndex);
+		FPhysXHelper::SetUserData(BodyActor, RuntimeBody);
+
+		PxShape* FirstShape = AddAggGeomShapesToActor(
+			BodyActor,
+			BodySetup->GetAggGeom(),
+			Comp,
+			RuntimeBody,
+			ShapeMaterial,
+			PxTransform(PxIdentity),
+			ShouldCreateTriggerShape(Comp));
+
+		if (!FirstShape)
+		{
+			RuntimeBody->TerminateBody();
+			delete RuntimeBody;
+			BodyActor->release();
+			continue;
+		}
+
+		const float MassKg = (Comp->GetMass() > 0.0f) ? Comp->GetMass() : 1.0f;
+		PxRigidBodyExt::setMassAndUpdateInertia(*BodyActor, MassKg);
+		RuntimeBody->SetSimulatePhysics(Comp->GetSimulatePhysics());
+
+		Scene->addActor(*BodyActor);
+		RuntimeBodies.push_back(RuntimeBody);
+	}
+
+	TArray<FConstraintInstance*>& RuntimeConstraints = Comp->GetConstraints();
+	RuntimeConstraints.clear();
+
+	for (const FConstraintInstance& ConstraintSetup : PhysicsAsset->ConstraintSetups)
+	{
+		FBodyInstance* ParentBody = nullptr;
+		FBodyInstance* ChildBody = nullptr;
+
+		const int32 ParentBodySetupIndex = PhysicsAsset->FindBodySetupIndexByBoneName(ConstraintSetup.ParentBoneName);
+		const int32 ChildBodySetupIndex = PhysicsAsset->FindBodySetupIndexByBoneName(ConstraintSetup.ChildBoneName);
+
+		for (FBodyInstance* Body : RuntimeBodies)
+		{
+			if (!Body) continue;
+			if (Body->GetBodyIndex() == ParentBodySetupIndex)
+			{
+				ParentBody = Body;
+			}
+			if (Body->GetBodyIndex() == ChildBodySetupIndex)
+			{
+				ChildBody = Body;
+			}
+		}
+
+		if (!ParentBody || !ChildBody)
+		{
+			continue;
+		}
+
+		FConstraintInstance* RuntimeConstraint = CreateConstraint(
+			ParentBody,
+			ChildBody,
+			ConstraintSetup.Option,
+			ConstraintSetup.ParentFrame,
+			ConstraintSetup.ChildFrame,
+			ConstraintSetup.ConstraintName);
+
+		if (RuntimeConstraint)
+		{
+			RuntimeConstraints.push_back(RuntimeConstraint);
+		}
+	}
+
+	return !RuntimeBodies.empty();
+}
+
+void FPhysXPhysicsScene::DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp)
+{
+	if (!Comp)
+	{
+		return;
+	}
+
+	TArray<FConstraintInstance*>& RuntimeConstraints = Comp->GetConstraints();
+	for (FConstraintInstance* Constraint : RuntimeConstraints)
+	{
+		DestroyConstraint(Constraint);
+	}
+	RuntimeConstraints.clear();
+
+	TArray<FBodyInstance*>& RuntimeBodies = Comp->GetBodies();
+	for (FBodyInstance* Body : RuntimeBodies)
+	{
+		if (!Body)
+		{
+			continue;
+		}
+
+		DestroyConstraintsForBody(Body);
+		if (PxRigidActor* Actor = Body->GetPxRigidActor())
+		{
+			if (Scene)
+			{
+				Scene->removeActor(*Actor);
+			}
+			Actor->release();
+		}
+
+		Body->TerminateBody();
+		delete Body;
+	}
+	RuntimeBodies.clear();
+
+	SkeletalPhysicsComponents.erase(
+		std::remove(SkeletalPhysicsComponents.begin(), SkeletalPhysicsComponents.end(), Comp),
+		SkeletalPhysicsComponents.end());
 }
 
 // ================================================================

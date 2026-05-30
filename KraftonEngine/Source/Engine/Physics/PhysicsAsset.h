@@ -20,4 +20,9 @@ public:
 
     UPROPERTY(Edit, Save, Category="Physics", DisplayName="Constraint Setups", Type=Array, Struct=FConstraintInstance)
     TArray<FConstraintInstance> ConstraintSetups;
+
+    bool HasAnyBodySetup() const;
+    bool HasAnyConstraintSetup() const;
+    int32 FindBodySetupIndexByBoneName(const FName& BoneName) const;
+    UBodySetup* FindBodySetupByBoneName(const FName& BoneName) const;
 };
