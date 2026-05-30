@@ -136,8 +136,8 @@ FConstraintInstance* FPhysXPhysicsScene::CreateConstraint(FBodyInstance* Parent,
 		return nullptr;
 	}
 
-	PxRigidActor* ParentActor = Parent->GetPxRigidActor();
-	PxRigidActor* ChildActor = Child->GetPxRigidActor();
+	PxRigidActor* ParentActor = FPhysXHelper::GetRigidActor(Parent);
+	PxRigidActor* ChildActor = FPhysXHelper::GetRigidActor(Child);
 
 	if (!ParentActor || !ChildActor)
 	{

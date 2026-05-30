@@ -99,6 +99,16 @@ public:
 		return FPhysXHelper::GetUserData<FBodyInstance>(Shape);
 	}
 
+	static physx::PxRigidActor* GetRigidActor(const FBodyInstance* BodyInstance)
+	{
+		return BodyInstance ? BodyInstance->GetPxRigidActor() : nullptr;
+	}
+
+	static physx::PxRigidDynamic* GetRigidDynamic(const FBodyInstance* BodyInstance)
+	{
+		return BodyInstance ? BodyInstance->GetPxRigidDynamic() : nullptr;
+	}
+
 	static AActor* GetOwnerActorFromPxActor(const physx::PxRigidActor* Actor)
 	{
 		FBodyInstance* BodyInstance = GetBodyInstanceFromPxActor(Actor);

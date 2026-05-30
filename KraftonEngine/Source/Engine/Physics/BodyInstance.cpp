@@ -80,11 +80,6 @@ physx::PxRigidDynamic* FBodyInstance::GetPxRigidDynamic() const
 	return RigidActor ? RigidActor->is<PxRigidDynamic>() : nullptr;
 }
 
-void FBodyInstance::SetPxRigidActor(physx::PxRigidActor* InRigidActor)
-{
-	RigidActor = InRigidActor;
-}
-
 FVector FBodyInstance::GetEngineWorldLocation()
 {
 	if (!RigidActor)

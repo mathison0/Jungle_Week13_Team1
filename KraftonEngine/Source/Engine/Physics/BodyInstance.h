@@ -5,6 +5,8 @@
 #include "Math/Quat.h"
 
 class AActor;
+class FPhysXHelper;
+class FPhysXPhysicsScene;
 class UPrimitiveComponent;
 
 namespace physx
@@ -33,8 +35,7 @@ public:
 	FBodyInstance(FBodyInstance&&) = delete;
 	FBodyInstance& operator=(FBodyInstance&&) = delete;
 
-	// --- 초기화 / 종료 ---
-	void InitBody(UPrimitiveComponent* InOwnerComponent, physx::PxRigidActor* InRigidActor);
+	// --- 종료 ---
 	void TerminateBody();
 
 	// --- 기본 접근자 ---
@@ -46,11 +47,6 @@ public:
 
 	AActor* GetOwnerActor() const;
 	UPrimitiveComponent* GetOwnerComponent() const;
-
-	physx::PxRigidActor* GetPxRigidActor() const;
-	physx::PxRigidDynamic* GetPxRigidDynamic() const;
-
-	void SetPxRigidActor(physx::PxRigidActor* InRigidActor);
 
 	// --- Transform --- 
 	FVector GetEngineWorldLocation();
@@ -92,6 +88,15 @@ public:
 	bool IsInstanceSleeping() const;
 
 private:
+	friend class FPhysXHelper;
+	friend class FPhysXPhysicsScene;
+
+	// --- 초기화 ---
+	void InitBody(UPrimitiveComponent* InOwnerComponent, physx::PxRigidActor* InRigidActor);
+
+	physx::PxRigidActor* GetPxRigidActor() const;
+	physx::PxRigidDynamic* GetPxRigidDynamic() const;
+
 	UPrimitiveComponent* OwnerComponent = nullptr;
 	physx::PxRigidActor* RigidActor = nullptr;
 
