@@ -1,7 +1,5 @@
 #include "Physics/PhysXCollision.h"
 
-#include "Component/PrimitiveComponent.h"
-#include "GameFramework/AActor.h"
 #include "Physics/PhysXShapeDesc.h"
 
 using namespace physx;
@@ -29,20 +27,6 @@ static PxFilterData BuildFilterData(const FPhysXShapeCollisionDesc& Collision)
 	}
 
 	return Filter;
-}
-
-void FPhysXCollision::SetupFilterData(PxShape* Shape, UPrimitiveComponent* Comp)
-{
-	if (!Shape || !Comp) return;
-
-	FPhysXShapeCollisionDesc Collision;
-	Collision.CollisionEnabled = Comp->GetCollisionEnabled();
-	Collision.ObjectType = Comp->GetCollisionObjectType();
-	Collision.Responses = Comp->GetCollisionResponseContainer();
-	Collision.OwnerActorId = Comp->GetOwner() ? Comp->GetOwner()->GetUUID() : 0;
-	Collision.bGenerateOverlapEvents = Comp->GetGenerateOverlapEvents();
-
-	SetupFilterData(Shape, Collision);
 }
 
 void FPhysXCollision::SetupFilterData(PxShape* Shape, const FPhysXShapeCollisionDesc& Collision)
