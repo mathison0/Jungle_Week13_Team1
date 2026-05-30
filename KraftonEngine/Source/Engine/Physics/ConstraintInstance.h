@@ -3,6 +3,10 @@
 #include "Core/Types/CoreTypes.h"
 #include "Math/Transform.h"
 #include "Object/FName.h"
+#include "Object/Reflection/ObjectMacros.h"
+#include "Object/Reflection/UStruct.h"
+
+#include "Source/Engine/Physics/ConstraintInstance.generated.h"
 
 class FBodyInstance;
 
@@ -11,8 +15,11 @@ namespace physx
     class PxJoint;
 }
 
+USTRUCT()
 struct FConstraintInstance
 {
+    GENERATED_BODY()
+
     FString ConstraintName;
 
     FName ParentBoneName;
