@@ -338,7 +338,7 @@ void FBodyInstance::SetSimulatePhysics(bool bInSimulate)
 
 void FBodyInstance::SetEnableGravity(bool bInEnableGravity)
 {
-	bEnableGravity = bEnableGravity;
+	bEnableGravity = bInEnableGravity;
 
 	PxRigidDynamic* Dyn = GetPxRigidDynamic();
 	if (!Dyn)
