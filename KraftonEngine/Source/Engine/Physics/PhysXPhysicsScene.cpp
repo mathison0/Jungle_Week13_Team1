@@ -964,9 +964,83 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 // Internal helpers
 // ============================================================
 
+static PxTransform BuildComponentLocalPose(UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp)
+{
+	PxTransform LocalPose(PxIdentity);
+	if (!Comp || Comp == RootComp || !RootComp)
+	{
+		return LocalPose;
+	}
+
+	FVector RootPos = RootComp->GetWorldLocation();
+	FQuat RootRot = RootComp->GetWorldMatrix().ToQuat();
+	FVector CompPos = Comp->GetWorldLocation();
+	FQuat CompRot = Comp->GetWorldMatrix().ToQuat();
+
+	FQuat InvRootRot = RootRot.Inverse();
+	FVector LocalPos = InvRootRot.RotateVector(CompPos - RootPos);
+	FQuat LocalRot = InvRootRot * CompRot;
+
+	return FPhysXHelper::ToPxTransform(LocalPos, LocalRot);
+}
+
+static bool ShouldCreateTriggerShape(UPrimitiveComponent* Comp)
+{
+	if (!Comp)
+	{
+		return false;
+	}
+
+	// Trigger flag 결정:
+	//   1) GenerateOverlapEvents=true (명시적 trigger 의도)  OR
+	//   2) 어떤 active 채널에도 Block 응답이 없음 (= simulation 의미 없음, overlap 이벤트만 의도)
+	//
+	// (2)가 핵심 — FilterShader의 PairFlag만으로는 simulation shape pair에서 contact resolve를
+	// 막지 못하는 경우가 있어, 응답이 모두 Overlap/Ignore이면 PhysX shape 자체를 trigger로
+	// 등록해 contact resolve 자체가 발생하지 않도록 한다.
+	//
+	// 같은 PxActor 안에 simulation shape와 trigger shape가 섞이면 PhysX가 거부하므로
+	// 같은 액터의 모든 컴포넌트가 같은 종류여야 안전 (현재 ATriggerVolumeBase는 BoxComponent 1개라 OK).
+	if (Comp->GetGenerateOverlapEvents())
+	{
+		return true;
+	}
+
+	for (int32 Ch = 0; Ch < static_cast<int32>(ECollisionChannel::ActiveCount); ++Ch)
+	{
+		if (Comp->GetCollisionResponseToChannel(static_cast<ECollisionChannel>(Ch)) == ECollisionResponse::Block)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+static void ConfigureCreatedShape(PxShape* Shape, UPrimitiveComponent* Comp, FBodyInstance* BodyInstance, bool bShouldBeTrigger)
+{
+	if (!Shape || !Comp)
+	{
+		return;
+	}
+
+	SetupFilterData(Shape, Comp);
+
+	if (bShouldBeTrigger)
+	{
+		Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
+		Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
+	}
+
+	// userData: shape도 FBodyInstance로 매핑한다.
+	FPhysXHelper::SetUserData(Shape, BodyInstance);
+}
+
 PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
 {
 	if (!Mapping.Actor || !DefaultMaterial || !Comp) return nullptr;
+
+	const PxTransform ComponentLocalPose = BuildComponentLocalPose(Mapping.RootComp, Comp);
+	const bool bShouldBeTrigger = ShouldCreateTriggerShape(Comp);
 
 	// Shape Component 타입에 따라 PxGeometry 결정
 	PxGeometryHolder Geom;
@@ -1007,62 +1081,12 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 	PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *ShapeMaterial);
 	if (!Shape) return nullptr;
 
-	// Local pose: Comp의 RootComp 대비 상대 transform.
-	// Compound shape에서 자식 컴포넌트가 부모(=PxActor 기준)에 정확히 박혀있도록.
-	PxTransform LocalPose = PxTransform(PxIdentity);
-	if (Comp != Mapping.RootComp && Mapping.RootComp)
-	{
-		FVector RootPos = Mapping.RootComp->GetWorldLocation();
-		FQuat RootRot = Mapping.RootComp->GetWorldMatrix().ToQuat();
-		FVector CompPos = Comp->GetWorldLocation();
-		FQuat CompRot = Comp->GetWorldMatrix().ToQuat();
-
-		FQuat InvRootRot = RootRot.Inverse();
-		FVector LocalPos = InvRootRot.RotateVector(CompPos - RootPos);
-		FQuat LocalRot = InvRootRot * CompRot;
-
-		LocalPose = FPhysXHelper::ToPxTransform(LocalPos, LocalRot);
-	}
-
 	// Capsule 등 축 보정을 LocalPose의 회전 부분에 합성
+	PxTransform LocalPose = ComponentLocalPose;
 	LocalPose.q = LocalPose.q * ShapeAxisRot;
 	Shape->setLocalPose(LocalPose);
 
-	SetupFilterData(Shape, Comp);
-
-	// Trigger flag 결정:
-	//   1) GenerateOverlapEvents=true (명시적 trigger 의도)  OR
-	//   2) 어떤 active 채널에도 Block 응답이 없음 (= simulation 의미 없음, overlap 이벤트만 의도)
-	//
-	// (2)가 핵심 — FilterShader의 PairFlag만으로는 simulation shape pair에서 contact resolve를
-	// 막지 못하는 경우가 있어, 응답이 모두 Overlap/Ignore이면 PhysX shape 자체를 trigger로
-	// 등록해 contact resolve 자체가 발생하지 않도록 한다.
-	//
-	// 같은 PxActor 안에 simulation shape와 trigger shape가 섞이면 PhysX가 거부하므로
-	// 같은 액터의 모든 컴포넌트가 같은 종류여야 안전 (현재 ATriggerVolumeBase는 BoxComponent 1개라 OK).
-	bool bShouldBeTrigger = Comp->GetGenerateOverlapEvents();
-	if (!bShouldBeTrigger)
-	{
-		bool bHasAnyBlockResponse = false;
-		for (int32 Ch = 0; Ch < static_cast<int32>(ECollisionChannel::ActiveCount); ++Ch)
-		{
-			if (Comp->GetCollisionResponseToChannel(static_cast<ECollisionChannel>(Ch)) == ECollisionResponse::Block)
-			{
-				bHasAnyBlockResponse = true;
-				break;
-			}
-		}
-		bShouldBeTrigger = !bHasAnyBlockResponse;
-	}
-
-	if (bShouldBeTrigger)
-	{
-		Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
-		Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
-	}
-
-	// userData: shape도 FBodyInstance로 매핑한다.
-	FPhysXHelper::SetUserData(Shape, &Mapping.BodyInstance);
+	ConfigureCreatedShape(Shape, Comp, &Mapping.BodyInstance, bShouldBeTrigger);
 
 	return Shape;
 }
@@ -1085,10 +1109,9 @@ void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimiti
 
 	for (PxShape* Shape : Shapes)
 	{
-		if (FPhysXHelper::HasUserData(Shape, Comp))
+		if (Shape && FPhysXHelper::HasUserData(Shape, Comp))
 		{
 			Mapping.Actor->detachShape(*Shape);
-			break;
 		}
 	}
 }
