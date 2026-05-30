@@ -144,6 +144,8 @@ void FPhysXPhysicsScene::Shutdown()
 
 		if (Mapping.Actor)
 		{
+			FPhysXHelper::SetActorBodyRecord(Mapping.Actor, nullptr);
+
 			for (UPrimitiveComponent* Component : Mapping.Components)
 			{
 				if (Component)
@@ -196,7 +198,7 @@ void FPhysXPhysicsScene::Shutdown()
 //
 // 한 액터의 여러 PrimitiveComponent는 같은 PxRigidActor에 shape로 합쳐진다.
 // shape의 LocalPose는 액터 RootComponent에 대한 상대 transform.
-// userData: PxActor → FBodyInstance, PxShape → FBodyInstance.
+// userData: PxActor -> 대표 FBodyInstance, PxShape -> shape owner FBodyInstance.
 // ============================================================
 
 void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
@@ -232,8 +234,7 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 		// 각 shape component도 같은 PxActor를 가리키는 자신의 BodyInstance를 가진다.
 		RootPrim->GetBodyInstance()->InitBody(RootPrim, Body);
 
-		// PxActor::userData는 이제 AActor*가 아니라 FBodyInstance*이다.
-		FPhysXHelper::SetUserData(Body, RootPrim->GetBodyInstance());
+		FPhysXHelper::SetActorBodyRecord(Body, RootPrim->GetBodyInstance());
 
 		Scene->addActor(*Body);
 
@@ -277,6 +278,8 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	{
 		if (Mapping->Actor)
 		{
+			FPhysXHelper::SetActorBodyRecord(Mapping->Actor, nullptr);
+
 			if (Mapping->RootComp && Mapping->RootComp != Comp)
 			{
 				DestroyConstraintsForBody(Mapping->RootComp->GetBodyInstance());
@@ -316,7 +319,7 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	if (Comp == Mapping->RootComp)
 	{
 		Mapping->RootComp = Mapping->Components.front();
-		FPhysXHelper::SetUserData(Mapping->Actor, Mapping->RootComp ? Mapping->RootComp->GetBodyInstance() : nullptr);
+		FPhysXHelper::SetActorBodyRecord(Mapping->Actor, Mapping->RootComp ? Mapping->RootComp->GetBodyInstance() : nullptr);
 	}
 
 	// 남은 shape가 있으면 mass/inertia 재계산

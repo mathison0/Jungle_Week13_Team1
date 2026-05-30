@@ -109,8 +109,7 @@ static void ConfigureCreatedShape(PxShape* Shape, UPrimitiveComponent* Comp, FBo
 		Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
 	}
 
-	// userData: shape도 FBodyInstance로 매핑한다.
-	FPhysXHelper::SetUserData(Shape, BodyInstance);
+	FPhysXHelper::SetShapeBodyRecord(Shape, BodyInstance);
 }
 
 PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
@@ -189,8 +188,9 @@ void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimiti
 
 	for (PxShape* Shape : Shapes)
 	{
-		if (Shape && FPhysXHelper::HasUserData(Shape, ComponentBody))
+		if (Shape && FPhysXHelper::IsShapeBodyRecord(Shape, ComponentBody))
 		{
+			FPhysXHelper::SetShapeBodyRecord(Shape, nullptr);
 			Mapping.Actor->detachShape(*Shape);
 		}
 	}

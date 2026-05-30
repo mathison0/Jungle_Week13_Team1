@@ -128,7 +128,7 @@ private:
 		UPrimitiveComponent* RootComp = nullptr;  // 트랜스폼 동기화 기준
 		TArray<UPrimitiveComponent*> Components;  // 등록된 컴포넌트들
 	};
-	// PxActor는 UPrimitiveComponent::BodyInstance를 userData로 참조한다.
+	// PxActor는 대표 UPrimitiveComponent::BodyInstance를 userData로 참조한다.
 	// FBodyMapping은 Actor 단위 compound 관계만 추적한다.
 	TArray<std::unique_ptr<FBodyMapping>> BodyMappings;
 
