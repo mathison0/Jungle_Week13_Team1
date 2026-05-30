@@ -14,6 +14,16 @@ namespace FMath
 		return Val;
 	}
 
+	inline float ClampMin(float Val, float Lo)
+	{
+		return Val < Lo ? Lo : Val;
+	}
+
+	inline float ClampMax(float Val, float Hi)
+	{
+		return Val > Hi ? Hi : Val;
+	}
+
 	inline float Lerp(float A, float B, float Alpha)
 	{
 		return A + Alpha * (B - A);

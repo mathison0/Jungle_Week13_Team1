@@ -64,7 +64,6 @@ public:
 
 
 private:
-	float ClampMin(float InValue, float ValueMin);
 	physx::PxMaterial* CastPxMaterial(void* Handle);
 
 	// 정지 마찰 계수
@@ -73,7 +72,7 @@ private:
 
 	// 동적 마찰
 	UPROPERTY(Edit, Save, Category = "PhysicalMaterial", DisplayName = "Dynamic Friction", Min = 0.0f, Max = 100.0f, Speed = 0.05f)
-	float DynamicFriction;
+	float DynamicFriction = 0.5f;
 
 	// 반발 계수. 0->완전 비탄성 충돌 / 1 -> 완전 탄성 충돌
 	UPROPERTY(Edit, Save, Category = "PhysicalMaterial", DisplayName = "Restitution", Min = 0.0f, Max = 1.0f, Speed = 0.05f)
@@ -105,4 +104,3 @@ private:
 	// UPhysicalMaterial 내부 runtime Cache로 취급
 	void* PxMaterialHandle = nullptr;
 };
-

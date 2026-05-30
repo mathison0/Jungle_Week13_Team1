@@ -27,7 +27,6 @@ namespace physx
 }
 
 // ================================================================================
-// 
 // ConstraintInstance가 실제 PxD6Joint같은 PhysX Joint를 만들 때 
 // - 어떤 축을 막고
 // - 어디까지 움직이게 하고
@@ -36,7 +35,7 @@ namespace physx
 // 
 // 를 정하는 데이터
 // ================================================================================
-struct FConstraintProfileProperties
+struct FConstraintOption
 {
 	// Linear DOF : 두 Body 사이에서 위치 이동을 얼마나 허용할 것인가?
 	ELinearConstraintMotion XMotion = ELinearConstraintMotion::Locked;
@@ -107,11 +106,11 @@ struct FConstraintInstance
     FString ChildBoneName;
 
 	// Body Local 기준 Joint Frame
-    FTransform ParentFrame;
-    FTransform ChildFrame;
+    FTransform ParentFrame;	// ParentBody 로컬 공간에 있는 Joint 기준 좌표계
+    FTransform ChildFrame;	// ChildBody 로컬 공간에 있는 Joint 기준 좌표계
 
 	// Constraint Option
-	FConstraintProfileProperties ProfileInstance;
+	FConstraintOption Option;
 
     // 런타임에 이름/컴포넌트 참조를 통해 찾아낸 실제 BodyInstance
     FBodyInstance* ParentBody = nullptr;

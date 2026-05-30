@@ -46,8 +46,8 @@ physx::PxMaterial* UPhysicalMaterial::GetOrCreatePxMaterial(physx::PxPhysics* Ph
 	}
 
 	PxMaterial* NewMaterial = Physics->createMaterial(
-		ClampMin(StaticFriction, 0.f),
-		ClampMin(DynamicFriction, 0.f),
+		FMath::ClampMin(StaticFriction, 0.f),
+		FMath::ClampMin(DynamicFriction, 0.f),
 		FMath::Clamp(Restitution, 0.f, 1.f)
 	);
 
@@ -73,8 +73,8 @@ void UPhysicalMaterial::UpdatePxMaterial()
 		return;
 	}
 	
-	Material->setStaticFriction(ClampMin(StaticFriction, 0.f));
-	Material->setDynamicFriction(ClampMin(DynamicFriction, 0.f));
+	Material->setStaticFriction(FMath::ClampMin(StaticFriction, 0.f));
+	Material->setDynamicFriction(FMath::ClampMin(DynamicFriction, 0.f));
 	Material->setRestitution(FMath::Clamp(Restitution, 0.f, 1.f));
 
 	if (bOverrideFrictionCombineMode)
@@ -102,27 +102,27 @@ void UPhysicalMaterial::ReleasePxMaterial()
 	PxMaterialHandle = nullptr;
 }
 
-void UPhysicalMaterial::SetStartFriction(float InValue)
+void UPhysicalMaterial::SetStaticFriction(float InValue)
 {
-	StaticFriction = ClampMin(InValue, 0.f);
+	StaticFriction = FMath::ClampMin(InValue, 0.f);
 	UpdatePxMaterial();
 }
 
 void UPhysicalMaterial::SetDynamicFriction(float InValue)
 {
-	DynamicFriction = ClampMin(InValue, 0.f);
+	DynamicFriction = FMath::ClampMin(InValue, 0.f);
 	UpdatePxMaterial();
 }
 
 void UPhysicalMaterial::SetRestitution(float InValue)
 {
-	Restitution = ClampMin(InValue, 0.f);
+	Restitution = FMath::Clamp(InValue, 0.f, 1.f);
 	UpdatePxMaterial();
 }
 
 void UPhysicalMaterial::SetDensity(float InValue)
 {
-	Density = ClampMin(InValue, 0.f);
+	Density = FMath::ClampMin(InValue, 0.f);
 }
 
 void UPhysicalMaterial::SetRaiseMassToPower(float InValue)
@@ -145,10 +145,6 @@ void UPhysicalMaterial::SetRestitutionCombineMode(EPMCombineMode InMode, bool bO
 }
 
 // --- Physical Material Helper 함수 ---
-float UPhysicalMaterial::ClampMin(float InValue, float ValueMin)
-{
-	return InValue < ValueMin ? ValueMin : InValue;
-}
 
 physx::PxMaterial* UPhysicalMaterial::CastPxMaterial(void* Handle)
 {
