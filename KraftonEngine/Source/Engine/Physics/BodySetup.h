@@ -20,5 +20,6 @@ public:
     bool HasGeometry() const;
 
 public:
+    UPROPERTY(Edit, Save, Category="Physics", DisplayName="Aggregate Geometry", Type=Struct, Struct=FKAggregateGeom)
     FKAggregateGeom AggGeom;
 };
