@@ -1,6 +1,6 @@
-#include "Physics/PhysXCollision.h"
+#include "PhysXCollision.h"
 
-#include "Physics/PhysXShapeDesc.h"
+#include "PhysXShapeDesc.h"
 
 using namespace physx;
 

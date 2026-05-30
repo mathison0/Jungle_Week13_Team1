@@ -1,5 +1,5 @@
 ﻿#include "Physics/BodyInstance.h"
-#include "Physics/PhysXHelper.h"
+#include "Physics/PhysX/PhysXHelper.h"
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/AActor.h"
 

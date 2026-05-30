@@ -1,10 +1,10 @@
-#include "Physics/PhysXPhysicsScene.h"
+﻿#include "PhysXPhysicsScene.h"
 
 #include "Component/PrimitiveComponent.h"
 #include "Component/ShapeComponent.h"
 #include "GameFramework/AActor.h"
-#include "Physics/PhysXHelper.h"
-#include "Physics/PhysXQueryUtils.h"
+#include "PhysXHelper.h"
+#include "PhysXQueryUtils.h"
 
 #include <PxPhysicsAPI.h>
 

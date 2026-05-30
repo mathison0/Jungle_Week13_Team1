@@ -1,8 +1,8 @@
-#include "Physics/PhysXPhysicsScene.h"
+#include "PhysXPhysicsScene.h"
 
 #include "Core/Logging/Log.h"
 #include "Math/MathUtils.h"
-#include "Physics/PhysXHelper.h"
+#include "PhysXHelper.h"
 
 #include <PxPhysicsAPI.h>
 

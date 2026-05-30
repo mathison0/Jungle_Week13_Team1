@@ -1,11 +1,11 @@
-#include "Physics/PhysXPhysicsScene.h"
+﻿#include "PhysXPhysicsScene.h"
 
 #include "Component/PrimitiveComponent.h"
 #include "Core/Logging/Log.h"
 #include "Physics/PhysicalMaterial.h"
-#include "Physics/PhysXCollision.h"
-#include "Physics/PhysXHelper.h"
-#include "Physics/PhysXShapeDesc.h"
+#include "PhysXCollision.h"
+#include "PhysXHelper.h"
+#include "PhysXShapeDesc.h"
 
 #include <PxPhysicsAPI.h>
 
