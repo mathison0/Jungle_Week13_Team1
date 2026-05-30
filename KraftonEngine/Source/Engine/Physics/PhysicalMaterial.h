@@ -53,7 +53,7 @@ public:
 	EPMCombineMode GetFrictionCombineMode() const { return FrictionCombineMode; }
 	EPMCombineMode GetRestitutionCombineMode() const { return RestitutionCombineMode; }
 
-	void SetStartFriction(float InValue);
+	void SetStaticFriction(float InValue);
 	void SetDynamicFriction(float InValue);
 	void SetRestitution(float InValue);
 	void SetDensity(float InValue);

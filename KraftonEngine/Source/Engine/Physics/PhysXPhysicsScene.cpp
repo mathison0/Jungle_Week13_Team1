@@ -1152,11 +1152,6 @@ const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByCompone
 	return nullptr;
 }
 
-void FPhysXPhysicsScene::DestroyConstraintsForBody(FBodyInstance* Body)
-{
-
-}
-
 // ============================================================
 // Force / Torque
 // ============================================================
