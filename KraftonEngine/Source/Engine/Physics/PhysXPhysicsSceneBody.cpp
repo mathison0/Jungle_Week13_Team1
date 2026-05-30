@@ -138,6 +138,33 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 	return Shape;
 }
 
+bool FPhysXPhysicsScene::AddShapesFromBodySetup(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
+{
+	if (!Mapping.Actor || !DefaultMaterial || !Comp) return false;
+
+	TArray<FPhysXShapeDesc> Descs;
+	FPhysXShapeDescUtils::MakeShapeDescsFromBodySetup(Mapping.RootComp, Comp, GetBodyType(Mapping.Actor), Descs);
+	if (Descs.empty()) return false;
+
+	bool bAnyCreated = false;
+	for (const FPhysXShapeDesc& Desc : Descs)
+	{
+		PxGeometryHolder Geom;
+		if (!BuildPxGeometry(Desc, Geom)) continue;
+
+		PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Desc.Material, DefaultPhysicalMaterial, DefaultMaterial, Physics);
+		if (!ShapeMaterial) continue;
+
+		PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *ShapeMaterial);
+		if (!Shape) continue;
+
+		Shape->setLocalPose(FPhysXHelper::ToPxTransform(Desc.LocalTransform));
+		ConfigureCreatedShape(Shape, Desc);
+		bAnyCreated = true;
+	}
+	return bAnyCreated;
+}
+
 // PxShape::userData는 해당 UPrimitiveComponent가 소유한 FBodyInstance*이다.
 // 같은 PxActor에 여러 component shape가 붙어도 body instance 포인터로 component 단위 detach가 가능하다.
 void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)

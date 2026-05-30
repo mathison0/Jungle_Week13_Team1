@@ -6,6 +6,7 @@
 #include "Math/Vector.h"
 
 class FBodyInstance;
+class UBodySetup;
 class UPrimitiveComponent;
 class UPhysicalMaterial;
 
@@ -64,4 +65,11 @@ namespace FPhysXShapeDescUtils
 		UPrimitiveComponent* ShapeComp,
 		EPhysXBodyType BodyType,
 		FPhysXShapeDesc& OutDesc);
+
+	// UBodySetup::AggGeom → shape desc 변환. ConvexElems는 건너뛴다.
+	void MakeShapeDescsFromBodySetup(
+		UPrimitiveComponent* RootComp,
+		UPrimitiveComponent* Comp,
+		EPhysXBodyType BodyType,
+		TArray<FPhysXShapeDesc>& OutDescs);
 }

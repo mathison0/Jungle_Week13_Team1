@@ -18,6 +18,11 @@ FPrimitiveSceneProxy* UStaticMeshComponent::CreateSceneProxy()
 	return new FStaticMeshSceneProxy(this);
 }
 
+UBodySetup* UStaticMeshComponent::GetBodySetup() const
+{
+	return StaticMesh ? StaticMesh->GetBodySetup() : nullptr;
+}
+
 void UStaticMeshComponent::SetStaticMesh(UStaticMesh* InMesh)
 {
 	StaticMesh = InMesh;

@@ -145,6 +145,8 @@ private:
 
 	// Comp의 geometry를 Mapping의 PxRigidActor에 shape로 추가. 실패 시 nullptr.
 	physx::PxShape* AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
+	// Comp의 BodySetup AggGeom을 Mapping의 PxRigidActor에 shape로 추가. shape가 하나 이상 생성되면 true.
+	bool AddShapesFromBodySetup(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
 	// Mapping의 actor에서 Comp에 매칭된 shape를 detach.
 	void DetachShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
 };

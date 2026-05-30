@@ -242,9 +242,17 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 		Mapping = BodyMappings.back().get();
 	}
 
-	// shape 추가
-	PxShape* Shape = AddShapeForComponent(*Mapping, Comp);
-	if (!Shape) return;
+	// shape 추가 — BodySetup이 있으면 AggGeom 경로, 없으면 ShapeComponent 경로
+	bool bShapeAdded;
+	if (Comp->GetBodySetup())
+	{
+		bShapeAdded = AddShapesFromBodySetup(*Mapping, Comp);
+	}
+	else
+	{
+		bShapeAdded = (AddShapeForComponent(*Mapping, Comp) != nullptr);
+	}
+	if (!bShapeAdded) return;
 	Comp->GetBodyInstance()->InitBody(Comp, Mapping->Actor);
 	Mapping->Components.push_back(Comp);
 
