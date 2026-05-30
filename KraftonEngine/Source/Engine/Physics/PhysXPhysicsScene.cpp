@@ -1,4 +1,5 @@
 ﻿#include "Physics/PhysXPhysicsScene.h"
+#include "Physics/PhysXHelper.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/ShapeComponent.h"
 #include "Component/Shape/BoxComponent.h"
@@ -9,11 +10,33 @@
 #include "Math/Quat.h"
 #include "Object/Object.h"  // IsAliveObject
 #include "Core/Logging/Log.h"
+#include "Physics/PhysicalMaterial.h"
+#include "Math/MathUtils.h"
 
 // PhysX headers
 #include <PxPhysicsAPI.h>
 
+#include <algorithm>
+#include <memory>
+
 using namespace physx;
+
+// ============================================================
+// PhysX Core Settings
+// ============================================================
+#ifdef _DEBUG
+// PVD 초기화, 기본 비활성화
+static constexpr bool GEnablePhysXPvd = false;
+
+// PVD 기본 포트. NVIDIA PVD 기본 포트 5425
+static constexpr const char* GPhysXPvdHost = "127.0.0.1";
+static constexpr int32 GPhysXPvdPort = 5425;
+static constexpr uint32 GPhysXPvdTimeoutMs = 1000;
+#endif
+
+// Dispatcher Thread 수
+// TODO: 프로젝트 세팅으로 빼서 개수 조절할 수 있게 만들기 고려
+static constexpr int32 GPhysXWorkerThreadCount = 2;
 
 // ============================================================
 // PhysX Error Callback
@@ -42,36 +65,186 @@ static FPhysXErrorCallback GPhysXErrorCallback;
 static PxDefaultAllocator GPhysXAllocator;
 
 // ============================================================
-// PhysX Foundation/Physics 싱글턴
-// PxCreateFoundation은 프로세스당 1회만 허용 — 복수 Scene에서 공유
+// Shared PhysX Core
+// 
+// PhysX Foundation / Physics는 프로세스 단위로 공유
+// 여러 World / 여러 PhysicsScene이 생겨도 중복 생성하지 않음.
 // ============================================================
 static PxFoundation* GSharedFoundation = nullptr;
 static PxPhysics* GSharedPhysics = nullptr;
-static int32 GSharedRefCount = 0;
+#ifdef _DEBUG
+static PxPvd* GSharedPvd = nullptr;
+static PxPvdTransport* GSharedPvdTransport = nullptr;
+#endif
 
-static void AcquireSharedPhysX(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics)
+static int32 GSharedRefCount = 0;
+static bool GSharedExtensionsInitialized = false;
+
+// Release Helper Function
+// Fallback으로 해제할 일이 너무 많아서 해제 함수를 따로 개설
+#ifdef _DEBUG
+static void ReleasePvd()
+{
+	if (GSharedPvd) { GSharedPvd->release(); GSharedPvd = nullptr; }
+}
+static void ReleasePvdTransport()
+{
+	if (GSharedPvdTransport) { GSharedPvdTransport->release(); GSharedPvdTransport = nullptr; }
+}
+#endif
+static void ReleaseFoundation()
+{
+	if (GSharedFoundation) { GSharedFoundation->release(); GSharedFoundation = nullptr; }
+}
+static void ReleasePhysics()
+{
+	if (GSharedPhysics) { GSharedPhysics->release(); GSharedPhysics = nullptr; }
+}
+
+#ifdef _DEBUG
+static void TryCreatedSharedPvd()
+{
+	if (!GEnablePhysXPvd) return;
+	if (!GSharedFoundation) return;
+	if (GSharedPvd) return;
+
+	GSharedPvd = PxCreatePvd(*GSharedFoundation);
+	if (!GSharedPvd)
+	{
+		UE_LOG("[PhysX] PVD Creation Failed. Continue without PVD.");
+		return;
+	}
+
+	GSharedPvdTransport = PxDefaultPvdSocketTransportCreate(
+		GPhysXPvdHost,
+		GPhysXPvdPort,
+		GPhysXPvdTimeoutMs
+	);
+
+	if (!GSharedPvdTransport)
+	{
+		UE_LOG("[PhysX] PVD Transport Creation Failed. Continue without PVD.");
+		ReleasePvd();
+		return;
+	}
+
+	const PxPvdInstrumentationFlags Flags =
+		PxPvdInstrumentationFlag::eDEBUG |
+		PxPvdInstrumentationFlag::ePROFILE |
+		PxPvdInstrumentationFlag::eMEMORY;
+	
+	const bool bConnected = GSharedPvd->connect(*GSharedPvdTransport, Flags);
+	if (!bConnected) 
+	{
+		UE_LOG("[PhysX] PVD Connection Failed. Continue without PVD.");
+		
+		ReleasePvdTransport();
+		ReleasePvd();
+
+		return;
+	}
+
+	UE_LOG("[PhysX] PVD Connected (%s:%d)", GPhysXPvdHost, GPhysXPvdPort);
+}
+#endif
+
+
+// Foundation, Physics, Extensions
+#ifdef _DEBUG
+static bool AcquireSharedPhysX(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics, PxPvd*& OutPvd, PxPvdTransport*& OutPvdTransport)
+#else
+static bool AcquireSharedPhysX(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics)
+#endif
 {
 	if (GSharedRefCount == 0)
 	{
 		GSharedFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, GPhysXAllocator, GPhysXErrorCallback);
-		if (GSharedFoundation)
+		if (!GSharedFoundation)
 		{
-			GSharedPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *GSharedFoundation, PxTolerancesScale());
+			UE_LOG("[PhysX] Failed to Create PxFoundation");
+			return false;
 		}
+
+#ifdef _DEBUG
+		TryCreatedSharedPvd();
+
+		GSharedPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *GSharedFoundation, PxTolerancesScale(), true, GSharedPvd);
+#else
+		GSharedPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *GSharedFoundation, PxTolerancesScale(), true, nullptr);
+#endif
+		if (!GSharedPhysics)
+		{
+			UE_LOG("[PhysX] Failed to Create PxPhysics.");
+
+#ifdef _DEBUG
+			ReleasePvdTransport();
+			ReleasePvd();
+#endif
+			ReleaseFoundation();
+			return false;
+		}
+
+		// Joint, Constraint, Vehicle Extension 전용 확장
+#ifdef _DEBUG
+		if (!PxInitExtensions(*GSharedPhysics, GSharedPvd))
+#else
+		if (!PxInitExtensions(*GSharedPhysics, nullptr))
+#endif
+		{
+			UE_LOG("[PhysX] PxInitExtensions failed");
+
+			ReleasePhysics();
+#ifdef _DEBUG
+			ReleasePvdTransport();
+			ReleasePvd();
+#endif
+			ReleaseFoundation();
+			return false;
+		}
+		GSharedExtensionsInitialized = true;
+		UE_LOG("[PhysX] Shared Foundation / Physics / Extension Initialized!");
 	}
 	++GSharedRefCount;
 	OutFoundation = GSharedFoundation;
 	OutPhysics = GSharedPhysics;
+#ifdef _DEBUG
+	OutPvd = GSharedPvd;
+	OutPvdTransport = GSharedPvdTransport;
+#endif
+
+	return true;
 }
 
+// 마지막 Scene이 사라질 때만 실제 PhysX 객체 해제
 static void ReleaseSharedPhysX()
 {
-	if (--GSharedRefCount <= 0)
+	if (GSharedRefCount <= 0) { GSharedRefCount = 0; return; }
+	--GSharedRefCount;
+	if (GSharedRefCount > 0) return;
+	
+	if (GSharedExtensionsInitialized)
 	{
-		if (GSharedPhysics) { GSharedPhysics->release(); GSharedPhysics = nullptr; }
-		if (GSharedFoundation) { GSharedFoundation->release(); GSharedFoundation = nullptr; }
-		GSharedRefCount = 0;
+		PxCloseExtensions();
+		GSharedExtensionsInitialized = false;
+		UE_LOG("[PhysX] Extension Closed");
 	}
+
+	ReleasePhysics();
+
+#ifdef _DEBUG
+	if (GSharedPvd && GSharedPvd->isConnected())
+	{
+		GSharedPvd->disconnect();
+	}
+
+	ReleasePvdTransport();
+	ReleasePvd();
+#endif
+
+	ReleaseFoundation();
+
+	GSharedRefCount = 0;
+	UE_LOG("[PhysX] Shared Foundation / Physics released.");
 }
 
 // ============================================================
@@ -119,8 +292,10 @@ public:
 			const bool bEnd = CP.events.isSet(PxPairFlag::eNOTIFY_TOUCH_LOST);
 			if (!bBegin && !bEnd) continue;
 
-			auto* CompA = CP.shapes[0] ? static_cast<UPrimitiveComponent*>(CP.shapes[0]->userData) : nullptr;
-			auto* CompB = CP.shapes[1] ? static_cast<UPrimitiveComponent*>(CP.shapes[1]->userData) : nullptr;
+			FBodyInstance* BodyA = FPhysXHelper::GetBodyInstanceFromPxShape(CP.shapes[0]);
+			FBodyInstance* BodyB = FPhysXHelper::GetBodyInstanceFromPxShape(CP.shapes[1]);
+			UPrimitiveComponent* CompA = BodyA ? BodyA->GetOwnerComponent() : nullptr;
+			UPrimitiveComponent* CompB = BodyB ? BodyB->GetOwnerComponent() : nullptr;
 			if (!CompA || !CompB) continue;
 
 			if (bEnd)
@@ -149,8 +324,8 @@ public:
 
 			if (NumPoints > 0)
 			{
-				ContactPos    = FVector(ContactPoints[0].position.x, ContactPoints[0].position.y, ContactPoints[0].position.z);
-				ContactNormal = FVector(ContactPoints[0].normal.x,   ContactPoints[0].normal.y,   ContactPoints[0].normal.z);
+				ContactPos    = FPhysXHelper::ToFVector(ContactPoints[0].position);
+				ContactNormal = FPhysXHelper::ToFVector(ContactPoints[0].normal);
 				Penetration   = ContactPoints[0].separation; // 음수 = 관통
 			}
 
@@ -194,8 +369,10 @@ public:
 			if (TP.flags & (PxTriggerPairFlag::eREMOVED_SHAPE_TRIGGER | PxTriggerPairFlag::eREMOVED_SHAPE_OTHER))
 				continue;
 
-			auto* TriggerComp = TP.triggerShape ? static_cast<UPrimitiveComponent*>(TP.triggerShape->userData) : nullptr;
-			auto* OtherComp   = TP.otherShape   ? static_cast<UPrimitiveComponent*>(TP.otherShape->userData)   : nullptr;
+			FBodyInstance* TriggerBody = FPhysXHelper::GetBodyInstanceFromPxShape(TP.triggerShape);
+			FBodyInstance* OtherBody   = FPhysXHelper::GetBodyInstanceFromPxShape(TP.otherShape);
+			UPrimitiveComponent* TriggerComp = TriggerBody ? TriggerBody->GetOwnerComponent() : nullptr;
+			UPrimitiveComponent* OtherComp   = OtherBody ? OtherBody->GetOwnerComponent() : nullptr;
 			if (!TriggerComp || !OtherComp) continue;
 
 			const bool bBegin = (TP.status == PxPairFlag::eNOTIFY_TOUCH_FOUND);
@@ -265,36 +442,6 @@ private:
 	std::vector<FQueuedTrigger> PendingTriggers;
 };
 
-// ============================================================
-// Transform 변환 유틸
-// ============================================================
-static PxVec3 ToPxVec3(const FVector& V)
-{
-	return PxVec3(V.X, V.Y, V.Z);
-}
-
-static PxQuat ToPxQuat(const FQuat& Q)
-{
-	return PxQuat(Q.X, Q.Y, Q.Z, Q.W);
-}
-
-static FVector ToFVector(const PxVec3& V)
-{
-	return FVector(V.x, V.y, V.z);
-}
-
-static FQuat ToFQuat(const PxQuat& Q)
-{
-	return FQuat(Q.x, Q.y, Q.z, Q.w);
-}
-
-static PxTransform GetPxTransform(UPrimitiveComponent* Comp)
-{
-	FVector Pos = Comp->GetWorldLocation();
-	FQuat Rot = Comp->GetWorldMatrix().ToQuat();
-	return PxTransform(ToPxVec3(Pos), ToPxQuat(Rot));
-}
-
 // Compound body의 mass와 center-of-mass를 RootComponent의 값으로 갱신.
 // shape 추가/제거 후 inertia 재계산이 필요하므로 RegisterComponent /
 // UnregisterComponent 끝에서 호출된다.
@@ -303,7 +450,33 @@ static void ApplyRootMassAndCOM(PxRigidDynamic* Dyn, UPrimitiveComponent* Root)
 	if (!Dyn || !Root) return;
 	const float MassKg = (Root->GetMass() > 0.0f) ? Root->GetMass() : 1.0f;
 	PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, MassKg);
-	Dyn->setCMassLocalPose(PxTransform(ToPxVec3(Root->GetCenterOfMass())));
+	Dyn->setCMassLocalPose(PxTransform(FPhysXHelper::ToPxVec3(Root->GetCenterOfMass())));
+}
+
+static PxMaterial* TryGetOrCreatePxMaterial(UPrimitiveComponent* Comp, UPhysicalMaterial* DefaultPhysicalMaterial, PxMaterial* DefaultMaterial, PxPhysics* Physics)
+{
+	if (!Physics) return DefaultMaterial;
+
+	if (Comp)
+	{
+		if (UPhysicalMaterial* OverrideMaterial = Comp->GetPhysicalMaterialOverride())
+		{
+			if (PxMaterial* PxMat = OverrideMaterial->GetOrCreatePxMaterial(Physics))
+			{
+				return PxMat;
+			}
+		}
+	}
+
+	if (DefaultPhysicalMaterial)
+	{
+		if (PxMaterial* PxMat = DefaultPhysicalMaterial->GetOrCreatePxMaterial(Physics))
+		{
+			return PxMat;
+		}
+	}
+
+	return DefaultMaterial;
 }
 
 // ============================================================
@@ -403,7 +576,16 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	World = InWorld;
 
 	// Foundation / Physics — 프로세스 싱글턴 공유
-	AcquireSharedPhysX(Foundation, Physics);
+#ifdef _DEBUG
+	if (!AcquireSharedPhysX(Foundation, Physics, Pvd, PvdTransport))
+#else
+	if (!AcquireSharedPhysX(Foundation, Physics))
+#endif
+	{
+		UE_LOG("[PhysX] Failed to acquire shared PhysX Core.");
+		return;
+	}
+
 	if (!Foundation || !Physics)
 	{
 		UE_LOG("[PhysX] Failed to create Foundation or Physics");
@@ -411,7 +593,12 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	}
 
 	// CPU Dispatcher
-	Dispatcher = PxDefaultCpuDispatcherCreate(2);
+	Dispatcher = PxDefaultCpuDispatcherCreate(GPhysXWorkerThreadCount);
+	if (!Dispatcher)
+	{
+		UE_LOG("[PhysX] Failed to create CPU dispatcher.");
+		return;
+	}
 
 	// Event callback
 	EventCallback = new FPhysXSimulationCallback();
@@ -422,6 +609,10 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 	SceneDesc.cpuDispatcher = Dispatcher;
 	SceneDesc.filterShader = KraftonFilterShader;
 	SceneDesc.simulationEventCallback = EventCallback;
+	SceneDesc.flags |= PxSceneFlag::eENABLE_CCD;			// 빠르게 움직이는 dynamic body가 얇은 collider를 관통하는 문제 감소
+	SceneDesc.flags |= PxSceneFlag::eENABLE_PCM;			// 접촉점 안정성을 높여 stacked body, ragdoll contact jitter를 줄이는 데 유리
+	SceneDesc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;	// 전체 body 순회 대신 "움직인 actor"만 동기화
+
 	Scene = Physics->createScene(SceneDesc);
 
 	if (!Scene)
@@ -430,26 +621,82 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 		return;
 	}
 
+#ifdef _DEBUG
+	// PVD Scene Client 설정
+	if (PxPvdSceneClient* PvdClient = Scene->getScenePvdClient())
+	{
+		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
+		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
+		PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, false);
+
+		// PVD Settings
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eSCALE, 1.0f);				// PVD / PhysX debug visualization Scale
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, 1.0f);	// Collision shape
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eBODY_AXES, 1.0f);			// Actor 축
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eBODY_MASS_AXES, 1.0f);		// Body mass axes
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eCONTACT_NORMAL, 1.0f);		// Contact normal
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LOCAL_FRAMES, 1.0f);	// Joint local frame
+		// Scene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LIMITS, 1.0f);		// Joint limit
+	}
+#endif
+
+	// --- Material ---
+	
 	// Default material (static friction, dynamic friction, restitution)
-	DefaultMaterial = Physics->createMaterial(0.5f, 0.5f, 0.3f);
+	// TODO: PhysicalMaterial 구현 후 Fallback으로 만들기
+	DefaultPhysicalMaterial = UObjectManager::Get().CreateObject<UPhysicalMaterial>();
+	DefaultMaterial = DefaultPhysicalMaterial->GetOrCreatePxMaterial(Physics);
+	if (!DefaultMaterial)
+	{
+		UE_LOG("[PhysX] Failed to Create Default Physical Material");
+		return;
+	}
+
 
 	UE_LOG("[PhysX] Initialized successfully (Scene=%p)", Scene);
 }
 
 void FPhysXPhysicsScene::Shutdown()
 {
-	// Body 정리
-	for (auto& Mapping : BodyMappings)
+	// Constraint는 PxRigidActor를 참조한다.
+	// 따라서 Bodies보다 먼저 release
+	for (auto& ConstraintPtr : Constraints)
 	{
+		if (ConstraintPtr)
+		{
+			ConstraintPtr->TerminateConstraint();
+		}
+	}
+	Constraints.clear();
+
+	// Body 정리
+	for (auto& MappingPtr : BodyMappings)
+	{
+		if (!MappingPtr) continue;
+		FBodyMapping& Mapping = *MappingPtr;
+
 		if (Mapping.Actor)
 		{
+			// BodyInstance는 PxActor를 소유하지 않는다. 단순 연결 끊기.
+			Mapping.BodyInstance.TerminateBody();
+
+			if (Scene)
+			{
+				Scene->removeActor(*Mapping.Actor);
+			}
 			Mapping.Actor->release();
 			Mapping.Actor = nullptr;
 		}
 	}
 	BodyMappings.clear();
 
-	if (DefaultMaterial) { DefaultMaterial->release(); DefaultMaterial = nullptr; }
+	if (DefaultPhysicalMaterial)
+	{
+		UObjectManager::Get().DestroyObject(DefaultPhysicalMaterial);
+		DefaultPhysicalMaterial = nullptr;
+	}
+	DefaultMaterial = nullptr;
+
 	if (Scene) { Scene->release(); Scene = nullptr; }
 	if (EventCallback) { delete EventCallback; EventCallback = nullptr; }
 	if (Dispatcher) { Dispatcher->release(); Dispatcher = nullptr; }
@@ -457,9 +704,15 @@ void FPhysXPhysicsScene::Shutdown()
 	// Foundation/Physics는 공유 싱글턴 — release 카운트 감소만
 	Foundation = nullptr;
 	Physics = nullptr;
+#ifdef _DEBUG
+	Pvd = nullptr;
+	PvdTransport = nullptr;
+#endif
 	ReleaseSharedPhysX();
 
 	World = nullptr;
+
+	UE_LOG("[PhysX] Scene shutdown complete.");
 }
 
 // ============================================================
@@ -467,7 +720,7 @@ void FPhysXPhysicsScene::Shutdown()
 //
 // 한 액터의 여러 PrimitiveComponent는 같은 PxRigidActor에 shape로 합쳐진다.
 // shape의 LocalPose는 액터 RootComponent에 대한 상대 transform.
-// userData: PxActor → AActor, PxShape → UPrimitiveComponent.
+// userData: PxActor → FBodyInstance, PxShape → FBodyInstance.
 // ============================================================
 
 void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
@@ -486,22 +739,31 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 		if (!RootPrim) RootPrim = Comp;
 
 		const bool bDynamic = RootPrim->GetSimulatePhysics();
-		PxTransform BodyXf = GetPxTransform(RootPrim);
+		PxTransform BodyXf = FPhysXHelper::ToPxTransform(RootPrim);
 
 		PxRigidActor* Body = bDynamic
 			? static_cast<PxRigidActor*>(Physics->createRigidDynamic(BodyXf))
 			: static_cast<PxRigidActor*>(Physics->createRigidStatic(BodyXf));
 		if (!Body) return;
 
-		Body->userData = OwnerActor;
+		auto NewMapping = std::make_unique<FBodyMapping>();
+
+		NewMapping->OwnerActor = OwnerActor;
+		NewMapping->Actor = Body;
+		NewMapping->RootComp = RootPrim;
+
+		// 현재 단계에서는 Actor 단위 body 1개를 FBodyInstance 1개로 감싼다.
+		// 나중에 Ragdoll에서는 bone별 body마다 FBodyInstance가 생성된다.
+		NewMapping->BodyInstance.InitBody(RootPrim, Body);
+
+		// PxActor::userData는 이제 AActor*가 아니라 FBodyInstance*이다.
+		// unique_ptr 내부 객체 주소는 vector 재할당으로 바뀌지 않으므로 안전하다.
+		FPhysXHelper::SetUserData(Body, &NewMapping->BodyInstance);
+
 		Scene->addActor(*Body);
 
-		FBodyMapping NewMapping;
-		NewMapping.OwnerActor = OwnerActor;
-		NewMapping.Actor = Body;
-		NewMapping.RootComp = RootPrim;
-		BodyMappings.push_back(NewMapping);
-		Mapping = &BodyMappings.back();
+		BodyMappings.push_back(std::move(NewMapping));
+		Mapping = BodyMappings.back().get();
 	}
 
 	// shape 추가
@@ -536,13 +798,30 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	{
 		if (Mapping->Actor)
 		{
+			// Body 참조하는 joint 먼저 release
+			DestroyConstraintsForBody(&Mapping->BodyInstance);
+
+			// userData가 BodyInstance를 가리키므로 release 전에 먼저 끊는다.
+			Mapping->BodyInstance.TerminateBody();
+			
 			Scene->removeActor(*Mapping->Actor);
 			Mapping->Actor->release();
+			Mapping->Actor = nullptr;
 		}
 
-		// swap-and-pop
-		*Mapping = BodyMappings.back();
-		BodyMappings.pop_back();
+		// Mapping 포인터와 같은 unique_ptr을 찾아 제거한다.
+		BodyMappings.erase(
+			std::remove_if(
+				BodyMappings.begin(),
+				BodyMappings.end(),
+				[Mapping](const std::unique_ptr<FBodyMapping>& Ptr)
+				{
+					return Ptr.get() == Mapping;
+				}
+			),
+			BodyMappings.end()
+		);
+
 		return;
 	}
 
@@ -612,11 +891,13 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	constexpr float TeleportPosThresholdSq = 1.0f;   // 1m² (1m 이상 차이 시만 teleport)
 	constexpr float TeleportRotThreshold = 0.99f;    // ~8° 차이 시만 teleport
 
-	for (auto& Mapping : BodyMappings)
+	for (auto& MappingPtr : BodyMappings)
 	{
+		if (!MappingPtr) continue;
+		FBodyMapping& Mapping = *MappingPtr;
 		if (!Mapping.RootComp || !Mapping.Actor) continue;
 
-		PxTransform NewPose = GetPxTransform(Mapping.RootComp);
+		PxTransform NewPose = FPhysXHelper::ToPxTransform(Mapping.RootComp);
 
 		if (PxRigidDynamic* Dynamic = Mapping.Actor->is<PxRigidDynamic>())
 		{
@@ -652,18 +933,18 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 
 	// ── Post-simulate: PhysX → Engine Transform 동기화 ──
 	// RootComp에만 transform 적용 → 자식 컴포넌트는 attach로 자동 따라감.
-	for (auto& Mapping : BodyMappings)
+	for (auto& MappingPtr : BodyMappings)
 	{
+		if (!MappingPtr) continue;
+		FBodyMapping& Mapping = *MappingPtr;
+
 		if (!Mapping.RootComp || !Mapping.Actor) continue;
+		if (!Mapping.BodyInstance.IsDynamic()) continue;
+		if (Mapping.BodyInstance.IsKinematic()) continue;
+		if (Mapping.BodyInstance.IsInstanceSleeping()) continue;
 
-		PxRigidDynamic* Dynamic = Mapping.Actor->is<PxRigidDynamic>();
-		if (!Dynamic) continue;
-		if (Dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC) continue;
-		if (Dynamic->isSleeping()) continue;
-
-		PxTransform Pose = Dynamic->getGlobalPose();
-		FVector NewPos = ToFVector(Pose.p);
-		FQuat NewRot = ToFQuat(Pose.q);
+		FVector NewPos = Mapping.BodyInstance.GetEngineWorldLocation();
+		FQuat NewRot = Mapping.BodyInstance.GetEngineWorldRotation();
 
 		Mapping.RootComp->SetWorldLocation(NewPos);
 		Mapping.RootComp->SetRelativeRotation(NewRot);
@@ -716,7 +997,14 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 
 	if (!bHasGeom) return nullptr;
 
-	PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *DefaultMaterial);
+	PxMaterial* ShapeMaterial = TryGetOrCreatePxMaterial(Comp, DefaultPhysicalMaterial, DefaultMaterial, Physics);
+	if (!ShapeMaterial)
+	{
+		UE_LOG("[PhysX] Failed to resolve material for component. Comp=%p", Comp);
+		return nullptr;
+	}
+
+	PxShape* Shape = PxRigidActorExt::createExclusiveShape(*Mapping.Actor, Geom.any(), *ShapeMaterial);
 	if (!Shape) return nullptr;
 
 	// Local pose: Comp의 RootComp 대비 상대 transform.
@@ -733,7 +1021,7 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 		FVector LocalPos = InvRootRot.RotateVector(CompPos - RootPos);
 		FQuat LocalRot = InvRootRot * CompRot;
 
-		LocalPose = PxTransform(ToPxVec3(LocalPos), ToPxQuat(LocalRot));
+		LocalPose = FPhysXHelper::ToPxTransform(LocalPos, LocalRot);
 	}
 
 	// Capsule 등 축 보정을 LocalPose의 회전 부분에 합성
@@ -773,12 +1061,18 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 		Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
 	}
 
-	// userData: shape 단위로 PrimitiveComponent 매핑 — 콜백에서 역참조용
-	Shape->userData = Comp;
+	// userData: shape도 FBodyInstance로 매핑한다.
+	FPhysXHelper::SetUserData(Shape, &Mapping.BodyInstance);
 
 	return Shape;
 }
 
+// TODO(PhysX): 현재 PxShape::userData는 FBodyInstance*이다.
+// 따라서 Component 단위 detach를 위해서는 Shape -> Component 역매핑이 따로 필요하다.
+// BodyMapping 제거 / BodySetup 기반 구조 전환 시 함께 정리한다.
+// 지금은 Actor 전체 release 경로를 기준으로 동작시키며,
+// 개별 Component unregister / RebuildBody 경로에서는 ghost shape가 남을 수 있다.
+// 다음 작업에서 바로 수정 예정입니다.
 void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
 {
 	if (!Mapping.Actor || !Comp) return;
@@ -791,7 +1085,7 @@ void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimiti
 
 	for (PxShape* Shape : Shapes)
 	{
-		if (Shape && Shape->userData == Comp)
+		if (FPhysXHelper::HasUserData(Shape, Comp))
 		{
 			Mapping.Actor->detachShape(*Shape);
 			break;
@@ -803,7 +1097,7 @@ FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByActor(AActor*
 {
 	for (auto& M : BodyMappings)
 	{
-		if (M.OwnerActor == OwnerActor) return &M;
+		if (M && M->OwnerActor == OwnerActor) return M.get();
 	}
 	return nullptr;
 }
@@ -812,7 +1106,7 @@ const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByActor(A
 {
 	for (const auto& M : BodyMappings)
 	{
-		if (M.OwnerActor == OwnerActor) return &M;
+		if (M && M->OwnerActor == OwnerActor) return M.get();
 	}
 	return nullptr;
 }
@@ -823,11 +1117,17 @@ const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByActor(A
 FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByComponent(UPrimitiveComponent* Comp)
 {
 	if (!Comp) return nullptr;
+
 	for (auto& M : BodyMappings)
 	{
-		for (UPrimitiveComponent* C : M.Components)
+		if (!M) continue;
+
+		for (UPrimitiveComponent* C : M->Components)
 		{
-			if (C == Comp) return &M;
+			if (C == Comp)
+			{
+				return M.get();
+			}
 		}
 	}
 	return nullptr;
@@ -836,11 +1136,17 @@ FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByComponent(UPr
 const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByComponent(UPrimitiveComponent* Comp) const
 {
 	if (!Comp) return nullptr;
+
 	for (const auto& M : BodyMappings)
 	{
-		for (UPrimitiveComponent* C : M.Components)
+		if (!M) continue;
+
+		for (UPrimitiveComponent* C : M->Components)
 		{
-			if (C == Comp) return &M;
+			if (C == Comp)
+			{
+				return M.get();
+			}
 		}
 	}
 	return nullptr;
@@ -853,28 +1159,22 @@ const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByCompone
 void FPhysXPhysicsScene::AddForce(UPrimitiveComponent* Comp, const FVector& Force)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->addForce(ToPxVec3(Force));
+	if (!M) return;
+	M->BodyInstance.AddForce(Force);
 }
 
 void FPhysXPhysicsScene::AddForceAtLocation(UPrimitiveComponent* Comp, const FVector& Force, const FVector& WorldLocation)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	PxRigidBodyExt::addForceAtPos(*Dyn, ToPxVec3(Force), ToPxVec3(WorldLocation));
+	if (!M) return;
+	M->BodyInstance.AddForceAtLocation(Force, WorldLocation);
 }
 
 void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Torque)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->addTorque(ToPxVec3(Torque));
+	if (!M) return;
+	M->BodyInstance.AddTorque(Torque);
 }
 
 // ============================================================
@@ -884,37 +1184,32 @@ void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Tor
 FVector FPhysXPhysicsScene::GetLinearVelocity(UPrimitiveComponent* Comp) const
 {
 	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return { 0, 0, 0 };
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return { 0, 0, 0 };
-	return ToFVector(Dyn->getLinearVelocity());
+	if (!M) return FVector(0, 0, 0);
+	return M->BodyInstance.GetLinearVelocity();
 }
 
 void FPhysXPhysicsScene::SetLinearVelocity(UPrimitiveComponent* Comp, const FVector& Vel)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->setLinearVelocity(ToPxVec3(Vel));
+	if (!M) return;
+
+	M->BodyInstance.SetLinearVelocity(Vel);
 }
 
 FVector FPhysXPhysicsScene::GetAngularVelocity(UPrimitiveComponent* Comp) const
 {
 	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return { 0, 0, 0 };
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return { 0, 0, 0 };
-	return ToFVector(Dyn->getAngularVelocity());
+	if (!M) return FVector(0, 0, 0);
+
+	return M->BodyInstance.GetAngularVelocity();
 }
 
 void FPhysXPhysicsScene::SetAngularVelocity(UPrimitiveComponent* Comp, const FVector& Vel)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->setAngularVelocity(ToPxVec3(Vel));
+	if (!M) return;
+
+	M->BodyInstance.SetAngularVelocity(Vel);
 }
 
 // ============================================================
@@ -924,42 +1219,29 @@ void FPhysXPhysicsScene::SetAngularVelocity(UPrimitiveComponent* Comp, const FVe
 void FPhysXPhysicsScene::SetMass(UPrimitiveComponent* Comp, float NewMass)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-
-	// setMassAndUpdateInertia(rigid, mass, com=NULL)는 COM을 shape 분포로
-	// 자동 재계산하면서 이전 setCMassLocalPose를 덮어쓴다. RootComp의
-	// CenterOfMassOffset을 명시 전달해 보존.
-	PxVec3 LocalCOM = M->RootComp ? ToPxVec3(M->RootComp->GetCenterOfMass()) : PxVec3(0);
-	PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, NewMass, &LocalCOM);
+	if (!M) return;
+	M->BodyInstance.SetBodyMass(NewMass);
 }
 
 float FPhysXPhysicsScene::GetMass(UPrimitiveComponent* Comp) const
 {
 	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return 1.0f;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return 1.0f;
-	return Dyn->getMass();
+	if (!M) return 1.f;
+	return M->BodyInstance.GetBodyMass();
 }
 
 void FPhysXPhysicsScene::SetCenterOfMass(UPrimitiveComponent* Comp, const FVector& LocalOffset)
 {
 	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return;
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return;
-	Dyn->setCMassLocalPose(PxTransform(ToPxVec3(LocalOffset)));
+	if (!M) return;
+	M->BodyInstance.SetCenterOfMassLocal(LocalOffset);
 }
 
 FVector FPhysXPhysicsScene::GetCenterOfMass(UPrimitiveComponent* Comp) const
 {
 	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M || !M->Actor) return { 0, 0, 0 };
-	PxRigidDynamic* Dyn = M->Actor->is<PxRigidDynamic>();
-	if (!Dyn) return { 0, 0, 0 };
-	return ToFVector(Dyn->getCMassLocalPose().p);
+	if (!M) return FVector(0.f, 0.f, 0.f);
+	return M->BodyInstance.GetCenterOfMassLocal();
 }
 
 // ============================================================
@@ -988,7 +1270,7 @@ bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && Actor && Actor->userData == IgnoreActor)
+			if (IgnoreActor && FPhysXHelper::GetOwnerActorFromPxActor(Actor) == IgnoreActor)
 			{
 				return PxQueryHitType::eNONE;
 			}
@@ -1018,24 +1300,25 @@ bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float
 	FilterData.flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC | PxQueryFlag::ePREFILTER;
 	FChannelRaycastFilter FilterCallback(IgnoreActor, TraceChannel);
 
-	bool bStatus = Scene->raycast(ToPxVec3(Start), ToPxVec3(Dir), MaxDist, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
+	bool bStatus = Scene->raycast(FPhysXHelper::ToPxVec3(Start), FPhysXHelper::ToPxVec3(Dir), MaxDist, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
 	if (!bStatus || !Hit.hasBlock) return false;
 
 	const PxRaycastHit& Block = Hit.block;
 	OutHit.bHit = true;
 	OutHit.Distance = Block.distance;
-	OutHit.WorldHitLocation = ToFVector(Block.position);
-	OutHit.ImpactNormal = ToFVector(Block.normal);
+	OutHit.WorldHitLocation = FPhysXHelper::ToFVector(Block.position);
+	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
 	OutHit.WorldNormal = OutHit.ImpactNormal;
 
-	if (Block.shape && Block.shape->userData)
+	if (FBodyInstance* HitBody = FPhysXHelper::GetBodyInstanceFromPxShape(Block.shape))
 	{
-		OutHit.HitComponent = static_cast<UPrimitiveComponent*>(Block.shape->userData);
-		OutHit.HitActor = OutHit.HitComponent->GetOwner();
+		OutHit.HitComponent = HitBody->GetOwnerComponent();
+		OutHit.HitActor = HitBody->GetOwnerActor();
 	}
-	else if (Block.actor && Block.actor->userData)
+	else
 	{
-		OutHit.HitActor = static_cast<AActor*>(Block.actor->userData);
+		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
+		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
 	}
 
 	return true;
@@ -1062,7 +1345,7 @@ bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVecto
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && Actor && Actor->userData == IgnoreActor)
+			if (IgnoreActor && FPhysXHelper::GetOwnerActorFromPxActor(Actor) == IgnoreActor)
 			{
 				return PxQueryHitType::eNONE;
 			}
@@ -1089,24 +1372,25 @@ bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVecto
 	FilterData.flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC | PxQueryFlag::ePREFILTER;
 	FObjectTypeRaycastFilter FilterCallback(IgnoreActor, ObjectTypeMask);
 
-	bool bStatus = Scene->raycast(ToPxVec3(Start), ToPxVec3(Dir), MaxDist, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
+	bool bStatus = Scene->raycast(FPhysXHelper::ToPxVec3(Start), FPhysXHelper::ToPxVec3(Dir), MaxDist, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
 	if (!bStatus || !Hit.hasBlock) return false;
 
 	const PxRaycastHit& Block = Hit.block;
 	OutHit.bHit = true;
 	OutHit.Distance = Block.distance;
-	OutHit.WorldHitLocation = ToFVector(Block.position);
-	OutHit.ImpactNormal = ToFVector(Block.normal);
+	OutHit.WorldHitLocation = FPhysXHelper::ToFVector(Block.position);
+	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
 	OutHit.WorldNormal = OutHit.ImpactNormal;
 
-	if (Block.shape && Block.shape->userData)
+	if (FBodyInstance* HitBody = FPhysXHelper::GetBodyInstanceFromPxShape(Block.shape))
 	{
-		OutHit.HitComponent = static_cast<UPrimitiveComponent*>(Block.shape->userData);
-		OutHit.HitActor = OutHit.HitComponent->GetOwner();
+		OutHit.HitComponent = HitBody->GetOwnerComponent();
+		OutHit.HitActor = HitBody->GetOwnerActor();
 	}
-	else if (Block.actor && Block.actor->userData)
+	else
 	{
-		OutHit.HitActor = static_cast<AActor*>(Block.actor->userData);
+		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
+		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
 	}
 
 	return true;
@@ -1130,14 +1414,13 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 
 		PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* Shape, const PxRigidActor* Actor, PxHitFlags&) override
 		{
-			if (IgnoreActor && Actor && Actor->userData == IgnoreActor)
+			if (IgnoreActor && FPhysXHelper::GetOwnerActorFromPxActor(Actor) == IgnoreActor)
 			{
 				return PxQueryHitType::eNONE;
 			}
 
-			UPrimitiveComponent* Comp = Shape && Shape->userData
-				? static_cast<UPrimitiveComponent*>(Shape->userData)
-				: nullptr;
+			FBodyInstance* Body = FPhysXHelper::GetBodyInstanceFromPxShape(Shape);
+			UPrimitiveComponent* Comp = Body ? Body->GetOwnerComponent() : nullptr;
 			if (!Comp || !Cast<UShapeComponent>(Comp))
 			{
 				return PxQueryHitType::eNONE;
@@ -1165,7 +1448,7 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 	if (Radius <= 0.0f)
 	{
 		PxRaycastBuffer RayHit;
-		const bool bStatus = Scene->raycast(ToPxVec3(Start), ToPxVec3(Dir), MaxDist, RayHit,
+		const bool bStatus = Scene->raycast(FPhysXHelper::ToPxVec3(Start), FPhysXHelper::ToPxVec3(Dir), MaxDist, RayHit,
 			PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
 		if (!bStatus || !RayHit.hasBlock) return false;
 
@@ -1173,17 +1456,18 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 		OutHit.bHit = true;
 		OutHit.Distance = Block.distance;
 		OutHit.WorldHitLocation = Start + Dir * Block.distance;
-		OutHit.ImpactNormal = ToFVector(Block.normal);
+		OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
 		OutHit.WorldNormal = OutHit.ImpactNormal;
 
-		if (Block.shape && Block.shape->userData)
+		if (FBodyInstance* HitBody = FPhysXHelper::GetBodyInstanceFromPxShape(Block.shape))
 		{
-			OutHit.HitComponent = static_cast<UPrimitiveComponent*>(Block.shape->userData);
-			OutHit.HitActor = OutHit.HitComponent->GetOwner();
+			OutHit.HitComponent = HitBody->GetOwnerComponent();
+			OutHit.HitActor = HitBody->GetOwnerActor();
 		}
-		else if (Block.actor && Block.actor->userData)
+		else
 		{
-			OutHit.HitActor = static_cast<AActor*>(Block.actor->userData);
+			OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
+			OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
 		}
 
 		return true;
@@ -1191,8 +1475,8 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 
 	PxSweepBuffer Hit;
 	const PxSphereGeometry SweepGeometry(Radius);
-	const PxTransform StartPose(ToPxVec3(Start));
-	const bool bStatus = Scene->sweep(SweepGeometry, StartPose, ToPxVec3(Dir), MaxDist, Hit,
+	const PxTransform StartPose(FPhysXHelper::ToPxVec3(Start));
+	const bool bStatus = Scene->sweep(SweepGeometry, StartPose, FPhysXHelper::ToPxVec3(Dir), MaxDist, Hit,
 		PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
 	if (!bStatus || !Hit.hasBlock) return false;
 
@@ -1200,18 +1484,270 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 	OutHit.bHit = true;
 	OutHit.Distance = Block.distance;
 	OutHit.WorldHitLocation = Start + Dir * Block.distance;
-	OutHit.ImpactNormal = ToFVector(Block.normal);
+	OutHit.ImpactNormal = FPhysXHelper::ToFVector(Block.normal);
 	OutHit.WorldNormal = OutHit.ImpactNormal;
 
-	if (Block.shape && Block.shape->userData)
+	if (FBodyInstance* HitBody = FPhysXHelper::GetBodyInstanceFromPxShape(Block.shape))
 	{
-		OutHit.HitComponent = static_cast<UPrimitiveComponent*>(Block.shape->userData);
-		OutHit.HitActor = OutHit.HitComponent->GetOwner();
+		OutHit.HitComponent = HitBody->GetOwnerComponent();
+		OutHit.HitActor = HitBody->GetOwnerActor();
 	}
-	else if (Block.actor && Block.actor->userData)
+	else
 	{
-		OutHit.HitActor = static_cast<AActor*>(Block.actor->userData);
+		OutHit.HitComponent = FPhysXHelper::GetOwnerComponentFromPxActor(Block.actor);
+		OutHit.HitActor = FPhysXHelper::GetOwnerActorFromPxActor(Block.actor);
 	}
 
 	return true;
+}
+
+// --- Body Instance ---
+FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Comp)
+{
+	FBodyMapping* Mapping = FindMappingByComponent(Comp);
+	if (!Mapping)
+	{
+		return nullptr;
+	}
+	return &Mapping->BodyInstance;
+}
+
+const FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Comp) const
+{
+	const FBodyMapping* Mapping = FindMappingByComponent(Comp);
+	if (!Mapping)
+	{
+		return nullptr;
+	}
+	return &Mapping->BodyInstance;
+}
+
+// ================================================================
+// Constraint Section
+// - Constraint Helpers
+// - CreateConstraint
+// - DestroyConstraint
+// ================================================================
+
+// --- Constraint Helper Section ---
+static PxD6Motion::Enum ToPxD6Motion(ELinearConstraintMotion Motion)
+{
+	switch (Motion)
+	{
+	case ELinearConstraintMotion::Free:		return PxD6Motion::eFREE;
+	case ELinearConstraintMotion::Limited:	return PxD6Motion::eLIMITED;
+	case ELinearConstraintMotion::Locked:	
+	default:								return PxD6Motion::eLOCKED;
+	}
+}
+
+static PxD6Motion::Enum ToPxD6Motion(EAngularConstraintMotion Motion)
+{
+	switch (Motion)
+	{
+	case EAngularConstraintMotion::Free:	return PxD6Motion::eFREE;
+	case EAngularConstraintMotion::Limited:	return PxD6Motion::eLIMITED;
+	case EAngularConstraintMotion::Locked:
+	default:								return PxD6Motion::eLOCKED;
+	}
+}
+
+static bool IsAnyLinearMotionLimited(const FConstraintOption& Option)
+{
+	return Option.XMotion == ELinearConstraintMotion::Limited
+		|| Option.YMotion == ELinearConstraintMotion::Limited
+		|| Option.ZMotion == ELinearConstraintMotion::Limited;
+}
+
+static bool IsAnySwingMotionLimited(const FConstraintOption& Option)
+{
+	return Option.Swing1Motion == EAngularConstraintMotion::Limited
+		|| Option.Swing2Motion == EAngularConstraintMotion::Limited;
+}
+
+static bool IsAnyAngularMotionFreeOrLimited(const FConstraintOption& Option)
+{
+	return Option.TwistMotion	!= EAngularConstraintMotion::Locked
+		|| Option.Swing1Motion	!= EAngularConstraintMotion::Locked
+		|| Option.Swing2Motion	!= EAngularConstraintMotion::Locked;
+}
+
+static void ApplyContraintOptionToD6Joint(PxD6Joint* Joint,
+	const FConstraintOption& Option, const PxTolerancesScale& Scale)
+{
+	if (!Joint) return;
+
+	// --- Linear DOF ---
+	Joint->setMotion(PxD6Axis::eX, ToPxD6Motion(Option.XMotion));
+	Joint->setMotion(PxD6Axis::eY, ToPxD6Motion(Option.YMotion));
+	Joint->setMotion(PxD6Axis::eZ, ToPxD6Motion(Option.ZMotion));
+
+	if (IsAnyLinearMotionLimited(Option))
+	{
+		const float LinearLimit = FMath::ClampMin(Option.LinearLimit, 0.0f);
+
+		// Physx D6의 Linear Limit은 Limited Linear Axis 전체에 공통 적용
+		Joint->setLinearLimit(PxJointLinearLimit(Scale, LinearLimit));
+	}
+
+	// --- Angular DOF ---
+	Joint->setMotion(PxD6Axis::eTWIST,	ToPxD6Motion(Option.TwistMotion));
+	Joint->setMotion(PxD6Axis::eSWING1, ToPxD6Motion(Option.Swing1Motion));
+	Joint->setMotion(PxD6Axis::eSWING2, ToPxD6Motion(Option.Swing2Motion));
+
+	if (Option.TwistMotion == EAngularConstraintMotion::Limited)
+	{
+		// PhysX Angular Limit: radian -> 0도 limited는 solver 입장에서 불안정 -> 작은 양수로 보정
+		const float TwistLimitRad = FMath::ClampMin(Option.TwistLimitDegrees * FMath::DegToRad, FMath::DegToRad * 0.1f);
+		Joint->setTwistLimit(PxJointAngularLimitPair(-TwistLimitRad, TwistLimitRad));
+	}
+
+	if (IsAnySwingMotionLimited(Option))
+	{
+		const float Swing1Rad = FMath::ClampMin(Option.Swing1LimitDegrees * FMath::DegToRad, 0.1f * FMath::DegToRad);
+		const float Swing2Rad = FMath::ClampMin(Option.Swing2LimitDegrees * FMath::DegToRad, 0.1f * FMath::DegToRad);
+
+		// Swing1 / Swing2는 Cone Limit으로 묶어서 적용
+		Joint->setSwingLimit(PxJointLimitCone(Swing1Rad, Swing2Rad));
+	}
+
+	// --- Projection ---
+	Joint->setConstraintFlag(PxConstraintFlag::ePROJECTION, Option.bEnableProjection);
+	if (Option.bEnableProjection)
+	{
+		Joint->setProjectionLinearTolerance(FMath::ClampMin(Option.ProjectionLinearTolerance, 0.0f));
+		Joint->setProjectionAngularTolerance(FMath::ClampMin(Option.ProjectionAngularToleranceDegrees * FMath::DegToRad, 0.0f));
+	}
+
+	// --- Angular Drive ---
+	if (Option.bAngularDriveEnabled && IsAnyAngularMotionFreeOrLimited(Option))
+	{
+		const float ForceLimit = Option.AngularDriveForceLimit > 0.0f ? Option.AngularDriveForceLimit : PX_MAX_F32;
+		const PxD6JointDrive Drive(
+			FMath::ClampMin(Option.AngularDriveStiffness, 0.0f),
+			FMath::ClampMin(Option.AngularDriveDamping, 0.0f),
+			ForceLimit,
+			false);
+
+		// Slerp Drive
+		Joint->setDrive(PxD6Drive::eSLERP, Drive);
+		Joint->setDrivePosition(PxTransform(PxIdentity));
+	}
+}
+
+FConstraintInstance* FPhysXPhysicsScene::CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child, 
+	const FConstraintOption& Option, const FTransform& ParentFrame, const FTransform& ChildFrame, const FString& ConstraintName /*= FString()*/)
+{
+	if (!Physics)
+	{
+		UE_LOG("[PhysX] CreateConstraint Failed : Physics is null");
+		return nullptr;
+	}
+
+	if (!Parent || !Child)
+	{
+		UE_LOG("[PhysX] CreateConstraint Failed : Parent Or Child Body is Null");
+		return nullptr;
+	}
+
+	PxRigidActor* ParentActor	= Parent->GetPxRigidActor();
+	PxRigidActor* ChildActor	= Child->GetPxRigidActor();
+
+	if (!ParentActor || !ChildActor)
+	{
+		UE_LOG("[PhysX] CreateConstraint Failed : PxRigidActor is null");
+		return nullptr;
+	}
+
+	if (ParentActor == ChildActor)
+	{
+		UE_LOG("[PhysX] CreateConstraint Failed : Parent Actor == Child Actor");
+		return nullptr;
+	}
+
+	// static-static joint 는 runtime constraint 의미가 없음
+	if (!Parent->IsDynamic() && !Child->IsDynamic())
+	{
+		UE_LOG("[PhysX] CreateConstraint Failed : At Least One Body Must be dynamic");
+		return nullptr;
+	}
+
+	auto NewConstraint = std::make_unique<FConstraintInstance>();
+
+	NewConstraint->ConstraintName = ConstraintName;
+	NewConstraint->ParentFrame = ParentFrame;
+	NewConstraint->ChildFrame = ChildFrame;
+	NewConstraint->Option = Option;
+	NewConstraint->InitConstraint(Parent, Child);
+
+	const PxTransform PxParentFrame = FPhysXHelper::ToPxTransform(ParentFrame);
+	const PxTransform PxChildFrame = FPhysXHelper::ToPxTransform(ChildFrame);
+
+	PxD6Joint* Joint = PxD6JointCreate(
+		*Physics,
+		ParentActor,
+		PxParentFrame,
+		ChildActor,
+		PxChildFrame
+	);
+
+	if (!Joint)
+	{
+		UE_LOG("[PhysX] PxD6JointCreate failed");
+		return nullptr;
+	}
+
+	ApplyContraintOptionToD6Joint(Joint, Option, Physics->getTolerancesScale());
+
+	// Joint Relase는 FConstraintInstance::TerminateConstraint가 담당
+	NewConstraint->SetConstraintHandle(Joint);
+
+	FConstraintInstance* Result = NewConstraint.get();
+	Constraints.push_back(std::move(NewConstraint));
+
+	return Result;
+}
+
+void FPhysXPhysicsScene::DestroyConstraint(FConstraintInstance* Constraint)
+{
+	if (!Constraint) return;
+
+	Constraint->TerminateConstraint();
+
+	Constraints.erase(
+		std::remove_if(
+			Constraints.begin(),
+			Constraints.end(),
+			[Constraint](const std::unique_ptr<FConstraintInstance>& Ptr)
+			{
+				return Ptr.get() == Constraint;
+			}
+		),
+		Constraints.end()
+	);
+}
+
+/*
+* Body가 제거될 때 해당 body를 참조하는 joint가 남으면, 
+* PhysX actor release 이후 joint가 죽은 actor를 물고 있게 됩니다. 
+* 
+* 그래서 body release 전에 연결된 constraint를 먼저 지워야 합니다.
+*/
+void FPhysXPhysicsScene::DestroyConstraintsForBody(FBodyInstance* BodyInstance)
+{
+	if (!BodyInstance) return;
+
+	Constraints.erase(std::remove_if(Constraints.begin(), Constraints.end(),
+		[BodyInstance](const std::unique_ptr<FConstraintInstance>& Ptr)
+		{
+			if (!Ptr) return true;
+			if (Ptr->ParentBody == BodyInstance || Ptr->ChildBody == BodyInstance)
+			{
+				Ptr->TerminateConstraint();
+				return true;
+			}
+			return false;
+		}),
+		Constraints.end()
+	);
 }

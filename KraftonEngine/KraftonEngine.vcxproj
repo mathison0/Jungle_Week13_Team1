@@ -418,6 +418,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Engine\Physics\PhysicalMaterial.cpp" />
     <ClCompile Include="Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Source\Editor\EditorRenderPipeline.cpp" />
     <ClCompile Include="Source\Editor\Selection\SelectionManager.cpp" />
@@ -649,6 +650,12 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Particles\Module\ParticleModuleCollision.cpp" />
     <ClCompile Include="Source\Engine\Particles\Module\ParticleModuleEvent.cpp" />
     <ClCompile Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.cpp" />
+    <ClCompile Include="Source\Engine\Physics\BodyInstance.cpp" />
+    <ClCompile Include="Source\Engine\Physics\BodySetup.cpp" />
+    <ClCompile Include="Source\Engine\Physics\BodySetupCore.cpp" />
+    <ClCompile Include="Source\Engine\Physics\ConstraintInstance.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysicsAsset.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysicsGeometry.cpp" />
     <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysXPhysicsScene.cpp" />
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp" />
@@ -766,6 +773,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Engine\Physics\PhysicalMaterial.h" />
     <ClInclude Include="Source\Editor\EditorEngine.h" />
     <ClInclude Include="Source\Editor\EditorRenderPipeline.h" />
     <ClInclude Include="Source\Editor\PIE\PIETypes.h" />
@@ -1053,8 +1061,15 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleCollisionEvent.h" />
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.h" />
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleRuntimeTypes.h" />
+    <ClInclude Include="Source\Engine\Physics\BodyInstance.h" />
+    <ClInclude Include="Source\Engine\Physics\BodySetup.h" />
+    <ClInclude Include="Source\Engine\Physics\BodySetupCore.h" />
+    <ClInclude Include="Source\Engine\Physics\ConstraintInstance.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysicsAsset.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysicsGeometry.h" />
     <ClInclude Include="Source\Engine\Physics\IPhysicsScene.h" />
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysXHelper.h" />
     <ClInclude Include="Source\Engine\Physics\PhysXPhysicsScene.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\SuspensionSystem.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\UVehicleWheel.h" />

@@ -10,7 +10,7 @@
 #include "Render/Scene/FScene.h"
 #include "Render/Proxy/PrimitiveSceneProxy.h"
 #include "GameFramework/World.h"
-#include "Object/Reflection/ObjectFactory.h"
+#include "Physics/PhysicalMaterial.h"
 
 #include <cmath>
 #include <cstring>
@@ -601,4 +601,18 @@ void UPrimitiveComponent::NotifyComponentEndHit(
 	UPrimitiveComponent* OtherComp)
 {
 	OnComponentEndHit.Broadcast(HitComponent, OtherActor, OtherComp);
+}
+
+void UPrimitiveComponent::SetPhysicalMaterialOverride(UPhysicalMaterial* InPhysicalMaterial)
+{
+	if (PhysicalMaterialOverride == InPhysicalMaterial)
+	{
+		return;
+	}
+
+	PhysicalMaterialOverride = InPhysicalMaterial;
+
+	// Physics Body 생성 -> 재질 변경 -> Shape Material 다시 적용
+	// TODO: Shape Material 부분 갱신 API 추가되면 변경
+	NotifyPhysicsBodyDirty();
 }

@@ -93,6 +93,7 @@ TYPE_MAP = {
     "uint8": "ByteBool",
     "int": "Int",
     "int32": "Int",
+    "uint32": "Int",
     "float": "Float",
     "FVector": "Vec3",
     "FRotator": "Rotator",
@@ -1295,10 +1296,11 @@ def get_property_includes(reflected_type: ReflectedType) -> list[str]:
 def render_type_registration(reflected_type: ReflectedType) -> str:
     if reflected_type.kind == "STRUCT":
         struct_name = reflected_type.name
+        super_expr = f"&{reflected_type.super_name}::StaticStructInstance" if reflected_type.super_name else "nullptr"
         return (
             f"UStruct {struct_name}::StaticStructInstance(\n"
             f"\t\"{struct_name}\",\n"
-            "\tnullptr,\n"
+            f"\t{super_expr},\n"
             f"\tsizeof({struct_name})\n"
             ");\n"
             f"FStructRegistrar {struct_name}::s_StructRegistrar(&{struct_name}::StaticStructInstance);\n"
