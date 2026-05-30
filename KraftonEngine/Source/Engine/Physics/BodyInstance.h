@@ -15,9 +15,10 @@ namespace physx
 
 // =============================================================
 // FBodyInstance
-// - Runtime Physics Body Wrapper
-// 
-// 에셋 데이터가 아닌, 실제 Scene에 존재하는 물리 Body 1개를 나타낸다
+//
+// 에셋 데이터가 아니라 실제 Scene에 생성된 물리 Body를 가리키는 런타임 wrapper.
+// owner component와 backend body handle을 들고, body 상태 조회와
+// force / velocity / mass / center-of-mass 조작만 담당한다.
 // =============================================================
 
 class FBodyInstance
@@ -50,13 +51,6 @@ public:
 	physx::PxRigidDynamic* GetPxRigidDynamic() const;
 
 	void SetPxRigidActor(physx::PxRigidActor* InRigidActor);
-
-	// --- Ragdoll / Physics Asset 준비용 식별자 ---
-	void SetBoneIndex(int32 InBoneIndex);
-	int32 GetBoneIndex() const;
-
-	void SetBodyIndex(int32 InBodyIndex);
-	int32 GetBodyIndex() const;
 
 	// --- Transform --- 
 	FVector GetEngineWorldLocation();
@@ -100,11 +94,6 @@ public:
 private:
 	UPrimitiveComponent* OwnerComponent = nullptr;
 	physx::PxRigidActor* RigidActor = nullptr;
-
-	// SkeletalMesh / Ragdoll
-	// 일반 StaticMesh / ShapeComponent body는 -1.
-	int32 BoneIndex = -1;
-	int32 BodyIndex = -1;
 
 	bool bSimulatePhysics = false;
 	bool bEnableGravity = true;

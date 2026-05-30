@@ -12,9 +12,6 @@ void FBodyInstance::InitBody(UPrimitiveComponent* InOwnerComponent, physx::PxRig
 	OwnerComponent = InOwnerComponent;
 	RigidActor = InRigidActor;
 
-	BoneIndex = -1;
-	BodyIndex = -1;
-
 	if (OwnerComponent)
 	{
 		bSimulatePhysics = OwnerComponent->GetSimulatePhysics();
@@ -27,9 +24,6 @@ void FBodyInstance::TerminateBody()
 	// PxRigidActor Release는 FPhysXPhysicsScene이 소유
 	OwnerComponent = nullptr;
 	RigidActor = nullptr;
-
-	BoneIndex = -1;
-	BodyIndex = -1;
 
 	bSimulatePhysics = false;
 	bEnableGravity = true;
@@ -89,26 +83,6 @@ physx::PxRigidDynamic* FBodyInstance::GetPxRigidDynamic() const
 void FBodyInstance::SetPxRigidActor(physx::PxRigidActor* InRigidActor)
 {
 	RigidActor = InRigidActor;
-}
-
-void FBodyInstance::SetBoneIndex(int32 InBoneIndex)
-{
-	BoneIndex = InBoneIndex;
-}
-
-int32 FBodyInstance::GetBoneIndex() const
-{
-	return BoneIndex;
-}
-
-void FBodyInstance::SetBodyIndex(int32 InBodyIndex)
-{
-	BodyIndex = InBodyIndex;
-}
-
-int32 FBodyInstance::GetBodyIndex() const
-{
-	return BodyIndex;
 }
 
 FVector FBodyInstance::GetEngineWorldLocation()
