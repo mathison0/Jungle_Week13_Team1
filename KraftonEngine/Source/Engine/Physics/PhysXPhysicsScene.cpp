@@ -677,8 +677,17 @@ void FPhysXPhysicsScene::Shutdown()
 
 		if (Mapping.Actor)
 		{
-			// BodyInstance는 PxActor를 소유하지 않는다. 단순 연결 끊기.
-			Mapping.BodyInstance.TerminateBody();
+			for (UPrimitiveComponent* Component : Mapping.Components)
+			{
+				if (Component)
+				{
+					Component->GetBodyInstance()->TerminateBody();
+				}
+			}
+			if (Mapping.RootComp)
+			{
+				Mapping.RootComp->GetBodyInstance()->TerminateBody();
+			}
 
 			if (Scene)
 			{
@@ -752,13 +761,12 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 		NewMapping->Actor = Body;
 		NewMapping->RootComp = RootPrim;
 
-		// 현재 단계에서는 Actor 단위 body 1개를 FBodyInstance 1개로 감싼다.
-		// 나중에 Ragdoll에서는 bone별 body마다 FBodyInstance가 생성된다.
-		NewMapping->BodyInstance.InitBody(RootPrim, Body);
+		// 현재 compound actor의 대표 BodyInstance는 RootComponent가 소유한다.
+		// 각 shape component도 같은 PxActor를 가리키는 자신의 BodyInstance를 가진다.
+		RootPrim->GetBodyInstance()->InitBody(RootPrim, Body);
 
 		// PxActor::userData는 이제 AActor*가 아니라 FBodyInstance*이다.
-		// unique_ptr 내부 객체 주소는 vector 재할당으로 바뀌지 않으므로 안전하다.
-		FPhysXHelper::SetUserData(Body, &NewMapping->BodyInstance);
+		FPhysXHelper::SetUserData(Body, RootPrim->GetBodyInstance());
 
 		Scene->addActor(*Body);
 
@@ -769,6 +777,7 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 	// shape 추가
 	PxShape* Shape = AddShapeForComponent(*Mapping, Comp);
 	if (!Shape) return;
+	Comp->GetBodyInstance()->InitBody(Comp, Mapping->Actor);
 	Mapping->Components.push_back(Comp);
 
 	// Dynamic이면 RootComp의 Mass / CenterOfMass로 갱신 (shape 추가될 때마다 inertia 재계산).
@@ -785,6 +794,9 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	FBodyMapping* Mapping = FindMappingByComponent(Comp);
 	if (!Mapping) return;
 
+	FBodyInstance* ComponentBody = Comp->GetBodyInstance();
+	DestroyConstraintsForBody(ComponentBody);
+
 	// 해당 컴포넌트의 shape detach
 	DetachShapeForComponent(*Mapping, Comp);
 
@@ -798,11 +810,15 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	{
 		if (Mapping->Actor)
 		{
-			// Body 참조하는 joint 먼저 release
-			DestroyConstraintsForBody(&Mapping->BodyInstance);
-
-			// userData가 BodyInstance를 가리키므로 release 전에 먼저 끊는다.
-			Mapping->BodyInstance.TerminateBody();
+			if (Mapping->RootComp && Mapping->RootComp != Comp)
+			{
+				DestroyConstraintsForBody(Mapping->RootComp->GetBodyInstance());
+				Mapping->RootComp->GetBodyInstance()->TerminateBody();
+			}
+			if (ComponentBody)
+			{
+				ComponentBody->TerminateBody();
+			}
 			
 			Scene->removeActor(*Mapping->Actor);
 			Mapping->Actor->release();
@@ -823,6 +839,17 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 		);
 
 		return;
+	}
+
+	if (ComponentBody)
+	{
+		ComponentBody->TerminateBody();
+	}
+
+	if (Comp == Mapping->RootComp)
+	{
+		Mapping->RootComp = Mapping->Components.front();
+		FPhysXHelper::SetUserData(Mapping->Actor, Mapping->RootComp ? Mapping->RootComp->GetBodyInstance() : nullptr);
 	}
 
 	// 남은 shape가 있으면 mass/inertia 재계산
@@ -939,12 +966,13 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		FBodyMapping& Mapping = *MappingPtr;
 
 		if (!Mapping.RootComp || !Mapping.Actor) continue;
-		if (!Mapping.BodyInstance.IsDynamic()) continue;
-		if (Mapping.BodyInstance.IsKinematic()) continue;
-		if (Mapping.BodyInstance.IsInstanceSleeping()) continue;
+		FBodyInstance* RootBodyInstance = Mapping.RootComp->GetBodyInstance();
+		if (!RootBodyInstance || !RootBodyInstance->IsDynamic()) continue;
+		if (RootBodyInstance->IsKinematic()) continue;
+		if (RootBodyInstance->IsInstanceSleeping()) continue;
 
-		FVector NewPos = Mapping.BodyInstance.GetEngineWorldLocation();
-		FQuat NewRot = Mapping.BodyInstance.GetEngineWorldRotation();
+		FVector NewPos = RootBodyInstance->GetEngineWorldLocation();
+		FQuat NewRot = RootBodyInstance->GetEngineWorldRotation();
 
 		Mapping.RootComp->SetWorldLocation(NewPos);
 		Mapping.RootComp->SetRelativeRotation(NewRot);
@@ -1086,20 +1114,18 @@ PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimit
 	LocalPose.q = LocalPose.q * ShapeAxisRot;
 	Shape->setLocalPose(LocalPose);
 
-	ConfigureCreatedShape(Shape, Comp, &Mapping.BodyInstance, bShouldBeTrigger);
+	ConfigureCreatedShape(Shape, Comp, Comp->GetBodyInstance(), bShouldBeTrigger);
 
 	return Shape;
 }
 
-// TODO(PhysX): 현재 PxShape::userData는 FBodyInstance*이다.
-// 따라서 Component 단위 detach를 위해서는 Shape -> Component 역매핑이 따로 필요하다.
-// BodyMapping 제거 / BodySetup 기반 구조 전환 시 함께 정리한다.
-// 지금은 Actor 전체 release 경로를 기준으로 동작시키며,
-// 개별 Component unregister / RebuildBody 경로에서는 ghost shape가 남을 수 있다.
-// 다음 작업에서 바로 수정 예정입니다.
+// PxShape::userData는 해당 UPrimitiveComponent가 소유한 FBodyInstance*이다.
+// 같은 PxActor에 여러 component shape가 붙어도 body instance 포인터로 component 단위 detach가 가능하다.
 void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
 {
 	if (!Mapping.Actor || !Comp) return;
+	FBodyInstance* ComponentBody = Comp->GetBodyInstance();
+	if (!ComponentBody) return;
 
 	const PxU32 NumShapes = Mapping.Actor->getNbShapes();
 	if (NumShapes == 0) return;
@@ -1109,7 +1135,7 @@ void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimiti
 
 	for (PxShape* Shape : Shapes)
 	{
-		if (Shape && FPhysXHelper::HasUserData(Shape, Comp))
+		if (Shape && FPhysXHelper::HasUserData(Shape, ComponentBody))
 		{
 			Mapping.Actor->detachShape(*Shape);
 		}
@@ -1181,23 +1207,23 @@ const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByCompone
 
 void FPhysXPhysicsScene::AddForce(UPrimitiveComponent* Comp, const FVector& Force)
 {
-	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return;
-	M->BodyInstance.AddForce(Force);
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->AddForce(Force);
 }
 
 void FPhysXPhysicsScene::AddForceAtLocation(UPrimitiveComponent* Comp, const FVector& Force, const FVector& WorldLocation)
 {
-	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return;
-	M->BodyInstance.AddForceAtLocation(Force, WorldLocation);
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->AddForceAtLocation(Force, WorldLocation);
 }
 
 void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Torque)
 {
-	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return;
-	M->BodyInstance.AddTorque(Torque);
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->AddTorque(Torque);
 }
 
 // ============================================================
@@ -1206,33 +1232,30 @@ void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Tor
 
 FVector FPhysXPhysicsScene::GetLinearVelocity(UPrimitiveComponent* Comp) const
 {
-	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return FVector(0, 0, 0);
-	return M->BodyInstance.GetLinearVelocity();
+	const FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return FVector(0, 0, 0);
+	return BodyInstance->GetLinearVelocity();
 }
 
 void FPhysXPhysicsScene::SetLinearVelocity(UPrimitiveComponent* Comp, const FVector& Vel)
 {
-	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return;
-
-	M->BodyInstance.SetLinearVelocity(Vel);
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->SetLinearVelocity(Vel);
 }
 
 FVector FPhysXPhysicsScene::GetAngularVelocity(UPrimitiveComponent* Comp) const
 {
-	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return FVector(0, 0, 0);
-
-	return M->BodyInstance.GetAngularVelocity();
+	const FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return FVector(0, 0, 0);
+	return BodyInstance->GetAngularVelocity();
 }
 
 void FPhysXPhysicsScene::SetAngularVelocity(UPrimitiveComponent* Comp, const FVector& Vel)
 {
-	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return;
-
-	M->BodyInstance.SetAngularVelocity(Vel);
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->SetAngularVelocity(Vel);
 }
 
 // ============================================================
@@ -1241,30 +1264,30 @@ void FPhysXPhysicsScene::SetAngularVelocity(UPrimitiveComponent* Comp, const FVe
 
 void FPhysXPhysicsScene::SetMass(UPrimitiveComponent* Comp, float NewMass)
 {
-	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return;
-	M->BodyInstance.SetBodyMass(NewMass);
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->SetBodyMass(NewMass);
 }
 
 float FPhysXPhysicsScene::GetMass(UPrimitiveComponent* Comp) const
 {
-	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return 1.f;
-	return M->BodyInstance.GetBodyMass();
+	const FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return 1.f;
+	return BodyInstance->GetBodyMass();
 }
 
 void FPhysXPhysicsScene::SetCenterOfMass(UPrimitiveComponent* Comp, const FVector& LocalOffset)
 {
-	FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return;
-	M->BodyInstance.SetCenterOfMassLocal(LocalOffset);
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->SetCenterOfMassLocal(LocalOffset);
 }
 
 FVector FPhysXPhysicsScene::GetCenterOfMass(UPrimitiveComponent* Comp) const
 {
-	const FBodyMapping* M = FindMappingByComponent(Comp);
-	if (!M) return FVector(0.f, 0.f, 0.f);
-	return M->BodyInstance.GetCenterOfMassLocal();
+	const FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return FVector(0.f, 0.f, 0.f);
+	return BodyInstance->GetCenterOfMassLocal();
 }
 
 // ============================================================
@@ -1527,22 +1550,24 @@ bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const 
 // --- Body Instance ---
 FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Comp)
 {
-	FBodyMapping* Mapping = FindMappingByComponent(Comp);
-	if (!Mapping)
+	if (!Comp || !FindMappingByComponent(Comp))
 	{
 		return nullptr;
 	}
-	return &Mapping->BodyInstance;
+
+	FBodyInstance* BodyInstance = Comp->GetBodyInstance();
+	return BodyInstance && BodyInstance->IsValidBodyInstance() ? BodyInstance : nullptr;
 }
 
 const FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Comp) const
 {
-	const FBodyMapping* Mapping = FindMappingByComponent(Comp);
-	if (!Mapping)
+	if (!Comp || !FindMappingByComponent(Comp))
 	{
 		return nullptr;
 	}
-	return &Mapping->BodyInstance;
+
+	const FBodyInstance* BodyInstance = Comp->GetBodyInstance();
+	return BodyInstance && BodyInstance->IsValidBodyInstance() ? BodyInstance : nullptr;
 }
 
 // ================================================================

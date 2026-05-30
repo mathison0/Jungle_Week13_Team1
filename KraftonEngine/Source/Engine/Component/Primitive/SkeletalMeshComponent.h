@@ -10,6 +10,8 @@ class UAnimInstance;
 class UAnimSingleNodeInstance;
 class UAnimSequenceBase;
 class UClass;
+class FBodyInstance;
+struct FConstraintInstance;
 
 // SkeletalMesh 전용 render proxy만 제공하는 얇은 wrapper.
 // Skinning/bone/material/bounds 상태는 모두 USkinnedMeshComponent가 소유한다.
@@ -68,6 +70,11 @@ public:
     void PostEditProperty(const char* PropertyName) override;
     void Serialize(FArchive& Ar) override;
 
+    TArray<FBodyInstance*>& GetBodies() { return Bodies; }
+    const TArray<FBodyInstance*>& GetBodies() const { return Bodies; }
+    TArray<FConstraintInstance*>& GetConstraints() { return Constraints; }
+    const TArray<FConstraintInstance*>& GetConstraints() const { return Constraints; }
+
 protected:
     // 매 프레임 AnimInstance 평가 → 결과 포즈를 SetBoneLocalTransforms 로 푸시.
     // 이 경로가 CPU skinning 과 bounds dirty 를 한 번에 처리한다.
@@ -88,4 +95,8 @@ protected:
     TSubclassOf<UAnimInstance> AnimInstanceClass;
     UPROPERTY(Save, Instanced, Category="Animation", DisplayName="Anim Instance", Type=ObjectRef, AllowedClass=UAnimInstance)
     UAnimInstance*             AnimInstance  = nullptr;
+
+    // PhysicsAsset instantiate 단계에서 채워지는 runtime physics state.
+    TArray<FBodyInstance*>      Bodies;
+    TArray<FConstraintInstance*> Constraints;
 };

@@ -7,6 +7,7 @@
 #include "Core/Types/CollisionTypes.h"
 #include "Core/Types/EngineTypes.h"
 #include "Core/Delegate.h"
+#include "Physics/BodyInstance.h"
 #include "Render/Types/VertexTypes.h"
 #include "Render/Proxy/DirtyFlag.h"
 
@@ -153,6 +154,8 @@ public:
 	bool GetSimulatePhysics() const { return bSimulatePhysics; }
 
 	// --- Physics Force/Velocity API ---
+	FBodyInstance* GetBodyInstance() { return &BodyInstance; }
+	const FBodyInstance* GetBodyInstance() const { return &BodyInstance; }
 	void AddForce(const FVector& Force);
 	void AddForceAtLocation(const FVector& Force, const FVector& Location);
 	void AddTorque(const FVector& Torque);
@@ -258,4 +261,6 @@ protected:
 	// Component 단위 물리 재질 override
 	// 이후 UBodySetup이 들어오면 : Component Override > BodySetup PhysMaterial > Scene Default 순서로 확장한다
 	UPhysicalMaterial* PhysicalMaterialOverride = nullptr;
+
+	FBodyInstance BodyInstance;
 };

@@ -128,15 +128,9 @@ private:
 		physx::PxRigidActor* Actor = nullptr;     // 기존 코드 호환용. 다음 단계에서 제거 또는 축소 예정.
 		UPrimitiveComponent* RootComp = nullptr;  // 트랜스폼 동기화 기준
 		TArray<UPrimitiveComponent*> Components;  // 등록된 컴포넌트들
-
-		// 새 runtime body wrapper.
-		// 지금은 Actor 단위 compound body 1개에 FBodyInstance 1개를 붙인다.
-		// Ragdoll 단계에서는 bone body마다 FBodyInstance가 하나씩 생성된다.
-		FBodyInstance BodyInstance;
 	};
-	// FBodyInstance 주소가 PxActor::userData에 들어가므로,
-	// vector 재할당으로 주소가 바뀌면 안 된다.
-	// unique_ptr로 FBodyMapping 자체의 주소를 안정화한다.
+	// PxActor는 UPrimitiveComponent::BodyInstance를 userData로 참조한다.
+	// FBodyMapping은 Actor 단위 compound 관계만 추적한다.
 	TArray<std::unique_ptr<FBodyMapping>> BodyMappings;
 
 	// Constraint 는 PxRigidActor를 참조
