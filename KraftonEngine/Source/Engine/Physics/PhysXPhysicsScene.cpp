@@ -1,4 +1,5 @@
 ﻿#include "Physics/PhysXPhysicsScene.h"
+#include "Physics/PhysXCore.h"
 #include "Physics/PhysXHelper.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/ShapeComponent.h"
@@ -21,231 +22,9 @@
 
 using namespace physx;
 
-// ============================================================
-// PhysX Core Settings
-// ============================================================
-#ifdef _DEBUG
-// PVD 초기화, 기본 비활성화
-static constexpr bool GEnablePhysXPvd = false;
-
-// PVD 기본 포트. NVIDIA PVD 기본 포트 5425
-static constexpr const char* GPhysXPvdHost = "127.0.0.1";
-static constexpr int32 GPhysXPvdPort = 5425;
-static constexpr uint32 GPhysXPvdTimeoutMs = 1000;
-#endif
-
 // Dispatcher Thread 수
 // TODO: 프로젝트 세팅으로 빼서 개수 조절할 수 있게 만들기 고려
 static constexpr int32 GPhysXWorkerThreadCount = 2;
-
-// ============================================================
-// PhysX Error Callback
-// ============================================================
-class FPhysXErrorCallback : public PxErrorCallback
-{
-public:
-	void reportError(PxErrorCode::Enum code, const char* message,
-		const char* file, int line) override
-	{
-		const char* severity = "Info";
-		if (code == PxErrorCode::eABORT || code == PxErrorCode::eOUT_OF_MEMORY)
-			severity = "Fatal";
-		else if (code == PxErrorCode::eINTERNAL_ERROR || code == PxErrorCode::eINVALID_OPERATION)
-			severity = "Error";
-		else if (code == PxErrorCode::eINVALID_PARAMETER || code == PxErrorCode::ePERF_WARNING)
-			severity = "Warning";
-		else if (code == PxErrorCode::eDEBUG_WARNING)
-			severity = "Warning";
-
-		UE_LOG("[PhysX %s] %s (%s:%d)", severity, message, file, line);
-	}
-};
-
-static FPhysXErrorCallback GPhysXErrorCallback;
-static PxDefaultAllocator GPhysXAllocator;
-
-// ============================================================
-// Shared PhysX Core
-// 
-// PhysX Foundation / Physics는 프로세스 단위로 공유
-// 여러 World / 여러 PhysicsScene이 생겨도 중복 생성하지 않음.
-// ============================================================
-static PxFoundation* GSharedFoundation = nullptr;
-static PxPhysics* GSharedPhysics = nullptr;
-#ifdef _DEBUG
-static PxPvd* GSharedPvd = nullptr;
-static PxPvdTransport* GSharedPvdTransport = nullptr;
-#endif
-
-static int32 GSharedRefCount = 0;
-static bool GSharedExtensionsInitialized = false;
-
-// Release Helper Function
-// Fallback으로 해제할 일이 너무 많아서 해제 함수를 따로 개설
-#ifdef _DEBUG
-static void ReleasePvd()
-{
-	if (GSharedPvd) { GSharedPvd->release(); GSharedPvd = nullptr; }
-}
-static void ReleasePvdTransport()
-{
-	if (GSharedPvdTransport) { GSharedPvdTransport->release(); GSharedPvdTransport = nullptr; }
-}
-#endif
-static void ReleaseFoundation()
-{
-	if (GSharedFoundation) { GSharedFoundation->release(); GSharedFoundation = nullptr; }
-}
-static void ReleasePhysics()
-{
-	if (GSharedPhysics) { GSharedPhysics->release(); GSharedPhysics = nullptr; }
-}
-
-#ifdef _DEBUG
-static void TryCreatedSharedPvd()
-{
-	if (!GEnablePhysXPvd) return;
-	if (!GSharedFoundation) return;
-	if (GSharedPvd) return;
-
-	GSharedPvd = PxCreatePvd(*GSharedFoundation);
-	if (!GSharedPvd)
-	{
-		UE_LOG("[PhysX] PVD Creation Failed. Continue without PVD.");
-		return;
-	}
-
-	GSharedPvdTransport = PxDefaultPvdSocketTransportCreate(
-		GPhysXPvdHost,
-		GPhysXPvdPort,
-		GPhysXPvdTimeoutMs
-	);
-
-	if (!GSharedPvdTransport)
-	{
-		UE_LOG("[PhysX] PVD Transport Creation Failed. Continue without PVD.");
-		ReleasePvd();
-		return;
-	}
-
-	const PxPvdInstrumentationFlags Flags =
-		PxPvdInstrumentationFlag::eDEBUG |
-		PxPvdInstrumentationFlag::ePROFILE |
-		PxPvdInstrumentationFlag::eMEMORY;
-	
-	const bool bConnected = GSharedPvd->connect(*GSharedPvdTransport, Flags);
-	if (!bConnected) 
-	{
-		UE_LOG("[PhysX] PVD Connection Failed. Continue without PVD.");
-		
-		ReleasePvdTransport();
-		ReleasePvd();
-
-		return;
-	}
-
-	UE_LOG("[PhysX] PVD Connected (%s:%d)", GPhysXPvdHost, GPhysXPvdPort);
-}
-#endif
-
-
-// Foundation, Physics, Extensions
-#ifdef _DEBUG
-static bool AcquireSharedPhysX(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics, PxPvd*& OutPvd, PxPvdTransport*& OutPvdTransport)
-#else
-static bool AcquireSharedPhysX(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics)
-#endif
-{
-	if (GSharedRefCount == 0)
-	{
-		GSharedFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, GPhysXAllocator, GPhysXErrorCallback);
-		if (!GSharedFoundation)
-		{
-			UE_LOG("[PhysX] Failed to Create PxFoundation");
-			return false;
-		}
-
-#ifdef _DEBUG
-		TryCreatedSharedPvd();
-
-		GSharedPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *GSharedFoundation, PxTolerancesScale(), true, GSharedPvd);
-#else
-		GSharedPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *GSharedFoundation, PxTolerancesScale(), true, nullptr);
-#endif
-		if (!GSharedPhysics)
-		{
-			UE_LOG("[PhysX] Failed to Create PxPhysics.");
-
-#ifdef _DEBUG
-			ReleasePvdTransport();
-			ReleasePvd();
-#endif
-			ReleaseFoundation();
-			return false;
-		}
-
-		// Joint, Constraint, Vehicle Extension 전용 확장
-#ifdef _DEBUG
-		if (!PxInitExtensions(*GSharedPhysics, GSharedPvd))
-#else
-		if (!PxInitExtensions(*GSharedPhysics, nullptr))
-#endif
-		{
-			UE_LOG("[PhysX] PxInitExtensions failed");
-
-			ReleasePhysics();
-#ifdef _DEBUG
-			ReleasePvdTransport();
-			ReleasePvd();
-#endif
-			ReleaseFoundation();
-			return false;
-		}
-		GSharedExtensionsInitialized = true;
-		UE_LOG("[PhysX] Shared Foundation / Physics / Extension Initialized!");
-	}
-	++GSharedRefCount;
-	OutFoundation = GSharedFoundation;
-	OutPhysics = GSharedPhysics;
-#ifdef _DEBUG
-	OutPvd = GSharedPvd;
-	OutPvdTransport = GSharedPvdTransport;
-#endif
-
-	return true;
-}
-
-// 마지막 Scene이 사라질 때만 실제 PhysX 객체 해제
-static void ReleaseSharedPhysX()
-{
-	if (GSharedRefCount <= 0) { GSharedRefCount = 0; return; }
-	--GSharedRefCount;
-	if (GSharedRefCount > 0) return;
-	
-	if (GSharedExtensionsInitialized)
-	{
-		PxCloseExtensions();
-		GSharedExtensionsInitialized = false;
-		UE_LOG("[PhysX] Extension Closed");
-	}
-
-	ReleasePhysics();
-
-#ifdef _DEBUG
-	if (GSharedPvd && GSharedPvd->isConnected())
-	{
-		GSharedPvd->disconnect();
-	}
-
-	ReleasePvdTransport();
-	ReleasePvd();
-#endif
-
-	ReleaseFoundation();
-
-	GSharedRefCount = 0;
-	UE_LOG("[PhysX] Shared Foundation / Physics released.");
-}
 
 // ============================================================
 // PhysX Simulation Event Callback
@@ -577,9 +356,9 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 
 	// Foundation / Physics — 프로세스 싱글턴 공유
 #ifdef _DEBUG
-	if (!AcquireSharedPhysX(Foundation, Physics, Pvd, PvdTransport))
+	if (!FPhysXCore::Acquire(Foundation, Physics, Pvd, PvdTransport))
 #else
-	if (!AcquireSharedPhysX(Foundation, Physics))
+	if (!FPhysXCore::Acquire(Foundation, Physics))
 #endif
 	{
 		UE_LOG("[PhysX] Failed to acquire shared PhysX Core.");
@@ -717,7 +496,7 @@ void FPhysXPhysicsScene::Shutdown()
 	Pvd = nullptr;
 	PvdTransport = nullptr;
 #endif
-	ReleaseSharedPhysX();
+	FPhysXCore::Release();
 
 	World = nullptr;
 
