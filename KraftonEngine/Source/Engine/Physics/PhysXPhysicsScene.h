@@ -53,6 +53,8 @@ public:
 	void RebuildBody(UPrimitiveComponent* Comp) override;
 	bool InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp) override;
 	void DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp) override;
+	bool SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComponent* Comp, bool bResetVelocity = true) override;
+	void SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* Comp, bool bSimulate) override;
 
 	void Tick(float DeltaTime) override;
 
@@ -147,6 +149,7 @@ private:
 	FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp);
 	const FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp) const;
 	void DestroyConstraintsForBody(FBodyInstance* Body);
+	void SyncPhysicsAssetBodiesToBones();
 
 	// Comp의 geometry를 Mapping의 PxRigidActor에 shape로 추가. 실패 시 nullptr.
 	physx::PxShape* AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);

@@ -63,6 +63,7 @@ void USkeletalMeshComponent::EndPlay()
             }
         }
     }
+    bRagdollSimulating = false;
 
     Super::EndPlay();
 }
@@ -97,6 +98,44 @@ void USkeletalMeshComponent::StopAnimation()
 // ──────────────────────────────────────────────
 // Animation API
 // ──────────────────────────────────────────────
+void USkeletalMeshComponent::SetSimulateRagdoll(bool bEnable)
+{
+    if (bRagdollSimulating == bEnable)
+    {
+        return;
+    }
+
+    if (!Owner)
+    {
+        bRagdollSimulating = bEnable;
+        return;
+    }
+
+    UWorld* World = Owner->GetWorld();
+    IPhysicsScene* PhysicsScene = World ? World->GetPhysicsScene() : nullptr;
+    if (!PhysicsScene)
+    {
+        bRagdollSimulating = bEnable;
+        return;
+    }
+
+    if (bEnable)
+    {
+        if (Bodies.empty())
+        {
+            PhysicsScene->InstantiatePhysicsAssetBodies(this);
+        }
+
+        PhysicsScene->SetPhysicsAssetBodiesSimulate(this, true);
+        PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(this, true);
+        bRagdollSimulating = !Bodies.empty();
+        return;
+    }
+
+    PhysicsScene->SetPhysicsAssetBodiesSimulate(this, false);
+    bRagdollSimulating = false;
+}
+
 void USkeletalMeshComponent::SetAnimationMode(EAnimationMode InMode)
 {
     if (AnimationMode == InMode) return;
@@ -326,6 +365,12 @@ void USkeletalMeshComponent::ClearAnimInstance()
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction)
 {
+    if (bRagdollSimulating && !Bodies.empty())
+    {
+        Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+        return;
+    }
+
     if (EvaluateAnimInstance(DeltaTime))
     {
         UMeshComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);

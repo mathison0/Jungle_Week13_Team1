@@ -19,6 +19,7 @@
 #include "Math/MathUtils.h"
 #include "Mesh/Static/StaticMesh.h"
 #include "Mesh/Skeletal/SkeletalMesh.h"
+#include "Mesh/Skeletal/SkeletalMeshAsset.h"
 
 // PhysX headers
 #include <PxPhysicsAPI.h>
@@ -992,6 +993,8 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		Mapping.RootComp->SetRelativeRotation(NewRot);
 	}
 
+	SyncPhysicsAssetBodiesToBones();
+
 	// ── Dispatch deferred contact/trigger events ──
 	// onContact / onTrigger 는 fetchResults 안에서 fire 되므로 거기서 직접 게임 핸들러를
 	// 부르면 핸들러의 World->DestroyActor 등이 PhysX scene 변경 타이밍과 겹쳐 크래쉬한다.
@@ -1873,6 +1876,132 @@ void FPhysXPhysicsScene::DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp)
 	SkeletalPhysicsComponents.erase(
 		std::remove(SkeletalPhysicsComponents.begin(), SkeletalPhysicsComponents.end(), Comp),
 		SkeletalPhysicsComponents.end());
+}
+
+bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComponent* Comp, bool bResetVelocity /*= true*/)
+{
+	if (!Comp)
+	{
+		return false;
+	}
+
+	TArray<FBodyInstance*>& RuntimeBodies = Comp->GetBodies();
+	if (RuntimeBodies.empty())
+	{
+		return false;
+	}
+
+	bool bSyncedAnyBody = false;
+	for (FBodyInstance* Body : RuntimeBodies)
+	{
+		if (!Body || !Body->IsValidBodyInstance())
+		{
+			continue;
+		}
+
+		const int32 BoneIndex = Body->GetBoneIndex();
+		FTransform BoneWorldTransform;
+		if (!Comp->GetBoneWorldTransformByIndex(BoneIndex, BoneWorldTransform))
+		{
+			continue;
+		}
+
+		Body->SetBodyTransform(BoneWorldTransform.Location, BoneWorldTransform.Rotation, bResetVelocity);
+		bSyncedAnyBody = true;
+	}
+
+	return bSyncedAnyBody;
+}
+
+void FPhysXPhysicsScene::SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* Comp, bool bSimulate)
+{
+	if (!Comp)
+	{
+		return;
+	}
+
+	for (FBodyInstance* Body : Comp->GetBodies())
+	{
+		if (!Body || !Body->IsValidBodyInstance())
+		{
+			continue;
+		}
+
+		Body->SetSimulatePhysics(bSimulate);
+		if (bSimulate)
+		{
+			Body->WakeInstance();
+		}
+	}
+}
+
+void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
+{
+	for (USkeletalMeshComponent* Comp : SkeletalPhysicsComponents)
+	{
+		if (!Comp || !Comp->IsRagdollSimulating())
+		{
+			continue;
+		}
+
+		const TArray<FBodyInstance*>& RuntimeBodies = Comp->GetBodies();
+		if (RuntimeBodies.empty())
+		{
+			continue;
+		}
+
+		USkeletalMesh* SkeletalMesh = Comp->GetSkeletalMesh();
+		FSkeletalMesh* Asset = SkeletalMesh ? SkeletalMesh->GetSkeletalMeshAsset() : nullptr;
+		if (!Asset || Asset->Bones.empty())
+		{
+			continue;
+		}
+
+		TArray<FMatrix> DesiredGlobalMatrices;
+		Comp->GetCurrentBoneGlobalMatrices(DesiredGlobalMatrices);
+		if (DesiredGlobalMatrices.size() != Asset->Bones.size())
+		{
+			continue;
+		}
+
+		const FMatrix& ComponentWorldInv = Comp->GetWorldInverseMatrix();
+
+		for (FBodyInstance* Body : RuntimeBodies)
+		{
+			if (!Body || !Body->IsValidBodyInstance())
+			{
+				continue;
+			}
+
+			const int32 BoneIndex = Body->GetBoneIndex();
+			if (BoneIndex < 0 || BoneIndex >= static_cast<int32>(Asset->Bones.size()))
+			{
+				continue;
+			}
+
+			const FTransform BodyWorldTransform(
+				Body->GetEngineWorldLocation(),
+				Body->GetEngineWorldRotation(),
+				FVector::OneVector);
+
+			DesiredGlobalMatrices[BoneIndex] = BodyWorldTransform.ToMatrix() * ComponentWorldInv;
+		}
+
+		TArray<FTransform> DesiredLocalTransforms;
+		DesiredLocalTransforms.resize(Asset->Bones.size());
+
+		for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Asset->Bones.size()); ++BoneIndex)
+		{
+			const int32 ParentIndex = Asset->Bones[BoneIndex].ParentIndex;
+			const FMatrix LocalMatrix = (ParentIndex >= 0 && ParentIndex < static_cast<int32>(DesiredGlobalMatrices.size()))
+				? DesiredGlobalMatrices[BoneIndex] * DesiredGlobalMatrices[ParentIndex].GetInverse()
+				: DesiredGlobalMatrices[BoneIndex];
+
+			DesiredLocalTransforms[BoneIndex] = FTransform(LocalMatrix);
+		}
+
+		Comp->SetBoneLocalTransforms(DesiredLocalTransforms);
+	}
 }
 
 // ================================================================

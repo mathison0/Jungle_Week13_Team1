@@ -46,6 +46,8 @@ public:
 	// SkeletalMesh는 PhysicsAsset body/constraint를 component runtime 배열에 instantiate한다.
 	virtual bool InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp) { return false; }
 	virtual void DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp) {}
+	virtual bool SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComponent* Comp, bool bResetVelocity = true) { return false; }
+	virtual void SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* Comp, bool bSimulate) {}
 
 	// --- 시뮬레이션 ---
 	virtual void Tick(float DeltaTime) = 0;

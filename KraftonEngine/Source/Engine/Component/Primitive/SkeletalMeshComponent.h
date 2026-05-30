@@ -70,6 +70,9 @@ public:
     void PostEditProperty(const char* PropertyName) override;
     void Serialize(FArchive& Ar) override;
 
+    void SetSimulateRagdoll(bool bEnable);
+    bool IsRagdollSimulating() const { return bRagdollSimulating; }
+
     TArray<FBodyInstance*>& GetBodies() { return Bodies; }
     const TArray<FBodyInstance*>& GetBodies() const { return Bodies; }
     TArray<FConstraintInstance*>& GetConstraints() { return Constraints; }
@@ -102,4 +105,5 @@ protected:
     // PhysicsAsset instantiate 단계에서 채워지는 runtime physics state.
     TArray<FBodyInstance*>      Bodies;
     TArray<FConstraintInstance*> Constraints;
+    bool bRagdollSimulating = false;
 };
