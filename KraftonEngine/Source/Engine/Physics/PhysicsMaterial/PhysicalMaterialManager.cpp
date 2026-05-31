@@ -4,6 +4,7 @@
 #include "Asset/AssetPackage.h"
 #include "Platform/Paths.h"
 #include "Serialization/WindowsArchive.h"
+#include "Object/ReferenceCollector.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -120,5 +121,13 @@ void FPhysicalMaterialManager::RefreshAvailablePhysicalMaterials()
 		Item.DisplayName = FPaths::ToUtf8(Entry.path().stem().wstring());
 		Item.FullPath = RelPath;
 		AvailablePhysicalMaterialFiles.push_back(std::move(Item));
+	}
+}
+
+void FPhysicalMaterialManager::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	for (auto& [Path, Material] : LoadedMaterials)
+	{
+		Collector.AddReferencedObject(Material);
 	}
 }
