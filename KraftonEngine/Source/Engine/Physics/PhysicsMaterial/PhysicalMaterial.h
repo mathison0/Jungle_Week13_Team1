@@ -14,6 +14,7 @@ namespace physx
 }
 
 // 두 물리 재질이 만났을 때 마찰/탄성 값을 합치는 방식
+UENUM()
 enum class EPMCombineMode : uint8
 {
 	Average = 0,		// (a + b) / 2

@@ -440,6 +440,8 @@ void FEditorContentBrowserWidget::RefreshContent()
 					break;
 				case EAssetPackageType::PhysicalMaterial:
 					Element = std::make_shared<PhysicalMaterialElement>();
+					Icon = FEditorTextureManager::Get().GetOrLoadIcon(
+						FPaths::ToUtf8(FPaths::Combine(FPaths::AssetDir(), L"Editor/Icons/", L"S_PhysicalMaterial_64x.png")));
 					break;
 				default:
 					Element = std::make_shared<ContentBrowserElement>();
