@@ -136,6 +136,12 @@ void FGameRenderPipeline::BuildFrame(FViewport* VP, const FMinimalViewInfo& POV,
 		Frame.CameraLetterbox.bEnabled = false;
 	}
 
+	Frame.CameraDepthOfField = FCameraDepthOfFieldState();
+	if (ActiveCamera)
+	{
+		ActiveCamera->GetDepthOfFieldState(Frame.CameraDepthOfField);
+	}
+
 	FMinimalViewInfo RenderPOV = POV;
 	ApplyLetterboxAspect(RenderPOV, Frame.CameraLetterbox, Frame.ViewportWidth, Frame.ViewportHeight);
 	Frame.SetCameraInfo(RenderPOV);

@@ -9,6 +9,7 @@
 #include "Component/Debug/GizmoComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/SceneComponent.h"
+#include "Component/Camera/CineCameraComponent.h"
 #include "Component/Primitive/TextRenderComponent.h"
 #include "Component/Light/LightComponentBase.h"
 #include "Component/Primitive/DecalComponent.h"
@@ -63,6 +64,23 @@ namespace
 
 		return Component->IsHiddenInComponentTree()
 			&& !(bShowEditorOnlyComponents && Component->IsEditorOnlyComponent());
+	}
+
+	bool ShouldHideComponentProperty(const UActorComponent* Component, const FPropertyValue& PropertyValue)
+	{
+		if (Component && Component->IsA<UCineCameraComponent>())
+		{
+			const char* Name = PropertyValue.GetName();
+			const char* DisplayName = PropertyValue.GetDisplayName();
+			if ((Name && std::strcmp(Name, "CameraState.FOV") == 0)
+				|| (Name && std::strcmp(Name, "FOV") == 0)
+				|| (DisplayName && std::strcmp(DisplayName, "FOV") == 0))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	struct FComponentClassGroup
@@ -821,6 +839,11 @@ void FEditorPropertyWidget::RenderComponentProperties(AActor* Actor, const TArra
 	TArray<std::string> CategoryOrder;
 	for (const auto& P : Props)
 	{
+		if (ShouldHideComponentProperty(SelectedComponent, P))
+		{
+			continue;
+		}
+
 		const char* PropertyCategory = P.GetCategory();
 		bool bFound = false;
 		for (const auto& C : CategoryOrder)
@@ -873,6 +896,9 @@ void FEditorPropertyWidget::RenderComponentProperties(AActor* Actor, const TArra
 
 			for (int32 i = 0; i < (int32)Props.size(); ++i)
 			{
+				if (ShouldHideComponentProperty(SelectedComponent, Props[i]))
+					continue;
+
 				if (Cat != Props[i].GetCategory())
 					continue;
 

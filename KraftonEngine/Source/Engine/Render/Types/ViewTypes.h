@@ -22,6 +22,12 @@ enum class ELightCullingMode : uint32
 	Cluster = 2
 };
 
+enum class EDepthOfFieldBlurMethod : uint32
+{
+	Gaussian = 0,
+	TiledRotatedPoissonDisk = 1
+};
+
 enum class ESkinningMode : uint32
 {
 	CPU = 0,
@@ -103,6 +109,9 @@ struct FViewportRenderOptions
 
 	// Gamma Correction 전용 설정
 	float Gamma = 2.4f;
+
+	// Depth of Field debug/quality setting
+	EDepthOfFieldBlurMethod DepthOfFieldBlurMethod = EDepthOfFieldBlurMethod::TiledRotatedPoissonDisk;
 
 	// Light Culling 뷰모드 전용 설정
 	ELightCullingMode LightCullingMode = ELightCullingMode::Cluster;

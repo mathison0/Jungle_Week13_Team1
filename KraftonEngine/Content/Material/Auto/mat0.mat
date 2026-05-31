@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Texture/Auto/Caliburn/Caliburn.jpg"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

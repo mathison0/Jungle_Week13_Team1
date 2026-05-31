@@ -177,7 +177,7 @@ void FEditorRenderPipeline::RenderViewport(FLevelEditorViewportClient* VC, FRend
 	GPUOcclusion.ReadbackResults(Ctx);
 
 	PrepareViewport(VC, VP, Ctx);
-	BuildFrame(VC, POV, VP, World);
+	BuildFrame(VC, POV, VP, World, bShouldUseGameCamera);
 
 	FCollectOutput Output;
 	CollectCommands(VC, World, Renderer, Output);
@@ -219,7 +219,7 @@ void FEditorRenderPipeline::PrepareViewport(FLevelEditorViewportClient* VC, FVie
 // ============================================================
 // BuildFrame — FFrameContext 일괄 설정 (POV 통화 입력)
 // ============================================================
-void FEditorRenderPipeline::BuildFrame(FLevelEditorViewportClient* VC, const FMinimalViewInfo& POV, FViewport* VP, UWorld* World)
+void FEditorRenderPipeline::BuildFrame(FLevelEditorViewportClient* VC, const FMinimalViewInfo& POV, FViewport* VP, UWorld* World, bool bAllowCameraPostProcess)
 {
 	Frame.ClearViewportResources();
 	Frame.SetViewportInfo(VP);
@@ -258,6 +258,12 @@ void FEditorRenderPipeline::BuildFrame(FLevelEditorViewportClient* VC, const FMi
 	else
 	{
 		Frame.CameraLetterbox.bEnabled = false;
+	}
+
+	Frame.CameraDepthOfField = FCameraDepthOfFieldState();
+	if (bAllowCameraPostProcess && ActiveCamera)
+	{
+		ActiveCamera->GetDepthOfFieldState(Frame.CameraDepthOfField);
 	}
 
 	FMinimalViewInfo RenderPOV = POV;
@@ -376,6 +382,10 @@ void FEditorRenderPipeline::RenderPreviewViewport(IEditorPreviewViewportClient* 
 	Frame.ClearViewportResources();
 	Frame.SetViewportInfo(VP);
 	Frame.SetCameraInfo(POV);
+	Frame.CameraFade = FCameraFadeState();
+	Frame.CameraVignette = FCameraVignetteState();
+	Frame.CameraLetterbox = FCameraLetterboxState();
+	Frame.CameraDepthOfField = FCameraDepthOfFieldState();
 	Frame.WorldType = World->GetWorldType();
 
 	Frame.SetRenderOptions(VC->GetRenderOptions());

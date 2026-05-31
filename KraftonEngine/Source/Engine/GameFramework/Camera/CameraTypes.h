@@ -76,4 +76,36 @@ struct FCameraLetterboxState
 	float Amount = 1.0f;
 	float Thickness = 0.12f;
 	FLinearColor Color = FLinearColor::Black();
-};;
+};
+
+struct FDepthOfFieldSettings
+{
+	bool bEnableDepthOfField = false;
+
+	float DepthOfFieldScale = 1.0f;
+	float DepthOfFieldMaxBlurSize = 12.0f;
+	bool bVisualizeFocusDistance = false;
+};
+
+struct FPostProcessSettings
+{
+	FDepthOfFieldSettings DepthOfField;
+};
+
+struct FCameraDepthOfFieldState
+{
+	bool bEnabled = false;
+
+	float DepthOfFieldFstop = 5.6f;
+	float DepthOfFieldScale = 1.0f;
+	float DepthOfFieldMaxBlurSize = 12.0f;
+	bool bVisualizeFocusDistance = false;
+	bool bDrawDebugFocusPlane = false;
+
+	float SensorWidth = 36.0f;
+	float SensorHeight = 20.25f;
+	float CurrentAperture = 5.6f;
+	float CurrentFocalLength = 17.54f;
+	float CurrentFocusDistance = 3.0f;
+	float CurrentHorizontalFOV = 0.0f;
+};

@@ -79,3 +79,17 @@ void UCameraComponent::GetCameraView(float /*DeltaTime*/, FMinimalViewInfo& OutP
 	OutPOV.FarClip     = CameraState.FarZ;
 	OutPOV.bIsOrtho    = CameraState.bIsOrthogonal;
 }
+
+void UCameraComponent::GetDepthOfFieldState(FCameraDepthOfFieldState& OutState) const
+{
+	OutState = FCameraDepthOfFieldState();
+
+	const FDepthOfFieldSettings& DOF = PostProcessSettings.DepthOfField;
+	OutState.bEnabled = DOF.bEnableDepthOfField
+		&& PostProcessBlendWeight > 0.0f
+		&& !CameraState.bIsOrthogonal;
+
+	OutState.DepthOfFieldScale = DOF.DepthOfFieldScale * PostProcessBlendWeight;
+	OutState.DepthOfFieldMaxBlurSize = DOF.DepthOfFieldMaxBlurSize;
+	OutState.bVisualizeFocusDistance = DOF.bVisualizeFocusDistance;
+}

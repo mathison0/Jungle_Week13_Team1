@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Data/hirasawa-yui/yui.fbm/KON001_Hirasawa_Yui.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Texture/Auto/sonic/offical_sonic_the_hedgehog_eye_texture_by_jaysonjeanchannel_d9fz1q0-pre.jpg"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

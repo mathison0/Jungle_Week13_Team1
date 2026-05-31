@@ -41,7 +41,10 @@ enum class ERenderPass : uint32
 	Decal,			// 데칼 (DepthReadOnly)
 	AdditiveDecal,	// Additive 빌보드 등
 	Fog,			// 볼륨 안개 (AlphaBlend + DepthReadOnly)	
-	AlphaBlend,		// 반투명 지오메트리 (Font, SubUV, Billboard, Translucent)
+	TranslucencyBeforeDOF, // DOF 전에 합성되어 흐림 영향을 받는 반투명
+	DepthOfField,   // SceneColor/Depth 기반 DOF 합성
+	TranslucencyAfterDOF,  // DOF 후 선명하게 합성되는 반투명
+	AlphaBlend,		// Legacy/helper 반투명 경로 (기본적으로 AfterDOF 호환)
 	SelectionMask,	// 선택 스텐실 마스크
 	EditorLines,	// 디버그 라인 + 그리드 (LINELIST)
 	PostProcess,	// 아웃라인 풀스크린, Fog, SceneDepth
@@ -65,6 +68,9 @@ inline const char* GetRenderPassName(ERenderPass Pass)
 		"RenderPass::Decal",
 		"RenderPass::AdditiveDecal",
 		"RenderPass::Fog",
+		"RenderPass::TranslucencyBeforeDOF",
+		"RenderPass::DepthOfField",
+		"RenderPass::TranslucencyAfterDOF",
 		"RenderPass::AlphaBlend",
 		"RenderPass::SelectionMask",
 		"RenderPass::EditorLines",
@@ -92,6 +98,9 @@ namespace RenderStateStrings
 		{ "Decal",         (int)ERenderPass::Decal },
 		{ "AdditiveDecal", (int)ERenderPass::AdditiveDecal },
 		{ "Fog",           (int)ERenderPass::Fog },
+		{ "TranslucencyBeforeDOF", (int)ERenderPass::TranslucencyBeforeDOF },
+		{ "DepthOfField",  (int)ERenderPass::DepthOfField },
+		{ "TranslucencyAfterDOF", (int)ERenderPass::TranslucencyAfterDOF },
 		{ "AlphaBlend",    (int)ERenderPass::AlphaBlend },
 		{ "SelectionMask", (int)ERenderPass::SelectionMask },
 		{ "EditorLines",   (int)ERenderPass::EditorLines },
