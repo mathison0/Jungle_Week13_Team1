@@ -87,7 +87,9 @@ FBodyInstance* FPhysXPhysicsScene::CreateBodyFromBodySetup(UPrimitiveComponent* 
 	return Result;
 }
 
-void FPhysXPhysicsScene::DestroyBody(FBodyInstance* Body)
+// body 하나의 PhysX 자원 해제 단일 경로. Shutdown / DestroyBody가 공유한다.
+// FBodyInstance 객체는 삭제하지 않는다 — 소유자(AdapterBodies / 컴포넌트)가 책임진다.
+void FPhysXPhysicsScene::ReleaseBodyResource(FBodyInstance* Body)
 {
 	if (!Body) return;
 
@@ -102,6 +104,13 @@ void FPhysXPhysicsScene::DestroyBody(FBodyInstance* Body)
 	}
 	Body->TerminateBody();
 	if (Actor) Actor->release();
+}
+
+void FPhysXPhysicsScene::DestroyBody(FBodyInstance* Body)
+{
+	if (!Body) return;
+
+	ReleaseBodyResource(Body);
 
 	AdapterBodies.erase(
 		std::remove_if(AdapterBodies.begin(), AdapterBodies.end(),

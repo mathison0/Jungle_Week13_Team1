@@ -140,17 +140,11 @@ void FPhysXPhysicsScene::Shutdown()
 	}
 	Constraints.clear();
 
-	// Adapter로 생성한 독립 body 정리. 위에서 constraint를 먼저 끊었으므로 actor release만 한다.
+	// Adapter로 생성한 독립 body 정리 — ReleaseBodyResource 단일 경로로.
+	// (위에서 constraint를 먼저 비웠으므로 그 안의 DestroyConstraintsForBody는 사실상 no-op)
 	for (auto& BodyPtr : AdapterBodies)
 	{
-		if (!BodyPtr) continue;
-		if (physx::PxRigidActor* Actor = FPhysXHelper::GetRigidActor(BodyPtr.get()))
-		{
-			FPhysXHelper::SetActorBodyRecord(Actor, nullptr);
-			if (Scene) Scene->removeActor(*Actor);
-			BodyPtr->TerminateBody();
-			Actor->release();
-		}
+		ReleaseBodyResource(BodyPtr.get());
 	}
 	AdapterBodies.clear();
 

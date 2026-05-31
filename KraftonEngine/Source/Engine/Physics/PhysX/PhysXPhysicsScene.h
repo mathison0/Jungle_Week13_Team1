@@ -162,6 +162,9 @@ private:
 	FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp);
 	const FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp) const;
 	void DestroyConstraintsForBody(FBodyInstance* Body);
+	// body 하나의 PhysX 자원 해제 단일 경로 — joint 해제 → removeActor → TerminateBody → release.
+	// FBodyInstance 객체 자체는 삭제하지 않는다(소유자 책임).
+	void ReleaseBodyResource(FBodyInstance* Body);
 	void SyncPhysicsAssetBodiesToBones();
 
 	// FPhysXShapeDesc 하나를 주어진 actor에 PxShape로 생성. 실패 시 nullptr.
