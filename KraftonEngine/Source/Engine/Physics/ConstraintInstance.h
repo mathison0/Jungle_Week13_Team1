@@ -75,10 +75,13 @@ struct FConstraintInstance
 
     FString ConstraintName;
 
+    // PhysicsAsset Editor에서 선택하는 연결 대상 bone.
+    // 두 이름 모두 UPhysicsAsset::BodySetups에 등록되어 있어야 runtime PxD6Joint가 생성된다.
     FName ParentBoneName;
     FName ChildBoneName;
 
-	// Body Local 기준 Joint Frame
+    // Body local 기준 joint frame.
+    // Editor gizmo에서 joint 위치와 축을 편집할 때 각 body 로컬 공간으로 변환해 저장한다.
     FTransform ParentFrame;	// ParentBody 로컬 공간에 있는 Joint 기준 좌표계
     FTransform ChildFrame;	// ChildBody 로컬 공간에 있는 Joint 기준 좌표계
 

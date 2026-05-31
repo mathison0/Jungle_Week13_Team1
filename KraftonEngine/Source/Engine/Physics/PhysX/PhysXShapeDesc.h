@@ -66,16 +66,18 @@ namespace FPhysXShapeDescUtils
 		EPhysXBodyType BodyType,
 		FPhysXShapeDesc& OutDesc);
 
-	// UBodySetup::AggGeom → shape desc 변환. ConvexElems는 건너뛴다.
+	// StaticMesh BodySetup 경로.
+	// component transform과 world scale을 반영한다.
+	// Sphere, Box, Capsule만 지원하며 ConvexElems는 아직 건너뛴다.
 	void MakeShapeDescsFromBodySetup(
 		UPrimitiveComponent* RootComp,
 		UPrimitiveComponent* Comp,
 		EPhysXBodyType BodyType,
 		TArray<FPhysXShapeDesc>& OutDescs);
 
-	// PhysicsAsset BodySetup의 AggGeom → bone-local shape desc 변환.
-	// ragdoll body는 각 bone world transform에 배치되므로 elem transform을 그대로
-	// body-local pose로 쓴다. 컴포넌트 transform/scale 경로를 거치지 않는다. ConvexElems는 건너뛴다.
+	// PhysicsAsset ragdoll 경로.
+	// ragdoll body 자체가 bone world transform 위치에 생성되므로 AggGeom element transform은
+	// bone-local pose로 그대로 사용한다. Sphere, Box, Capsule만 지원하며 ConvexElems는 아직 건너뛴다.
 	void MakeShapeDescsFromBodySetupAsset(
 		UBodySetup* BodySetup,
 		EPhysXBodyType BodyType,

@@ -19,8 +19,8 @@ struct FKShapeElem
     UPROPERTY(Edit, Save, Category="Physics|Shape", DisplayName="Name")
     FString Name;
 
-    // StaticMesh BodySetup: 컴포넌트 로컬 기준.
-    // SkeletalMesh PhysicsAsset BodySetup: 소유 본 로컬 기준.
+    // StaticMesh BodySetup에서는 mesh component 로컬 기준이다.
+    // PhysicsAsset BodySetup에서는 해당 BodySetup이 소유한 bone 로컬 기준이다.
     UPROPERTY(Edit, Save, Category="Physics|Shape", DisplayName="Location", Member=Transform.Location, Type=Vec3, Speed=0.1f);
     UPROPERTY(Edit, Save, Category="Physics|Shape", DisplayName="Rotation", Member=Transform.Rotation, Type=Vec4, Speed=0.01f);
     UPROPERTY(Edit, Save, Category="Physics|Shape", DisplayName="Scale", Member=Transform.Scale, Type=Vec3, Speed=0.1f);
@@ -86,6 +86,8 @@ struct FKAggregateGeom
     UPROPERTY(Edit, Save, Category="Physics|Geometry", DisplayName="Capsules", Type=Array, Struct=FKSphylElem)
     TArray<FKSphylElem> SphylElems;
 
+    // 데이터 저장 구조는 준비되어 있지만 PhysX 변환은 아직 지원하지 않는다.
+    // PhysicsAsset Editor 초기 버전에서는 생성 UI를 숨기거나 비활성화해야 한다.
     UPROPERTY(Edit, Save, Category="Physics|Geometry", DisplayName="Convexes", Type=Array, Struct=FKConvexElem)
     TArray<FKConvexElem> ConvexElems;
 
