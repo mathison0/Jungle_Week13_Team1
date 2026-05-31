@@ -140,45 +140,20 @@ void FPhysXPhysicsScene::Shutdown()
 	}
 	Constraints.clear();
 
-	// Adapter로 생성한 독립 body 정리 — ReleaseBodyResource 단일 경로로.
-	// (위에서 constraint를 먼저 비웠으므로 그 안의 DestroyConstraintsForBody는 사실상 no-op)
+	// Adapter로 만든 단독 body 정리 — ReleaseBodyResource 공통 경로로.
+	// (위에서 constraint를 이미 비웠으므로 그 안의 joint 정리 단계는 그냥 지나간다)
 	for (auto& BodyPtr : AdapterBodies)
 	{
 		ReleaseBodyResource(BodyPtr.get());
 	}
 	AdapterBodies.clear();
 
-	// Body 정리
-	for (auto& MappingPtr : BodyMappings)
+	// 대표 body들 정리 — ReleaseBodyResource가 같은 강체에 합쳐진 컴포넌트들의 body까지 정리한다.
+	for (FBodyInstance* Host : Bodies)
 	{
-		if (!MappingPtr) continue;
-		FBodyMapping& Mapping = *MappingPtr;
-
-		if (Mapping.Actor)
-		{
-			FPhysXHelper::SetActorBodyRecord(Mapping.Actor, nullptr);
-
-			for (UPrimitiveComponent* Component : Mapping.Components)
-			{
-				if (Component)
-				{
-					Component->GetBodyInstance()->TerminateBody();
-				}
-			}
-			if (Mapping.RootComp)
-			{
-				Mapping.RootComp->GetBodyInstance()->TerminateBody();
-			}
-
-			if (Scene)
-			{
-				Scene->removeActor(*Mapping.Actor);
-			}
-			Mapping.Actor->release();
-			Mapping.Actor = nullptr;
-		}
+		ReleaseBodyResource(Host);
 	}
-	BodyMappings.clear();
+	Bodies.clear();
 
 	if (DefaultPhysicalMaterial)
 	{
@@ -216,14 +191,14 @@ void FPhysXPhysicsScene::Shutdown()
 void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 {
 	if (!Comp || !Scene || !Physics || !DefaultMaterial) return;
-	if (FindMappingByComponent(Comp)) return; // 이미 등록됨
+	if (FindHostBody(Comp)) return; // 이미 등록됨
 
 	AActor* OwnerActor = Comp->GetOwner();
 	if (!OwnerActor) return;
 
-	FBodyMapping* Mapping = FindMappingByActor(OwnerActor);
+	FBodyInstance* Host = FindHostBodyByActor(OwnerActor);
 
-	if (!Mapping)
+	if (!Host)
 	{
 		UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(OwnerActor->GetRootComponent());
 		if (!RootPrim) RootPrim = Comp;
@@ -236,115 +211,99 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 			: static_cast<PxRigidActor*>(Physics->createRigidStatic(BodyXf));
 		if (!Body) return;
 
-		auto NewMapping = std::make_unique<FBodyMapping>();
+		// 강체의 대표 body는 RootComponent의 BodyInstance가 맡는다.
+		// 같은 액터의 다른 컴포넌트들은 이 강체에 충돌 모양만 얹어 공유한다.
+		Host = RootPrim->GetBodyInstance();
+		Host->InitBody(RootPrim, Body);
+		Host->CombinedComponents.clear();
 
-		NewMapping->OwnerActor = OwnerActor;
-		NewMapping->Actor = Body;
-		NewMapping->RootComp = RootPrim;
-
-		// 현재 compound actor의 대표 BodyInstance는 RootComponent가 소유한다.
-		// 각 shape component도 같은 PxActor를 가리키는 자신의 BodyInstance를 가진다.
-		RootPrim->GetBodyInstance()->InitBody(RootPrim, Body);
-
-		FPhysXHelper::SetActorBodyRecord(Body, RootPrim->GetBodyInstance());
+		FPhysXHelper::SetActorBodyRecord(Body, Host);
 
 		Scene->addActor(*Body);
 
-		BodyMappings.push_back(std::move(NewMapping));
-		Mapping = BodyMappings.back().get();
+		Bodies.push_back(Host);
 	}
+
+	PxRigidActor* HostActor = FPhysXHelper::GetRigidActor(Host);
 
 	// shape 추가 — BodySetup이 있으면 AggGeom 경로, 없으면 ShapeComponent 경로
 	bool bShapeAdded;
 	if (Comp->GetBodySetup())
 	{
-		bShapeAdded = AddShapesFromBodySetup(*Mapping, Comp);
+		bShapeAdded = AddShapesFromBodySetup(HostActor, Host->GetOwnerComponent(), Comp);
 	}
 	else
 	{
-		bShapeAdded = (AddShapeForComponent(*Mapping, Comp) != nullptr);
+		bShapeAdded = (AddShapeForComponent(HostActor, Host->GetOwnerComponent(), Comp) != nullptr);
 	}
 	if (!bShapeAdded) return;
-	Comp->GetBodyInstance()->InitBody(Comp, Mapping->Actor);
-	Mapping->Components.push_back(Comp);
+	Comp->GetBodyInstance()->InitBody(Comp, HostActor);
+	Host->CombinedComponents.push_back(Comp);
 
 	// Dynamic이면 RootComp의 Mass / CenterOfMass로 갱신 (shape 추가될 때마다 inertia 재계산).
-	if (PxRigidDynamic* Dyn = Mapping->Actor->is<PxRigidDynamic>())
+	if (PxRigidDynamic* Dyn = HostActor->is<PxRigidDynamic>())
 	{
-		ApplyRootMassAndCOM(Dyn, Mapping->RootComp);
+		ApplyRootMassAndCOM(Dyn, Host->GetOwnerComponent());
 	}
 }
 void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 {
 	if (!Comp || !Scene) return;
 
-	FBodyMapping* Mapping = FindMappingByComponent(Comp);
-	if (!Mapping) return;
+	FBodyInstance* Host = FindHostBody(Comp);
+	if (!Host) return;
 
 	FBodyInstance* ComponentBody = Comp->GetBodyInstance();
 	DestroyConstraintsForBody(ComponentBody);
 
+	PxRigidActor* HostActor = FPhysXHelper::GetRigidActor(Host);
+
 	// 해당 컴포넌트의 shape detach
-	DetachShapeForComponent(*Mapping, Comp);
+	DetachShapeForComponent(HostActor, Comp);
 
-	// Components 배열에서 제거
-	Mapping->Components.erase(
-		std::remove(Mapping->Components.begin(), Mapping->Components.end(), Comp),
-		Mapping->Components.end());
+	// 이 강체의 컴포넌트 목록에서 제거
+	Host->CombinedComponents.erase(
+		std::remove(Host->CombinedComponents.begin(), Host->CombinedComponents.end(), Comp),
+		Host->CombinedComponents.end());
 
-	// 마지막 컴포넌트가 빠지면 actor 자체도 release
-	if (Mapping->Components.empty())
+	// 마지막 컴포넌트가 빠지면 강체 자체도 release
+	if (Host->CombinedComponents.empty())
 	{
-		if (Mapping->Actor)
+		// 떠나는 컴포넌트의 body가 대표와 다르면 따로 정리 (대표는 ReleaseBodyResource가 처리).
+		if (ComponentBody && ComponentBody != Host)
 		{
-			FPhysXHelper::SetActorBodyRecord(Mapping->Actor, nullptr);
-
-			if (Mapping->RootComp && Mapping->RootComp != Comp)
-			{
-				DestroyConstraintsForBody(Mapping->RootComp->GetBodyInstance());
-				Mapping->RootComp->GetBodyInstance()->TerminateBody();
-			}
-			if (ComponentBody)
-			{
-				ComponentBody->TerminateBody();
-			}
-
-			Scene->removeActor(*Mapping->Actor);
-			Mapping->Actor->release();
-			Mapping->Actor = nullptr;
+			ComponentBody->TerminateBody();
 		}
-
-		// Mapping 포인터와 같은 unique_ptr을 찾아 제거한다.
-		BodyMappings.erase(
-			std::remove_if(
-				BodyMappings.begin(),
-				BodyMappings.end(),
-				[Mapping](const std::unique_ptr<FBodyMapping>& Ptr)
-				{
-					return Ptr.get() == Mapping;
-				}
-			),
-			BodyMappings.end()
-		);
-
+		ReleaseBodyResource(Host);
+		Bodies.erase(std::remove(Bodies.begin(), Bodies.end(), Host), Bodies.end());
 		return;
 	}
 
-	if (ComponentBody)
+	if (Comp == Host->GetOwnerComponent())
+	{
+		// 대표 컴포넌트가 빠지면, 남은 컴포넌트 중 하나가 강체의 새 대표가 된다.
+		// 강체를 대표 body가 들고 있으므로 대표 자리를 통째로 넘겨준다.
+		UPrimitiveComponent* NewRoot = Host->CombinedComponents.front();
+		FBodyInstance* NewHost = NewRoot->GetBodyInstance();
+
+		NewHost->InitBody(NewRoot, HostActor);
+		NewHost->CombinedComponents = Host->CombinedComponents;
+
+		FPhysXHelper::SetActorBodyRecord(HostActor, NewHost);
+		std::replace(Bodies.begin(), Bodies.end(), Host, NewHost);
+
+		Host->TerminateBody(); // 옛 대표 body. 강체는 새 대표가 이어받음
+		Host = NewHost;
+	}
+	else if (ComponentBody && ComponentBody != Host)
 	{
 		ComponentBody->TerminateBody();
 	}
 
-	if (Comp == Mapping->RootComp)
-	{
-		Mapping->RootComp = Mapping->Components.front();
-		FPhysXHelper::SetActorBodyRecord(Mapping->Actor, Mapping->RootComp ? Mapping->RootComp->GetBodyInstance() : nullptr);
-	}
-
 	// 남은 shape가 있으면 mass/inertia 재계산
-	if (PxRigidDynamic* Dyn = Mapping->Actor->is<PxRigidDynamic>())
+	if (PxRigidDynamic* Dyn = HostActor->is<PxRigidDynamic>())
 	{
-		ApplyRootMassAndCOM(Dyn, Mapping->RootComp);
+		ApplyRootMassAndCOM(Dyn, Host->GetOwnerComponent());
 	}
 }
 
@@ -358,11 +317,11 @@ void FPhysXPhysicsScene::RebuildBody(UPrimitiveComponent* Comp)
 	AActor* OwnerActor = Comp->GetOwner();
 	if (!OwnerActor) return;
 
-	FBodyMapping* Mapping = FindMappingByActor(OwnerActor);
-	if (!Mapping) return; // 등록 안 됨 — skip
+	FBodyInstance* Host = FindHostBodyByActor(OwnerActor);
+	if (!Host) return; // 등록 안 됨 — skip
 
-	// 같은 actor의 모든 컴포넌트 캐시 (unregister가 mapping을 제거할 수 있어 미리 복사)
-	TArray<UPrimitiveComponent*> CompList = Mapping->Components;
+	// 같은 액터의 모든 컴포넌트를 미리 복사 (unregister 도중 대표 body가 사라질 수 있으므로)
+	TArray<UPrimitiveComponent*> CompList = Host->CombinedComponents;
 
 	for (UPrimitiveComponent* C : CompList)
 	{
@@ -407,15 +366,15 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	constexpr float TeleportPosThresholdSq = 1.0f;   // 1m² (1m 이상 차이 시만 teleport)
 	constexpr float TeleportRotThreshold = 0.99f;    // ~8° 차이 시만 teleport
 
-	for (auto& MappingPtr : BodyMappings)
+	for (FBodyInstance* Host : Bodies)
 	{
-		if (!MappingPtr) continue;
-		FBodyMapping& Mapping = *MappingPtr;
-		if (!Mapping.RootComp || !Mapping.Actor) continue;
+		if (!Host || !Host->GetOwnerComponent()) continue;
+		PxRigidActor* Actor = FPhysXHelper::GetRigidActor(Host);
+		if (!Actor) continue;
 
-		PxTransform NewPose = FPhysXHelper::ToPxTransform(Mapping.RootComp);
+		PxTransform NewPose = FPhysXHelper::ToPxTransform(Host->GetOwnerComponent());
 
-		if (PxRigidDynamic* Dynamic = Mapping.Actor->is<PxRigidDynamic>())
+		if (PxRigidDynamic* Dynamic = Actor->is<PxRigidDynamic>())
 		{
 			if (Dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC)
 			{
@@ -437,9 +396,9 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 				}
 			}
 		}
-		else if (Mapping.Actor->is<PxRigidStatic>())
+		else if (Actor->is<PxRigidStatic>())
 		{
-			Mapping.Actor->setGlobalPose(NewPose);
+			Actor->setGlobalPose(NewPose);
 		}
 	}
 
@@ -449,22 +408,18 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 
 	// ── Post-simulate: PhysX → Engine Transform 동기화 ──
 	// RootComp에만 transform 적용 → 자식 컴포넌트는 attach로 자동 따라감.
-	for (auto& MappingPtr : BodyMappings)
+	for (FBodyInstance* Host : Bodies)
 	{
-		if (!MappingPtr) continue;
-		FBodyMapping& Mapping = *MappingPtr;
+		if (!Host || !Host->GetOwnerComponent()) continue;
+		if (!Host->IsDynamic()) continue;
+		if (Host->IsKinematic()) continue;
+		if (Host->IsInstanceSleeping()) continue;
 
-		if (!Mapping.RootComp || !Mapping.Actor) continue;
-		FBodyInstance* RootBodyInstance = Mapping.RootComp->GetBodyInstance();
-		if (!RootBodyInstance || !RootBodyInstance->IsDynamic()) continue;
-		if (RootBodyInstance->IsKinematic()) continue;
-		if (RootBodyInstance->IsInstanceSleeping()) continue;
+		FVector NewPos = Host->GetEngineWorldLocation();
+		FQuat NewRot = Host->GetEngineWorldRotation();
 
-		FVector NewPos = RootBodyInstance->GetEngineWorldLocation();
-		FQuat NewRot = RootBodyInstance->GetEngineWorldRotation();
-
-		Mapping.RootComp->SetWorldLocation(NewPos);
-		Mapping.RootComp->SetRelativeRotation(NewRot);
+		Host->GetOwnerComponent()->SetWorldLocation(NewPos);
+		Host->GetOwnerComponent()->SetRelativeRotation(NewRot);
 	}
 
 	SyncPhysicsAssetBodiesToBones();

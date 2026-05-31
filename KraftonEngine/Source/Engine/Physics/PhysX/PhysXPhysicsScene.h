@@ -135,17 +135,9 @@ private:
 	physx::PxPvdTransport* PvdTransport = nullptr;
 #endif
 
-	// Actor 단위 매핑 — 한 액터의 여러 컴포넌트가 같은 PxRigidActor에 shape로 합쳐진다.
-	struct FBodyMapping
-	{
-		AActor* OwnerActor = nullptr;             // 키
-		physx::PxRigidActor* Actor = nullptr;     // 기존 코드 호환용. 다음 단계에서 제거 또는 축소 예정.
-		UPrimitiveComponent* RootComp = nullptr;  // 트랜스폼 동기화 기준
-		TArray<UPrimitiveComponent*> Components;  // 등록된 컴포넌트들
-	};
-	// PxActor는 대표 UPrimitiveComponent::BodyInstance를 userData로 참조한다.
-	// FBodyMapping은 Actor 단위 compound 관계만 추적한다.
-	TArray<std::unique_ptr<FBodyMapping>> BodyMappings;
+	// 살아있는 강체들의 대표 body 목록. 객체 소유는 컴포넌트가 하고 여기엔 포인터만 둔다(매 프레임 순회용).
+	// 한 강체에 여러 컴포넌트가 합쳐져도 대표 하나만 여기 들어간다.
+	TArray<FBodyInstance*> Bodies;
 
 	// Constraint 는 PxRigidActor를 참조
 	// Shutdown / body unregister시 Bodies보다 먼저 release
@@ -157,23 +149,23 @@ private:
 	TArray<std::unique_ptr<FBodyInstance>> AdapterBodies;
 
 	// 내부 헬퍼
-	FBodyMapping* FindMappingByActor(AActor* OwnerActor);
-	const FBodyMapping* FindMappingByActor(AActor* OwnerActor) const;
-	FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp);
-	const FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp) const;
+	// Comp가 속한 강체의 대표 body. 등록 안 됐으면 nullptr.
+	FBodyInstance* FindHostBody(UPrimitiveComponent* Comp);
+	const FBodyInstance* FindHostBody(UPrimitiveComponent* Comp) const;
+	// Actor의 강체 대표 body. ragdoll/adapter body는 제외.
+	FBodyInstance* FindHostBodyByActor(AActor* OwnerActor);
 	void DestroyConstraintsForBody(FBodyInstance* Body);
-	// body 하나의 PhysX 자원 해제 단일 경로 — joint 해제 → removeActor → TerminateBody → release.
-	// FBodyInstance 객체 자체는 삭제하지 않는다(소유자 책임).
+	// 강체 하나의 PhysX 자원을 해제하는 공통 경로(joint → actor 순). FBodyInstance 객체는 소유자가 지우므로 여기서 delete하지 않는다.
 	void ReleaseBodyResource(FBodyInstance* Body);
 	void SyncPhysicsAssetBodiesToBones();
 
 	// FPhysXShapeDesc 하나를 주어진 actor에 PxShape로 생성. 실패 시 nullptr.
 	physx::PxShape* CreateShapeOnActor(physx::PxRigidActor* Actor, const FPhysXShapeDesc& Desc);
 
-	// Comp의 geometry를 Mapping의 PxRigidActor에 shape로 추가. 실패 시 nullptr.
-	physx::PxShape* AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
-	// Comp의 BodySetup AggGeom을 Mapping의 PxRigidActor에 shape로 추가. shape가 하나 이상 생성되면 true.
-	bool AddShapesFromBodySetup(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
-	// Mapping의 actor에서 Comp에 매칭된 shape를 detach.
-	void DetachShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
+	// HostActor에 Comp의 geometry를 shape로 추가(RootComp 기준 LocalPose). 실패 시 nullptr.
+	physx::PxShape* AddShapeForComponent(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp);
+	// HostActor에 Comp의 BodySetup AggGeom을 shape로 추가. shape가 하나 이상 생성되면 true.
+	bool AddShapesFromBodySetup(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp);
+	// HostActor에서 Comp에 매칭된 shape를 detach.
+	void DetachShapeForComponent(physx::PxRigidActor* HostActor, UPrimitiveComponent* Comp);
 };
