@@ -26,6 +26,7 @@ public:
 
 	FMeshBuffer* GetMeshBuffer() const override;
 	FMeshDataView GetMeshDataView() const override;
+	UBodySetup* GetBodySetup() const override;
 	bool LineTraceComponent(const FRay& Ray, FHitResult& OutHitResult) override;
 	bool LineTraceStaticMeshFast(const FRay& Ray, const FMatrix& WorldMatrix, const FMatrix& WorldInverse, FHitResult& OutHitResult);
 	void UpdateWorldAABB() const override;

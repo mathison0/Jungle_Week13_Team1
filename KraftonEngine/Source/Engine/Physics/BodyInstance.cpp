@@ -1,5 +1,5 @@
 ﻿#include "Physics/BodyInstance.h"
-#include "Physics/PhysXHelper.h"
+#include "Physics/PhysX/PhysXHelper.h"
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/AActor.h"
 
@@ -11,9 +11,6 @@ void FBodyInstance::InitBody(UPrimitiveComponent* InOwnerComponent, physx::PxRig
 {
 	OwnerComponent = InOwnerComponent;
 	RigidActor = InRigidActor;
-
-	BoneIndex = -1;
-	BodyIndex = -1;
 
 	if (OwnerComponent)
 	{
@@ -28,11 +25,10 @@ void FBodyInstance::TerminateBody()
 	OwnerComponent = nullptr;
 	RigidActor = nullptr;
 
-	BoneIndex = -1;
-	BodyIndex = -1;
-
 	bSimulatePhysics = false;
 	bEnableGravity = true;
+	BoneIndex = -1;
+	BodyIndex = -1;
 }
 
 bool FBodyInstance::IsValidBodyInstance() const
@@ -76,21 +72,6 @@ UPrimitiveComponent* FBodyInstance::GetOwnerComponent() const
 	return OwnerComponent;
 }
 
-physx::PxRigidActor* FBodyInstance::GetPxRigidActor() const
-{
-	return RigidActor;
-}
-
-physx::PxRigidDynamic* FBodyInstance::GetPxRigidDynamic() const
-{
-	return RigidActor ? RigidActor->is<PxRigidDynamic>() : nullptr;
-}
-
-void FBodyInstance::SetPxRigidActor(physx::PxRigidActor* InRigidActor)
-{
-	RigidActor = InRigidActor;
-}
-
 void FBodyInstance::SetBoneIndex(int32 InBoneIndex)
 {
 	BoneIndex = InBoneIndex;
@@ -109,6 +90,16 @@ void FBodyInstance::SetBodyIndex(int32 InBodyIndex)
 int32 FBodyInstance::GetBodyIndex() const
 {
 	return BodyIndex;
+}
+
+physx::PxRigidActor* FBodyInstance::GetPxRigidActor() const
+{
+	return RigidActor;
+}
+
+physx::PxRigidDynamic* FBodyInstance::GetPxRigidDynamic() const
+{
+	return RigidActor ? RigidActor->is<PxRigidDynamic>() : nullptr;
 }
 
 FVector FBodyInstance::GetEngineWorldLocation()
@@ -338,7 +329,7 @@ void FBodyInstance::SetSimulatePhysics(bool bInSimulate)
 
 void FBodyInstance::SetEnableGravity(bool bInEnableGravity)
 {
-	bEnableGravity = bEnableGravity;
+	bEnableGravity = bInEnableGravity;
 
 	PxRigidDynamic* Dyn = GetPxRigidDynamic();
 	if (!Dyn)

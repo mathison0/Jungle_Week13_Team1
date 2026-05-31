@@ -16,6 +16,7 @@ class FPrimitiveSceneProxy;
 class FScene;
 class FMeshBuffer;
 class FOctree;
+class UBodySetup;
 class UPhysicalMaterial;
 
 // Overlap/Hit 델리게이트 시그니처
@@ -72,6 +73,7 @@ public:
 
 	virtual FMeshBuffer* GetMeshBuffer() const { return nullptr; }
 	virtual FMeshDataView GetMeshDataView() const { return {}; }
+	virtual UBodySetup* GetBodySetup() const { return nullptr; }
 
 	void SetVisibility(bool bNewVisible);
 	inline bool IsVisible() const { return bIsVisible; }

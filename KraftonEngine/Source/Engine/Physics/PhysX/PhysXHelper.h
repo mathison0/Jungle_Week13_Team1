@@ -86,9 +86,20 @@ public:
 		return GetUserData<T>(Object) == Expected;
 	}
 
-	// --- PhysX userData helpers ---
-	// PxActor::userData는 AActor*가 아니라 FBodyInstance*
-	// PxShape::userData도 FBodyInstance*
+	// --- PhysX userData policy ---
+	// PxRigidActor::userData = 대표 FBodyInstance*.
+	// PxShape::userData = 해당 shape를 소유한 component의 FBodyInstance*.
+	// PxJoint::userData는 이번 구현에서 쓰지 않는다.
+	static void SetActorBodyRecord(physx::PxRigidActor* Actor, FBodyInstance* BodyInstance)
+	{
+		FPhysXHelper::SetUserData(Actor, BodyInstance);
+	}
+
+	static void SetShapeBodyRecord(physx::PxShape* Shape, FBodyInstance* BodyInstance)
+	{
+		FPhysXHelper::SetUserData(Shape, BodyInstance);
+	}
+
 	static FBodyInstance* GetBodyInstanceFromPxActor(const physx::PxRigidActor* Actor)
 	{
 		return FPhysXHelper::GetUserData<FBodyInstance>(Actor);
@@ -97,6 +108,21 @@ public:
 	static FBodyInstance* GetBodyInstanceFromPxShape(const physx::PxShape* Shape)
 	{
 		return FPhysXHelper::GetUserData<FBodyInstance>(Shape);
+	}
+
+	static bool IsShapeBodyRecord(const physx::PxShape* Shape, const FBodyInstance* BodyInstance)
+	{
+		return FPhysXHelper::HasUserData(Shape, BodyInstance);
+	}
+
+	static physx::PxRigidActor* GetRigidActor(const FBodyInstance* BodyInstance)
+	{
+		return BodyInstance ? BodyInstance->GetPxRigidActor() : nullptr;
+	}
+
+	static physx::PxRigidDynamic* GetRigidDynamic(const FBodyInstance* BodyInstance)
+	{
+		return BodyInstance ? BodyInstance->GetPxRigidDynamic() : nullptr;
 	}
 
 	static AActor* GetOwnerActorFromPxActor(const physx::PxRigidActor* Actor)
