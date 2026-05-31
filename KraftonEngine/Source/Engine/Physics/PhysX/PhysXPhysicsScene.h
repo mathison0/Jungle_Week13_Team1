@@ -119,6 +119,13 @@ public:
 		const FTransform& WorldTransform, bool bDynamic);
 	void DestroyBody(FBodyInstance* Body);
 
+	// --- Vehicle / 고급 PhysX 접근 게이트 ---
+	// PxVehicle 등 PhysX를 직접 제어해야 하는 코드용. 호출 측은 IPhysicsScene을
+	// FPhysXPhysicsScene으로 다운캐스트 + 백엔드 가드(Backend == PhysX) 후 사용한다.
+	// (FBodyInstance의 PhysX 핸들은 계속 private — Scene이 중개한다.)
+	physx::PxScene* GetPxScene() const { return Scene; }
+	physx::PxRigidActor* GetComponentRigidActor(UPrimitiveComponent* Comp);
+
 private:
 	UWorld* World = nullptr;
 

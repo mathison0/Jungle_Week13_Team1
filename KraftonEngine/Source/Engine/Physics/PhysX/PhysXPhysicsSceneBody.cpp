@@ -351,3 +351,10 @@ const FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Co
 	const FBodyInstance* BodyInstance = Comp->GetBodyInstance();
 	return BodyInstance && BodyInstance->IsValidBodyInstance() ? BodyInstance : nullptr;
 }
+
+// Vehicle 등 PhysX 직접 제어용 — Comp가 속한 강체의 PxRigidActor. 미등록이면 nullptr.
+physx::PxRigidActor* FPhysXPhysicsScene::GetComponentRigidActor(UPrimitiveComponent* Comp)
+{
+	FBodyInstance* Host = FindHostBody(Comp);
+	return Host ? FPhysXHelper::GetRigidActor(Host) : nullptr;
+}
