@@ -94,8 +94,8 @@ bool FPhysXShapeDescUtils::MakeShapeDescFromShapeComponent(
 		OutDesc.Radius = Capsule->GetScaledCapsuleRadius();
 		OutDesc.HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
 
-		// Capsule은 PhysX에서 X축 기준이므로 로컬 회전 보정 필요.
-		OutDesc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 0.0f, 1.0f), FMath::Pi * 0.5f);
+		// PhysX 캡슐은 로컬 X축 기준 → 엔진 Z-up(수직)으로 세우려면 Y축으로 90° 회전.
+		OutDesc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 1.0f, 0.0f), FMath::Pi * 0.5f);
 		return true;
 	}
 
@@ -160,8 +160,8 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetup(
 		Desc.Radius = ScaledRadius;
 		Desc.HalfHeight = ScaledHalfCylinder + ScaledRadius;
 		Desc.LocalTransform = BuildElemLocalTransform(CompLocalTransform, Sphyl, WorldScale);
-		// Capsule은 PhysX에서 X축 기준이므로 로컬 회전 보정 필요.
-		Desc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 0.0f, 1.0f), FMath::Pi * 0.5f);
+		// PhysX 캡슐은 로컬 X축 기준 → 엔진 Z-up(수직)으로 세우려면 Y축으로 90° 회전.
+		Desc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 1.0f, 0.0f), FMath::Pi * 0.5f);
 		Desc.Collision = Collision;
 		Desc.Material = Material;
 		Desc.BodyInstance = BodyInstance;
@@ -217,8 +217,8 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(
 		Desc.Radius = Sphyl.Radius;
 		Desc.HalfHeight = Sphyl.Length * 0.5f + Sphyl.Radius;
 		Desc.LocalTransform = Sphyl.Transform;
-		// Capsule은 PhysX에서 X축 기준이므로 로컬 회전 보정 필요.
-		Desc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 0.0f, 1.0f), FMath::Pi * 0.5f);
+		// PhysX 캡슐은 로컬 X축 기준 → 엔진 Z-up(수직)으로 세우려면 Y축으로 90° 회전.
+		Desc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 1.0f, 0.0f), FMath::Pi * 0.5f);
 		Desc.Collision = Collision;
 		Desc.Material = Material;
 		Desc.BodyInstance = BodyInstance;
