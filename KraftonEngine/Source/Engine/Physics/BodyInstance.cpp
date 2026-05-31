@@ -27,6 +27,8 @@ void FBodyInstance::TerminateBody()
 
 	bSimulatePhysics = false;
 	bEnableGravity = true;
+	BoneIndex = -1;
+	BodyIndex = -1;
 }
 
 bool FBodyInstance::IsValidBodyInstance() const
@@ -68,6 +70,26 @@ AActor* FBodyInstance::GetOwnerActor() const
 UPrimitiveComponent* FBodyInstance::GetOwnerComponent() const
 {
 	return OwnerComponent;
+}
+
+void FBodyInstance::SetBoneIndex(int32 InBoneIndex)
+{
+	BoneIndex = InBoneIndex;
+}
+
+int32 FBodyInstance::GetBoneIndex() const
+{
+	return BoneIndex;
+}
+
+void FBodyInstance::SetBodyIndex(int32 InBodyIndex)
+{
+	BodyIndex = InBodyIndex;
+}
+
+int32 FBodyInstance::GetBodyIndex() const
+{
+	return BodyIndex;
 }
 
 physx::PxRigidActor* FBodyInstance::GetPxRigidActor() const

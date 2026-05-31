@@ -1,0 +1,188 @@
+#include "PhysXPhysicsScene.h"
+
+#include "Component/Primitive/SkeletalMeshComponent.h"
+#include "Core/Logging/Log.h"
+#include "Mesh/Skeletal/SkeletalMesh.h"
+#include "Mesh/Skeletal/SkeletalMeshAsset.h"
+#include "Physics/BodySetup.h"
+#include "Physics/PhysicsAsset.h"
+
+#include <algorithm>
+
+bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp)
+{
+	if (!Comp || !Scene || !Physics || !DefaultMaterial) return false;
+
+	// 재생성 시 기존 runtime body와 joint를 먼저 제거한다.
+	// PhysicsAsset Editor에서 데이터를 수정한 뒤 다시 instantiate하는 경로도 이 함수를 사용한다.
+	DestroyPhysicsAssetBodies(Comp);
+
+	USkeletalMesh* SkeletalMesh = Comp->GetSkeletalMesh();
+	UPhysicsAsset* PhysicsAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
+	if (!PhysicsAsset || !PhysicsAsset->HasAnyBodySetup()) return false;
+
+	TArray<FBodyInstance*>& RuntimeBodies = Comp->GetBodies();
+	RuntimeBodies.reserve(PhysicsAsset->BodySetups.size());
+
+	for (int32 BodySetupIndex = 0; BodySetupIndex < static_cast<int32>(PhysicsAsset->BodySetups.size()); ++BodySetupIndex)
+	{
+		UBodySetup* BodySetup = PhysicsAsset->BodySetups[BodySetupIndex];
+		if (!BodySetup || !BodySetup->HasGeometry()) continue;
+
+		const FString BoneName = BodySetup->GetBoneName().ToString();
+		const int32 BoneIndex = Comp->FindBoneIndex(BoneName);
+		if (BoneIndex < 0)
+		{
+			UE_LOG("[PhysX] PhysicsAsset body skipped. Bone not found: %s", BoneName.c_str());
+			continue;
+		}
+
+		FTransform BoneWorldTransform;
+		if (!Comp->GetBoneWorldTransformByIndex(BoneIndex, BoneWorldTransform)) continue;
+
+		// refactor/PhysX-Core의 adapter를 통해 bone-local AggGeom을 독립 dynamic body로 만든다.
+		// shape 생성 정책은 StaticMesh 경로와 같은 CreateShapeOnActor()를 공유한다.
+		FBodyInstance* RuntimeBody = CreateBodyFromBodySetup(Comp, BodySetup, BoneWorldTransform, true);
+		if (!RuntimeBody) continue;
+
+		RuntimeBody->SetBodyIndex(BodySetupIndex);
+		RuntimeBody->SetBoneIndex(BoneIndex);
+		RuntimeBody->SetSimulatePhysics(Comp->GetSimulatePhysics());
+		RuntimeBodies.push_back(RuntimeBody);
+	}
+
+	// Editor에서 저장한 bone 이름으로 runtime body를 찾아 PxD6Joint를 생성한다.
+	// BodySetup이 없거나 bone 이름이 틀린 constraint는 건너뛴다.
+	for (const FConstraintInstance& ConstraintSetup : PhysicsAsset->ConstraintSetups)
+	{
+		FBodyInstance* ParentBody = nullptr;
+		FBodyInstance* ChildBody = nullptr;
+		const int32 ParentIndex = PhysicsAsset->FindBodySetupIndexByBoneName(ConstraintSetup.ParentBoneName);
+		const int32 ChildIndex = PhysicsAsset->FindBodySetupIndexByBoneName(ConstraintSetup.ChildBoneName);
+
+		for (FBodyInstance* Body : RuntimeBodies)
+		{
+			if (!Body) continue;
+			if (Body->GetBodyIndex() == ParentIndex) ParentBody = Body;
+			if (Body->GetBodyIndex() == ChildIndex) ChildBody = Body;
+		}
+
+		if (!ParentBody || !ChildBody) continue;
+
+		if (FConstraintInstance* Constraint = CreateConstraint(
+			ParentBody, ChildBody, ConstraintSetup.Option,
+			ConstraintSetup.ParentFrame, ConstraintSetup.ChildFrame, ConstraintSetup.ConstraintName))
+		{
+			Comp->GetConstraints().push_back(Constraint);
+		}
+	}
+
+	if (!RuntimeBodies.empty())
+	{
+		SkeletalPhysicsComponents.push_back(Comp);
+		return true;
+	}
+	return false;
+}
+
+void FPhysXPhysicsScene::DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp)
+{
+	if (!Comp) return;
+
+	// PxJoint는 PxRigidActor를 참조하므로 body보다 먼저 제거해야 한다.
+	for (FConstraintInstance* Constraint : Comp->GetConstraints())
+	{
+		DestroyConstraint(Constraint);
+	}
+	Comp->GetConstraints().clear();
+
+	TArray<FBodyInstance*> Bodies = Comp->GetBodies();
+	Comp->GetBodies().clear();
+	for (FBodyInstance* Body : Bodies)
+	{
+		DestroyBody(Body);
+	}
+
+	SkeletalPhysicsComponents.erase(
+		std::remove(SkeletalPhysicsComponents.begin(), SkeletalPhysicsComponents.end(), Comp),
+		SkeletalPhysicsComponents.end());
+}
+
+bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComponent* Comp, bool bResetVelocity)
+{
+	if (!Comp) return false;
+
+	bool bSynced = false;
+	// Ragdoll 전환 순간의 animation pose를 PhysX body 시작 위치로 복사한다.
+	// 이 과정을 생략하면 body가 bind pose나 이전 simulation 위치에서 시작해 튀어 보일 수 있다.
+	for (FBodyInstance* Body : Comp->GetBodies())
+	{
+		if (!Body || !Body->IsValidBodyInstance()) continue;
+
+		FTransform BoneWorldTransform;
+		if (!Comp->GetBoneWorldTransformByIndex(Body->GetBoneIndex(), BoneWorldTransform)) continue;
+
+		Body->SetBodyTransform(BoneWorldTransform.Location, BoneWorldTransform.Rotation, bResetVelocity);
+		bSynced = true;
+	}
+	return bSynced;
+}
+
+void FPhysXPhysicsScene::SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* Comp, bool bSimulate)
+{
+	if (!Comp) return;
+
+	for (FBodyInstance* Body : Comp->GetBodies())
+	{
+		if (!Body || !Body->IsValidBodyInstance()) continue;
+		Body->SetSimulatePhysics(bSimulate);
+		if (bSimulate) Body->WakeInstance();
+	}
+}
+
+void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
+{
+	for (USkeletalMeshComponent* Comp : SkeletalPhysicsComponents)
+	{
+		if (!Comp || !Comp->IsRagdollSimulating()) continue;
+
+		USkeletalMesh* SkeletalMesh = Comp->GetSkeletalMesh();
+		FSkeletalMesh* Asset = SkeletalMesh ? SkeletalMesh->GetSkeletalMeshAsset() : nullptr;
+		if (!Asset || Asset->Bones.empty()) continue;
+
+		// collider가 없는 bone은 현재 pose를 유지하고, body가 있는 bone만 PhysX 결과로 교체한다.
+		// 마지막에 전체 pose를 local transform으로 재계산하므로 손가락 같은 자식 bone도 부모를 따라간다.
+		TArray<FMatrix> DesiredGlobalMatrices;
+		Comp->GetCurrentBoneGlobalMatrices(DesiredGlobalMatrices);
+		if (DesiredGlobalMatrices.size() != Asset->Bones.size()) continue;
+
+		const FMatrix& ComponentWorldInv = Comp->GetWorldInverseMatrix();
+		for (FBodyInstance* Body : Comp->GetBodies())
+		{
+			if (!Body || !Body->IsValidBodyInstance()) continue;
+
+			const int32 BoneIndex = Body->GetBoneIndex();
+			if (BoneIndex < 0 || BoneIndex >= static_cast<int32>(Asset->Bones.size())) continue;
+
+			const FTransform BodyWorldTransform(
+				Body->GetEngineWorldLocation(),
+				Body->GetEngineWorldRotation(),
+				FVector::OneVector);
+			// PhysX body는 world 좌표계이므로 skeletal component 로컬 좌표계로 변환한다.
+			DesiredGlobalMatrices[BoneIndex] = BodyWorldTransform.ToMatrix() * ComponentWorldInv;
+		}
+
+		TArray<FTransform> DesiredLocalTransforms;
+		DesiredLocalTransforms.resize(Asset->Bones.size());
+		// SkinnedMeshComponent가 소비하는 값은 local pose이므로 parent global inverse를 곱한다.
+		for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Asset->Bones.size()); ++BoneIndex)
+		{
+			const int32 ParentIndex = Asset->Bones[BoneIndex].ParentIndex;
+			const FMatrix LocalMatrix = ParentIndex >= 0 && ParentIndex < static_cast<int32>(DesiredGlobalMatrices.size())
+				? DesiredGlobalMatrices[BoneIndex] * DesiredGlobalMatrices[ParentIndex].GetInverse()
+				: DesiredGlobalMatrices[BoneIndex];
+			DesiredLocalTransforms[BoneIndex] = FTransform(LocalMatrix);
+		}
+		Comp->SetBoneLocalTransforms(DesiredLocalTransforms);
+	}
+}

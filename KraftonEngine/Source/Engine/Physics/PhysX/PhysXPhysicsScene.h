@@ -9,6 +9,7 @@
 #include <memory>
 
 class AActor;
+class USkeletalMeshComponent;
 class UBodySetup;
 struct FPhysXShapeDesc;
 
@@ -52,6 +53,10 @@ public:
 	void RegisterComponent(UPrimitiveComponent* Comp) override;
 	void UnregisterComponent(UPrimitiveComponent* Comp) override;
 	void RebuildBody(UPrimitiveComponent* Comp) override;
+	bool InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp) override;
+	void DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp) override;
+	bool SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComponent* Comp, bool bResetVelocity = true) override;
+	void SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* Comp, bool bSimulate) override;
 
 	void Tick(float DeltaTime) override;
 
@@ -145,6 +150,7 @@ private:
 	// Constraint 는 PxRigidActor를 참조
 	// Shutdown / body unregister시 Bodies보다 먼저 release
 	TArray<std::unique_ptr<FConstraintInstance>> Constraints;
+	TArray<USkeletalMeshComponent*> SkeletalPhysicsComponents;
 
 	// Adapter(CreateBodyFromBodySetup)로 만든 독립 body. compound BodyMappings와 별개로
 	// scene이 FBodyInstance를 소유하고, Shutdown / DestroyBody에서 PxRigidActor까지 정리한다.
@@ -156,6 +162,7 @@ private:
 	FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp);
 	const FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp) const;
 	void DestroyConstraintsForBody(FBodyInstance* Body);
+	void SyncPhysicsAssetBodiesToBones();
 
 	// FPhysXShapeDesc 하나를 주어진 actor에 PxShape로 생성. 실패 시 nullptr.
 	physx::PxShape* CreateShapeOnActor(physx::PxRigidActor* Actor, const FPhysXShapeDesc& Desc);

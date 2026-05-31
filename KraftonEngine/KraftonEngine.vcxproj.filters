@@ -1757,6 +1757,9 @@
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneConstraint.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsScenePhysicsAsset.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneQuery.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>

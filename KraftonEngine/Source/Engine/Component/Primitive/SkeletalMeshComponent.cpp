@@ -10,6 +10,7 @@
 #include "Asset/AssetRegistry.h"
 #include "Core/Logging/Log.h"
 #include "GameFramework/AActor.h"
+#include "GameFramework/World.h"
 #include "Math/Quat.h"
 #include "Math/Vector.h"
 #include "Mesh/Skeletal/SkeletalMesh.h"
@@ -17,6 +18,7 @@
 #include "Object/Object.h"
 #include "Object/Reflection/ObjectFactory.h"
 #include "Object/Reflection/UClass.h"
+#include "Physics/IPhysicsScene.h"
 #include "Render/Proxy/SkeletalMeshSceneProxy.h"
 #include "Serialization/Archive.h"
 
@@ -31,6 +33,39 @@ USkeletalMeshComponent::~USkeletalMeshComponent()
 FPrimitiveSceneProxy* USkeletalMeshComponent::CreateSceneProxy()
 {
     return new FSkeletalMeshSceneProxy(this);
+}
+
+void USkeletalMeshComponent::BeginPlay()
+{
+    Super::BeginPlay();
+
+    if (Owner)
+    {
+        if (UWorld* World = Owner->GetWorld())
+        {
+            if (IPhysicsScene* PhysicsScene = World->GetPhysicsScene())
+            {
+                PhysicsScene->InstantiatePhysicsAssetBodies(this);
+            }
+        }
+    }
+}
+
+void USkeletalMeshComponent::EndPlay()
+{
+    if (Owner)
+    {
+        if (UWorld* World = Owner->GetWorld())
+        {
+            if (IPhysicsScene* PhysicsScene = World->GetPhysicsScene())
+            {
+                PhysicsScene->DestroyPhysicsAssetBodies(this);
+            }
+        }
+    }
+    bRagdollSimulating = false;
+
+    Super::EndPlay();
 }
 
 void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InMesh)
@@ -63,6 +98,44 @@ void USkeletalMeshComponent::StopAnimation()
 // ──────────────────────────────────────────────
 // Animation API
 // ──────────────────────────────────────────────
+void USkeletalMeshComponent::SetSimulateRagdoll(bool bEnable)
+{
+    if (bRagdollSimulating == bEnable)
+    {
+        return;
+    }
+
+    if (!Owner)
+    {
+        bRagdollSimulating = bEnable;
+        return;
+    }
+
+    UWorld* World = Owner->GetWorld();
+    IPhysicsScene* PhysicsScene = World ? World->GetPhysicsScene() : nullptr;
+    if (!PhysicsScene)
+    {
+        bRagdollSimulating = bEnable;
+        return;
+    }
+
+    if (bEnable)
+    {
+        if (Bodies.empty())
+        {
+            PhysicsScene->InstantiatePhysicsAssetBodies(this);
+        }
+
+        PhysicsScene->SetPhysicsAssetBodiesSimulate(this, true);
+        PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(this, true);
+        bRagdollSimulating = !Bodies.empty();
+        return;
+    }
+
+    PhysicsScene->SetPhysicsAssetBodiesSimulate(this, false);
+    bRagdollSimulating = false;
+}
+
 void USkeletalMeshComponent::SetAnimationMode(EAnimationMode InMode)
 {
     if (AnimationMode == InMode) return;
@@ -292,6 +365,12 @@ void USkeletalMeshComponent::ClearAnimInstance()
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction)
 {
+    if (bRagdollSimulating && !Bodies.empty())
+    {
+        Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+        return;
+    }
+
     if (EvaluateAnimInstance(DeltaTime))
     {
         UMeshComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);

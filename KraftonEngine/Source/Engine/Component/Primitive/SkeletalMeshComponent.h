@@ -70,12 +70,21 @@ public:
     void PostEditProperty(const char* PropertyName) override;
     void Serialize(FArchive& Ar) override;
 
+    // true: 현재 animation pose를 PhysX body 시작 위치로 복사한 뒤 ragdoll simulation을 시작한다.
+    // false: simulation을 끄고 다음 Tick부터 animation pose 평가로 즉시 복귀한다.
+    // 현재는 물리 pose와 animation pose 사이의 blend-out은 지원하지 않는다.
+    void SetSimulateRagdoll(bool bEnable);
+    bool IsRagdollSimulating() const { return bRagdollSimulating; }
+
     TArray<FBodyInstance*>& GetBodies() { return Bodies; }
     const TArray<FBodyInstance*>& GetBodies() const { return Bodies; }
     TArray<FConstraintInstance*>& GetConstraints() { return Constraints; }
     const TArray<FConstraintInstance*>& GetConstraints() const { return Constraints; }
 
 protected:
+    void BeginPlay() override;
+    void EndPlay() override;
+
     // 매 프레임 AnimInstance 평가 → 결과 포즈를 SetBoneLocalTransforms 로 푸시.
     // 이 경로가 CPU skinning 과 bounds dirty 를 한 번에 처리한다.
     void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction) override;
@@ -96,7 +105,9 @@ protected:
     UPROPERTY(Save, Instanced, Category="Animation", DisplayName="Anim Instance", Type=ObjectRef, AllowedClass=UAnimInstance)
     UAnimInstance*             AnimInstance  = nullptr;
 
-    // PhysicsAsset instantiate 단계에서 채워지는 runtime physics state.
+    // PhysicsAsset instantiate 단계에서 채워지는 runtime 상태. 에셋에 저장하지 않는다.
+    // Bodies는 BodySetup과 bone에 대응하고, Constraints는 두 runtime body 사이의 PxJoint를 래핑한다.
     TArray<FBodyInstance*>      Bodies;
     TArray<FConstraintInstance*> Constraints;
+    bool bRagdollSimulating = false;
 };

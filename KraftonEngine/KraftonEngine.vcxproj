@@ -663,6 +663,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneAdapter.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneBody.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneConstraint.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsScenePhysicsAsset.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneQuery.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.cpp" />

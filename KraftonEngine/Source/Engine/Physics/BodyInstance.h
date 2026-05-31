@@ -48,6 +48,12 @@ public:
 	AActor* GetOwnerActor() const;
 	UPrimitiveComponent* GetOwnerComponent() const;
 
+	// --- Ragdoll / Physics Asset identifiers ---
+	void SetBoneIndex(int32 InBoneIndex);
+	int32 GetBoneIndex() const;
+	void SetBodyIndex(int32 InBodyIndex);
+	int32 GetBodyIndex() const;
+
 	// --- Transform --- 
 	FVector GetEngineWorldLocation();
 	FQuat	GetEngineWorldRotation();
@@ -99,6 +105,9 @@ private:
 
 	UPrimitiveComponent* OwnerComponent = nullptr;
 	physx::PxRigidActor* RigidActor = nullptr;
+
+	int32 BoneIndex = -1;
+	int32 BodyIndex = -1;
 
 	bool bSimulatePhysics = false;
 	bool bEnableGravity = true;

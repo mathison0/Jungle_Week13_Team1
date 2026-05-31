@@ -45,13 +45,15 @@ FBodyInstance* FPhysXPhysicsScene::CreateBodyFromBodySetup(UPrimitiveComponent* 
 	// filter shader의 same-owner 가드로 충돌이 무시된다.
 	const uint32 OwnerId = (OwnerComp && OwnerComp->GetOwner()) ? OwnerComp->GetOwner()->GetUUID() : 0;
 	FPhysXShapeCollisionDesc Collision;
-	Collision.CollisionEnabled = ECollisionEnabled::QueryAndPhysics;
-	Collision.ObjectType = ECollisionChannel::WorldDynamic;
-	Collision.Responses = FCollisionResponseContainer(ECollisionResponse::Block);
+	Collision.CollisionEnabled = OwnerComp ? OwnerComp->GetCollisionEnabled() : ECollisionEnabled::QueryAndPhysics;
+	Collision.ObjectType = OwnerComp ? OwnerComp->GetCollisionObjectType() : ECollisionChannel::WorldDynamic;
+	Collision.Responses = OwnerComp ? OwnerComp->GetCollisionResponseContainer() : FCollisionResponseContainer(ECollisionResponse::Block);
 	Collision.OwnerActorId = OwnerId;
-	Collision.bGenerateOverlapEvents = false;
+	Collision.bGenerateOverlapEvents = OwnerComp && OwnerComp->GetGenerateOverlapEvents();
 
 	FPhysXShapeMaterialDesc Material; // override 없음 -> default material
+
+	Material.OverrideMaterial = OwnerComp ? OwnerComp->GetPhysicalMaterialOverride() : nullptr;
 
 	TArray<FPhysXShapeDesc> Descs;
 	FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(BodySetup,
@@ -74,7 +76,8 @@ FBodyInstance* FPhysXPhysicsScene::CreateBodyFromBodySetup(UPrimitiveComponent* 
 	// v1: dynamic body는 1kg 고정. 추후 density 기반으로 확장 가능.
 	if (PxRigidDynamic* Dyn = Actor->is<PxRigidDynamic>())
 	{
-		PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, 1.0f);
+		const float MassKg = OwnerComp && OwnerComp->GetMass() > 0.0f ? OwnerComp->GetMass() : 1.0f;
+		PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, MassKg);
 	}
 
 	Scene->addActor(*Actor);

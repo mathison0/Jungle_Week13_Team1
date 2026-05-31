@@ -33,7 +33,6 @@ static void ApplyRootMassAndCOM(PxRigidDynamic* Dyn, UPrimitiveComponent* Root)
 	PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, MassKg);
 	Dyn->setCMassLocalPose(PxTransform(FPhysXHelper::ToPxVec3(Root->GetCenterOfMass())));
 }
-
 // ============================================================
 // Lifecycle
 // ============================================================
@@ -108,7 +107,7 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 #endif
 
 	// --- Material ---
-	
+
 	// Default material (static friction, dynamic friction, restitution)
 	// TODO: PhysicalMaterial 구현 후 Fallback으로 만들기
 	DefaultPhysicalMaterial = UObjectManager::Get().CreateObject<UPhysicalMaterial>();
@@ -125,6 +124,11 @@ void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 
 void FPhysXPhysicsScene::Shutdown()
 {
+	while (!SkeletalPhysicsComponents.empty())
+	{
+		DestroyPhysicsAssetBodies(SkeletalPhysicsComponents.back());
+	}
+
 	// Constraint는 PxRigidActor를 참조한다.
 	// 따라서 Bodies보다 먼저 release
 	for (auto& ConstraintPtr : Constraints)
@@ -276,7 +280,6 @@ void FPhysXPhysicsScene::RegisterComponent(UPrimitiveComponent* Comp)
 		ApplyRootMassAndCOM(Dyn, Mapping->RootComp);
 	}
 }
-
 void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 {
 	if (!Comp || !Scene) return;
@@ -311,7 +314,7 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 			{
 				ComponentBody->TerminateBody();
 			}
-			
+
 			Scene->removeActor(*Mapping->Actor);
 			Mapping->Actor->release();
 			Mapping->Actor = nullptr;
@@ -470,6 +473,8 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		Mapping.RootComp->SetRelativeRotation(NewRot);
 	}
 
+	SyncPhysicsAssetBodiesToBones();
+
 	// ── Dispatch deferred contact/trigger events ──
 	// onContact / onTrigger 는 fetchResults 안에서 fire 되므로 거기서 직접 게임 핸들러를
 	// 부르면 핸들러의 World->DestroyActor 등이 PhysX scene 변경 타이밍과 겹쳐 크래쉬한다.
@@ -479,4 +484,3 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		EventCallback->DispatchPendingEvents();
 	}
 }
-
