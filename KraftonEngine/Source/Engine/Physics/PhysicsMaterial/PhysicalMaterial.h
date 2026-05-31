@@ -74,8 +74,6 @@ public:
 	const FString& GetSourcePath() const { return SourcePath; }
 
 private:
-	physx::PxMaterial* CastPxMaterial(void* Handle);
-
 	// 정지 마찰 계수
 	UPROPERTY(Edit, Save, Category = "PhysicalMaterial", DisplayName = "Static Friction", Min = 0.0f, Max = 100.0f, Speed = 0.05f)
 	float StaticFriction = 0.5f;
@@ -108,11 +106,9 @@ private:
 	UPROPERTY(Edit, Save, Category = "PhysicalMaterial", DisplayName = "Restitution Combine Mode", Enum = EPMCombineMode)
 	EPMCombineMode RestitutionCombineMode = EPMCombineMode::Average;
 
-
-
 	// PxMaterial은 runtime Object -> 저장 대상X
 	// UPhysicalMaterial 내부 runtime Cache로 취급
-	void* PxMaterialHandle = nullptr;
+	physx::PxMaterial* PxMaterialHandle = nullptr;
 
 	// 에셋 파일 경로 (런타임 전용, 직렬화 안 함)
 	FString SourcePath;
