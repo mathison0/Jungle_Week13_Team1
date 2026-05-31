@@ -18,15 +18,15 @@ using namespace physx;
 // PhysicsAsset / Ragdoll Adapter
 //
 // PhysicsAsset/Ragdoll 빌더(별도 담당)가 사용할 body 생성/해제 진입점.
-// Actor 단위 compound(BodyMappings)와 달리 한 컴포넌트가 여러 독립 body를
-// 가질 수 있으므로 FBodyInstance를 scene이 heap으로 소유한다.
+// 한 컴포넌트가 여러 독립 body를 가질 수 있으며(뼈마다 하나), 각 FBodyInstance의
+// 소유권은 생성해 반환받은 컴포넌트가 가진다(unique_ptr).
 //
 // bone 순회 / ConstraintSetup 해석 / bone transform sync 같은 ragdoll 오케스트레이션은
 // 이 어댑터의 책임이 아니다. 여기서는 "BodySetup 1개 -> PhysX body 1개" 변환과
-// 그 생명주기 관리만 제공한다. joint는 CreateConstraint를 그대로 사용한다.
+// PhysX 자원 해제만 제공한다. joint는 CreateConstraint를 그대로 사용한다.
 // ================================================================
 
-FBodyInstance* FPhysXPhysicsScene::CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
+std::unique_ptr<FBodyInstance> FPhysXPhysicsScene::CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
 	const FTransform& WorldTransform, bool bDynamic)
 {
 	if (!Scene || !Physics || !DefaultMaterial || !BodySetup) return nullptr;
@@ -82,19 +82,15 @@ FBodyInstance* FPhysXPhysicsScene::CreateBodyFromBodySetup(UPrimitiveComponent* 
 
 	Scene->addActor(*Actor);
 
-	FBodyInstance* Result = Body.get();
-	AdapterBodies.push_back(std::move(Body));
-	return Result;
+	// 소유권(unique_ptr)을 호출자(컴포넌트)에게 넘긴다.
+	return Body;
 }
 
-// 강체 하나의 PhysX 자원을 해제하는 공통 경로. Shutdown / DestroyBody가 함께 쓴다.
-// FBodyInstance 객체는 소유자(AdapterBodies / 컴포넌트)가 지우므로 여기선 delete하지 않는다.
+// 강체 하나의 PhysX 자원을 해제하는 공통 경로. Shutdown / DestroyBody / DestroyPhysicsAssetBodies가 함께 쓴다.
+// FBodyInstance 객체는 소유자(컴포넌트)가 지우므로 여기선 delete하지 않는다.
 void FPhysXPhysicsScene::ReleaseBodyResource(FBodyInstance* Body)
 {
 	if (!Body) return;
-
-	// 이 body를 참조하는 joint를 먼저 해제한다 (강체를 물고 있으므로).
-	DestroyConstraintsForBody(Body);
 
 	// 같은 강체에 합쳐진 다른 컴포넌트들의 body도 함께 정리한다(같은 강체를 공유하므로).
 	for (UPrimitiveComponent* Comp : Body->CombinedComponents)
@@ -118,12 +114,6 @@ void FPhysXPhysicsScene::ReleaseBodyResource(FBodyInstance* Body)
 
 void FPhysXPhysicsScene::DestroyBody(FBodyInstance* Body)
 {
-	if (!Body) return;
-
+	// PhysX 자원(PxRigidActor)만 해제한다. FBodyInstance 객체는 소유자(컴포넌트 Bodies)가 삭제한다.
 	ReleaseBodyResource(Body);
-
-	AdapterBodies.erase(
-		std::remove_if(AdapterBodies.begin(), AdapterBodies.end(),
-			[Body](const std::unique_ptr<FBodyInstance>& Ptr) { return Ptr.get() == Body; }),
-		AdapterBodies.end());
 }

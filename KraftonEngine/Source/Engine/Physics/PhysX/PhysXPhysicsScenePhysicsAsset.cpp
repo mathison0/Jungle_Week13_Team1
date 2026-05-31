@@ -8,6 +8,7 @@
 #include "Physics/PhysicsAsset.h"
 
 #include <algorithm>
+#include <memory>
 
 bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp)
 {
@@ -21,7 +22,7 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 	UPhysicsAsset* PhysicsAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
 	if (!PhysicsAsset || !PhysicsAsset->HasAnyBodySetup()) return false;
 
-	TArray<FBodyInstance*>& RuntimeBodies = Comp->GetBodies();
+	TArray<std::unique_ptr<FBodyInstance>>& RuntimeBodies = Comp->GetBodies();
 	RuntimeBodies.reserve(PhysicsAsset->BodySetups.size());
 
 	for (int32 BodySetupIndex = 0; BodySetupIndex < static_cast<int32>(PhysicsAsset->BodySetups.size()); ++BodySetupIndex)
@@ -42,13 +43,13 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 		// refactor/PhysX-Core의 adapter를 통해 bone-local AggGeom을 독립 dynamic body로 만든다.
 		// shape 생성 정책은 StaticMesh 경로와 같은 CreateShapeOnActor()를 공유한다.
-		FBodyInstance* RuntimeBody = CreateBodyFromBodySetup(Comp, BodySetup, BoneWorldTransform, true);
+		std::unique_ptr<FBodyInstance> RuntimeBody = CreateBodyFromBodySetup(Comp, BodySetup, BoneWorldTransform, true);
 		if (!RuntimeBody) continue;
 
 		RuntimeBody->SetBodyIndex(BodySetupIndex);
 		RuntimeBody->SetBoneIndex(BoneIndex);
 		RuntimeBody->SetSimulatePhysics(Comp->GetSimulatePhysics());
-		RuntimeBodies.push_back(RuntimeBody);
+		RuntimeBodies.push_back(std::move(RuntimeBody));
 	}
 
 	// Editor에서 저장한 bone 이름으로 runtime body를 찾아 PxD6Joint를 생성한다.
@@ -60,20 +61,20 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 		const int32 ParentIndex = PhysicsAsset->FindBodySetupIndexByBoneName(ConstraintSetup.ParentBoneName);
 		const int32 ChildIndex = PhysicsAsset->FindBodySetupIndexByBoneName(ConstraintSetup.ChildBoneName);
 
-		for (FBodyInstance* Body : RuntimeBodies)
+		for (auto& Body : RuntimeBodies)
 		{
 			if (!Body) continue;
-			if (Body->GetBodyIndex() == ParentIndex) ParentBody = Body;
-			if (Body->GetBodyIndex() == ChildIndex) ChildBody = Body;
+			if (Body->GetBodyIndex() == ParentIndex) ParentBody = Body.get();
+			if (Body->GetBodyIndex() == ChildIndex) ChildBody = Body.get();
 		}
 
 		if (!ParentBody || !ChildBody) continue;
 
-		if (FConstraintInstance* Constraint = CreateConstraint(
+		if (std::unique_ptr<FConstraintInstance> Constraint = CreateConstraint(
 			ParentBody, ChildBody, ConstraintSetup.Option,
 			ConstraintSetup.ParentFrame, ConstraintSetup.ChildFrame, ConstraintSetup.ConstraintName))
 		{
-			Comp->GetConstraints().push_back(Constraint);
+			Comp->GetConstraints().push_back(std::move(Constraint));
 		}
 	}
 
@@ -90,18 +91,19 @@ void FPhysXPhysicsScene::DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp)
 	if (!Comp) return;
 
 	// PxJoint는 PxRigidActor를 참조하므로 body보다 먼저 제거해야 한다.
-	for (FConstraintInstance* Constraint : Comp->GetConstraints())
+	// PxJoint 자원을 먼저 해제하고, unique_ptr 배열을 비워 객체를 삭제한다.
+	for (auto& Constraint : Comp->GetConstraints())
 	{
-		DestroyConstraint(Constraint);
+		if (Constraint) DestroyConstraint(Constraint.get());
 	}
 	Comp->GetConstraints().clear();
 
-	TArray<FBodyInstance*> Bodies = Comp->GetBodies();
-	Comp->GetBodies().clear();
-	for (FBodyInstance* Body : Bodies)
+	// PhysX 자원을 먼저 해제(actor release)하고, 그 다음 unique_ptr 배열을 비워 객체를 삭제한다.
+	for (auto& Body : Comp->GetBodies())
 	{
-		DestroyBody(Body);
+		if (Body) ReleaseBodyResource(Body.get());
 	}
+	Comp->GetBodies().clear();
 
 	SkeletalPhysicsComponents.erase(
 		std::remove(SkeletalPhysicsComponents.begin(), SkeletalPhysicsComponents.end(), Comp),
@@ -115,7 +117,7 @@ bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComp
 	bool bSynced = false;
 	// Ragdoll 전환 순간의 animation pose를 PhysX body 시작 위치로 복사한다.
 	// 이 과정을 생략하면 body가 bind pose나 이전 simulation 위치에서 시작해 튀어 보일 수 있다.
-	for (FBodyInstance* Body : Comp->GetBodies())
+	for (auto& Body : Comp->GetBodies())
 	{
 		if (!Body || !Body->IsValidBodyInstance()) continue;
 
@@ -132,7 +134,7 @@ void FPhysXPhysicsScene::SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* C
 {
 	if (!Comp) return;
 
-	for (FBodyInstance* Body : Comp->GetBodies())
+	for (auto& Body : Comp->GetBodies())
 	{
 		if (!Body || !Body->IsValidBodyInstance()) continue;
 		Body->SetSimulatePhysics(bSimulate);
@@ -159,7 +161,7 @@ void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
 		TArray<FMatrix> DesiredGlobalMatrices = CurrentGlobalMatrices;
 		TArray<bool> HasBodyOverride(Asset->Bones.size(), false);
 		const FMatrix& ComponentWorldInv = Comp->GetWorldInverseMatrix();
-		for (FBodyInstance* Body : Comp->GetBodies())
+		for (auto& Body : Comp->GetBodies())
 		{
 			if (!Body || !Body->IsValidBodyInstance()) continue;
 

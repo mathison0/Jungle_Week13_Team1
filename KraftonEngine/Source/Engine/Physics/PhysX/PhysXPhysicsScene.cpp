@@ -129,24 +129,7 @@ void FPhysXPhysicsScene::Shutdown()
 		DestroyPhysicsAssetBodies(SkeletalPhysicsComponents.back());
 	}
 
-	// Constraint는 PxRigidActor를 참조한다.
-	// 따라서 Bodies보다 먼저 release
-	for (auto& ConstraintPtr : Constraints)
-	{
-		if (ConstraintPtr)
-		{
-			ConstraintPtr->TerminateConstraint();
-		}
-	}
-	Constraints.clear();
-
-	// Adapter로 만든 단독 body 정리 — ReleaseBodyResource 공통 경로로.
-	// (위에서 constraint를 이미 비웠으므로 그 안의 joint 정리 단계는 그냥 지나간다)
-	for (auto& BodyPtr : AdapterBodies)
-	{
-		ReleaseBodyResource(BodyPtr.get());
-	}
-	AdapterBodies.clear();
+	// (ragdoll body/constraint는 위 SkeletalPhysicsComponents drain에서 컴포넌트별로 이미 정리됨)
 
 	// 대표 body들 정리 — ReleaseBodyResource가 같은 강체에 합쳐진 컴포넌트들의 body까지 정리한다.
 	for (FBodyInstance* Host : Bodies)
@@ -254,7 +237,6 @@ void FPhysXPhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	if (!Host) return;
 
 	FBodyInstance* ComponentBody = Comp->GetBodyInstance();
-	DestroyConstraintsForBody(ComponentBody);
 
 	PxRigidActor* HostActor = FPhysXHelper::GetRigidActor(Host);
 

@@ -97,7 +97,9 @@ public:
 	const FBodyInstance* GetBodyInstance(UPrimitiveComponent* Comp) const;
 
 	// --- Constraint Instance ---
-	FConstraintInstance* CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
+	// joint를 만들어 소유권(unique_ptr)을 호출자(컴포넌트)에게 넘긴다.
+	// DestroyConstraint는 PxJoint만 해제하며 FConstraintInstance 객체는 호출자가 소유·삭제한다.
+	std::unique_ptr<FConstraintInstance> CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
 		const FConstraintOption& Option,
 		const FTransform& ParentFrame,
 		const FTransform& ChildFrame,
@@ -107,9 +109,10 @@ public:
 
 	// --- PhysicsAsset / Ragdoll Adapter ---
 	// PhysicsAsset/Ragdoll 빌더가 사용할 body 생성/해제 진입점.
-	// BodySetup 1개를 world transform 위치에 독립 body로 만든다 (compound BodyMappings와 별개).
-	// 호출자가 반환 핸들을 보관하고, joint는 CreateConstraint로, 해제는 DestroyBody로 한다.
-	FBodyInstance* CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
+	// BodySetup 1개를 world transform 위치에 독립 body로 만들어 소유권(unique_ptr)을 호출자에게 넘긴다.
+	// 호출자(컴포넌트)가 반환 body를 보관하고, joint는 CreateConstraint로, PhysX 자원 해제는 DestroyBody로 한다.
+	// (DestroyBody는 PxRigidActor만 해제하며 FBodyInstance 객체는 호출자가 소유·삭제한다.)
+	std::unique_ptr<FBodyInstance> CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
 		const FTransform& WorldTransform, bool bDynamic);
 	void DestroyBody(FBodyInstance* Body);
 
@@ -139,14 +142,9 @@ private:
 	// 한 강체에 여러 컴포넌트가 합쳐져도 대표 하나만 여기 들어간다.
 	TArray<FBodyInstance*> Bodies;
 
-	// Constraint 는 PxRigidActor를 참조
-	// Shutdown / body unregister시 Bodies보다 먼저 release
-	TArray<std::unique_ptr<FConstraintInstance>> Constraints;
+	// ragdoll body/constraint는 컴포넌트(SkeletalMeshComponent)가 소유한다. 여기엔
+	// bone 계층 writeback(SyncPhysicsAssetBodiesToBones)을 위해 컴포넌트 목록만 둔다.
 	TArray<USkeletalMeshComponent*> SkeletalPhysicsComponents;
-
-	// Adapter(CreateBodyFromBodySetup)로 만든 독립 body. compound BodyMappings와 별개로
-	// scene이 FBodyInstance를 소유하고, Shutdown / DestroyBody에서 PxRigidActor까지 정리한다.
-	TArray<std::unique_ptr<FBodyInstance>> AdapterBodies;
 
 	// 내부 헬퍼
 	// Comp가 속한 강체의 대표 body. 등록 안 됐으면 nullptr.
@@ -154,8 +152,7 @@ private:
 	const FBodyInstance* FindHostBody(UPrimitiveComponent* Comp) const;
 	// Actor의 강체 대표 body. ragdoll/adapter body는 제외.
 	FBodyInstance* FindHostBodyByActor(AActor* OwnerActor);
-	void DestroyConstraintsForBody(FBodyInstance* Body);
-	// 강체 하나의 PhysX 자원을 해제하는 공통 경로(joint → actor 순). FBodyInstance 객체는 소유자가 지우므로 여기서 delete하지 않는다.
+	// 강체 하나의 PhysX 자원(PxRigidActor)을 해제하는 공통 경로. FBodyInstance 객체는 소유자가 지우므로 여기서 delete하지 않는다.
 	void ReleaseBodyResource(FBodyInstance* Body);
 	void SyncPhysicsAssetBodiesToBones();
 
