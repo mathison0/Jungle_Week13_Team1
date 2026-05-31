@@ -5,6 +5,8 @@
 
 #include "Source/Engine/Physics/PhysicalMaterial.generated.h"
 
+class FArchive;
+
 namespace physx
 {
 	class PxPhysics;
@@ -62,6 +64,13 @@ public:
 	void SetFrictionCombineMode(EPMCombineMode InMode, bool bOverride = true);
 	void SetRestitutionCombineMode(EPMCombineMode InMode, bool bOverride = true);
 
+	// --- Asset Section ---
+	// 에셋 파일로 저장/로드되는 값들. PxMaterialHandle은 런타임 캐시라 제외한다.
+	void Serialize(FArchive& Ar) override;
+
+	// 매니저가 저장 경로로 사용하는 런타임 정보 (직렬화 대상 아님)
+	void SetSourcePath(const FString& InPath) { SourcePath = InPath; }
+	const FString& GetSourcePath() const { return SourcePath; }
 
 private:
 	physx::PxMaterial* CastPxMaterial(void* Handle);
@@ -103,4 +112,7 @@ private:
 	// PxMaterial은 runtime Object -> 저장 대상X
 	// UPhysicalMaterial 내부 runtime Cache로 취급
 	void* PxMaterialHandle = nullptr;
+
+	// 에셋 파일 경로 (런타임 전용, 직렬화 안 함)
+	FString SourcePath;
 };

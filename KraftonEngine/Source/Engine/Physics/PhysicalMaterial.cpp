@@ -3,6 +3,7 @@
 #include <PxPhysicsAPI.h>
 #include "Core/Logging/Log.h"
 #include "Math/MathUtils.h"
+#include "Serialization/Archive.h"
 
 using namespace physx;
 
@@ -142,6 +143,22 @@ void UPhysicalMaterial::SetRestitutionCombineMode(EPMCombineMode InMode, bool bO
 	RestitutionCombineMode = InMode;
 	bOverrideRestitutionCombineMode = bOverride;
 	UpdatePxMaterial();
+}
+
+// --- Asset 직렬화 ---
+// FloatCurveAsset 패턴: 매니저가 헤더/메타데이터를 쓴 뒤 이 함수로 값만 직렬화한다.
+// enum class:uint8 은 trivially-copyable이라 Archive의 템플릿 operator<< 로 1바이트 왕복.
+void UPhysicalMaterial::Serialize(FArchive& Ar)
+{
+	Ar << StaticFriction;
+	Ar << DynamicFriction;
+	Ar << Restitution;
+	Ar << Density;
+	Ar << RaiseMassToPower;
+	Ar << bOverrideFrictionCombineMode;
+	Ar << FrictionCombineMode;
+	Ar << bOverrideRestitutionCombineMode;
+	Ar << RestitutionCombineMode;
 }
 
 // --- Physical Material Helper 함수 ---
