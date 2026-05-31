@@ -22,6 +22,8 @@
 #include "Animation/Skeleton/SkeletonManager.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemManager.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterial.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterialManager.h"
 #include "Asset/AssetRegistry.h"
 #include "Editor/UI/Dialog/FbxImportOptionsDialog.h"
 #include "Editor/UI/Asset/Mesh/MeshEditorWidget.h"
@@ -830,6 +832,20 @@ void ParticleSystemElement::OnDoubleLeftClicked(ContentBrowserContext& Context)
 	if (UParticleSystem* Particle = FParticleSystemManager::Get().Load(FilePath))
 	{
 		Context.EditorEngine->OpenAssetEditorForObject(Particle);
+	}
+}
+
+void PhysicalMaterialElement::OnDoubleLeftClicked(ContentBrowserContext& Context)
+{
+	if (!Context.EditorEngine)
+	{
+		return;
+	}
+
+	const FString FilePath = FPaths::ToUtf8(ContentItem.Path.wstring());
+	if (UPhysicalMaterial* Material = FPhysicalMaterialManager::Get().Load(FilePath))
+	{
+		Context.EditorEngine->OpenAssetEditorForObject(Material);
 	}
 }
 

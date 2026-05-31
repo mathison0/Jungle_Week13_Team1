@@ -14,6 +14,8 @@
 #include "FloatCurve/FloatCurveManager.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemManager.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterial.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterialManager.h"
 #include "Mesh/MeshManager.h"
 #include "Mesh/Skeletal/SkeletalMesh.h"
 #include "Editor/UI/Asset/Mesh/MeshEditorWidget.h"
@@ -436,6 +438,9 @@ void FEditorContentBrowserWidget::RefreshContent()
 				case EAssetPackageType::ParticleSystem:
 					Element = std::make_shared<ParticleSystemElement>();
 					break;
+				case EAssetPackageType::PhysicalMaterial:
+					Element = std::make_shared<PhysicalMaterialElement>();
+					break;
 				default:
 					Element = std::make_shared<ContentBrowserElement>();
 					break;
@@ -605,6 +610,21 @@ void FEditorContentBrowserWidget::DrawContents()
 						if (UParticleSystem* ParticleAsset = FParticleSystemManager::Get().Load(CreatedPath))
 						{
 							BrowserContext.EditorEngine->OpenAssetEditorForObject(ParticleAsset);
+						}
+					}
+				}
+			}
+			if (ImGui::MenuItem("Physical Material"))
+			{
+				FString CreatedPath;
+				if (FAssetFactory::CreatePhysicalMaterial(FPaths::ToUtf8(BrowserContext.CurrentPath), "NewPhysicalMaterial", CreatedPath))
+				{
+					Refresh();
+					if (BrowserContext.EditorEngine)
+					{
+						if (UPhysicalMaterial* MaterialAsset = FPhysicalMaterialManager::Get().Load(CreatedPath))
+						{
+							BrowserContext.EditorEngine->OpenAssetEditorForObject(MaterialAsset);
 						}
 					}
 				}
