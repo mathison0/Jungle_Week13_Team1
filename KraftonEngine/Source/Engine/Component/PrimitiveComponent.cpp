@@ -11,6 +11,7 @@
 #include "Render/Proxy/PrimitiveSceneProxy.h"
 #include "GameFramework/World.h"
 #include "Physics/PhysicsMaterial/PhysicalMaterial.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterialManager.h"
 
 #include <cmath>
 #include <cstring>
@@ -51,6 +52,11 @@ UPrimitiveComponent::~UPrimitiveComponent()
 void UPrimitiveComponent::BeginPlay()
 {
 	USceneComponent::BeginPlay();
+
+	// 저장된 PhysicalMaterial 경로를 로드해 override에 적용. RegisterComponent로 body가
+	// 만들어지기 전에 세팅해야 shape에 재질이 반영된다. (이 시점엔 bComponentHasBegunPlay=false라
+	//  SetPhysicalMaterialOverride 안의 RebuildBody는 no-op, 멤버만 갱신된다.)
+	ResolvePhysicalMaterial();
 
 	// 직렬화나 InitDefaultComponents에서 CollisionEnabled가 이미 설정된 경우 등록.
 	// 이 시점에 SimulatePhysics/ObjectType/Response/Mass/COM 등 모든 셋업이 끝나있어
@@ -233,6 +239,11 @@ void UPrimitiveComponent::PostEditProperty(const char* PropertyName)
 	{
 		// 에디터 슬라이더로 값을 바꾼 경우 백엔드에 즉시 반영.
 		SetMass(Mass);
+	}
+	else if (strcmp(PropertyName, "PhysicalMaterialPath") == 0 || strcmp(PropertyName, "Physical Material") == 0)
+	{
+		// Detail 창에서 PhysicalMaterial 에셋을 고른 경우 로드해 적용.
+		ResolvePhysicalMaterial();
 	}
 	else if (strcmp(PropertyName, "CenterOfMassOffset") == 0 || strcmp(PropertyName, "Center Of Mass Offset") == 0)
 	{
@@ -618,4 +629,18 @@ void UPrimitiveComponent::SetPhysicalMaterialOverride(UPhysicalMaterial* InPhysi
 	// Physics Body 생성 -> 재질 변경 -> Shape Material 다시 적용
 	// TODO: Shape Material 부분 갱신 API 추가되면 변경
 	NotifyPhysicsBodyDirty();
+}
+
+void UPrimitiveComponent::ResolvePhysicalMaterial()
+{
+	// 경로가 비었으면 override 해제(= Scene Default 사용).
+	if (PhysicalMaterialPath.empty() || PhysicalMaterialPath == "None")
+	{
+		SetPhysicalMaterialOverride(nullptr);
+		return;
+	}
+
+	const FString Path = PhysicalMaterialPath; // FSoftObjectPtr -> FString
+	UPhysicalMaterial* Material = FPhysicalMaterialManager::Get().Load(Path);
+	SetPhysicalMaterialOverride(Material);
 }
