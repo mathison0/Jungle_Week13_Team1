@@ -304,12 +304,17 @@ void UWorld::InitWorld()
 
 	// E.2/3: CameraManager spawn 은 PC 의 BeginPlay 가 담당. World 는 보유하지 않음.
 
-	// 물리 시스템 초기화 — ProjectSettings 백엔드 선택
-	if (FProjectSettings::Get().Physics.Backend == EPhysicsBackend::PhysX)
-		PhysicsScene = std::make_unique<FPhysXPhysicsScene>();
-	else
-		PhysicsScene = std::make_unique<FNativePhysicsScene>();
-	PhysicsScene->Initialize(this);
+	// 물리 시스템 초기화 — ProjectSettings 백엔드 선택.
+	// 썸네일/프리뷰(EditorPreview) 월드는 정적 렌더만 하므로 물리 scene을 만들지 않는다.
+	// (에셋마다 PxScene을 통째로 생성/파괴하던 낭비 + 로그 제거. 이 경우 GetPhysicsScene()==nullptr)
+	if (WorldType != EWorldType::EditorPreview)
+	{
+		if (FProjectSettings::Get().Physics.Backend == EPhysicsBackend::PhysX)
+			PhysicsScene = std::make_unique<FPhysXPhysicsScene>();
+		else
+			PhysicsScene = std::make_unique<FNativePhysicsScene>();
+		PhysicsScene->Initialize(this);
+	}
 }
 
 void UWorld::BeginPlay()

@@ -43,7 +43,7 @@ UPrimitiveComponent::~UPrimitiveComponent()
 	{
 		if (UWorld* World = Owner->GetWorld())
 		{
-			World->GetPhysicsScene()->UnregisterComponent(this);
+			if (auto* PS = World->GetPhysicsScene()) PS->UnregisterComponent(this);
 		}
 	}
 	DestroyRenderState();
@@ -67,7 +67,7 @@ void UPrimitiveComponent::BeginPlay()
 		{
 			if (UWorld* World = Owner->GetWorld())
 			{
-				World->GetPhysicsScene()->RegisterComponent(this);
+				if (auto* PS = World->GetPhysicsScene()) PS->RegisterComponent(this);
 			}
 		}
 	}
@@ -226,11 +226,11 @@ void UPrimitiveComponent::PostEditProperty(const char* PropertyName)
 			{
 				if (IsQueryCollisionEnabled())
 				{
-					World->GetPhysicsScene()->RegisterComponent(this);
+					if (auto* PS = World->GetPhysicsScene()) PS->RegisterComponent(this);
 				}
 				else
 				{
-					World->GetPhysicsScene()->UnregisterComponent(this);
+					if (auto* PS = World->GetPhysicsScene()) PS->UnregisterComponent(this);
 				}
 			}
 		}
@@ -423,9 +423,9 @@ void UPrimitiveComponent::SetCollisionEnabled(ECollisionEnabled InEnabled)
 	if (bWasQuery != bIsQuery)
 	{
 		if (bIsQuery)
-			World->GetPhysicsScene()->RegisterComponent(this);
+			if (auto* PS = World->GetPhysicsScene()) PS->RegisterComponent(this);
 		else
-			World->GetPhysicsScene()->UnregisterComponent(this);
+			if (auto* PS = World->GetPhysicsScene()) PS->UnregisterComponent(this);
 	}
 	else if (bWasQuery && bIsQuery)
 	{
