@@ -235,3 +235,15 @@ void FPhysXCore::Release()
 	GSharedRefCount = 0;
 	UE_LOG("[PhysX] Shared Foundation / Physics released.");
 }
+
+// NvCloth 등 외부 SDK가 PhysX와 같은 allocator/error 콜백을 공유하도록 노출한다.
+// 이 콜백들은 file-static으로 항상 살아있어 Acquire 전후 어디서든 안전하게 참조 가능.
+physx::PxAllocatorCallback& FPhysXCore::GetAllocatorCallback()
+{
+	return GPhysXAllocator;
+}
+
+physx::PxErrorCallback& FPhysXCore::GetErrorCallback()
+{
+	return GPhysXErrorCallback;
+}
