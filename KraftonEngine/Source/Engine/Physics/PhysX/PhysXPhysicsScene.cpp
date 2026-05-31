@@ -164,10 +164,10 @@ void FPhysXPhysicsScene::Shutdown()
 }
 
 // ============================================================
-// Body 관리 — Actor 단위 compound
+// Body 관리 — 컴포넌트 등록, 같은 액터는 한 강체로 weld
 //
-// 한 액터의 여러 PrimitiveComponent는 같은 PxRigidActor에 shape로 합쳐진다.
-// shape의 LocalPose는 액터 RootComponent에 대한 상대 transform.
+// 같은 액터의 여러 PrimitiveComponent는 한 PxRigidActor에 shape로 합쳐진다.
+// shape의 LocalPose는 대표 컴포넌트(OwnerComponent) 기준 상대 transform.
 // userData: PxActor -> 대표 FBodyInstance, PxShape -> shape owner FBodyInstance.
 // ============================================================
 

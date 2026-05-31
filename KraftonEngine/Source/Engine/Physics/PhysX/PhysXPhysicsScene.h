@@ -39,10 +39,13 @@ class UPhysicalMaterial;
 //
 // IPhysicsScene 인터페이스를 통해 Native와 교체 가능.
 //
-// 등록 단위는 Actor — 한 액터의 여러 PrimitiveComponent는 하나의
-// PxRigidActor에 compound shape로 합쳐진다. 각 shape의 LocalPose는
-// 액터 RootComponent에 대한 상대 transform. 이로써 차체 Box + 바퀴
-// Sphere 4개처럼 다중 콜라이더가 자연스럽게 한 강체로 동작한다.
+// 컴포넌트가 자기 FBodyInstance를 소유하고, Scene은 대표 body들의 비소유
+// 레지스트리(Bodies)로 매 프레임 순회만 한다. ragdoll body/constraint는
+// SkeletalMeshComponent가 소유한다.
+//
+// 같은 액터의 여러 PrimitiveComponent는 하나의 PxRigidActor에 shape로 합쳐지고
+// (LocalPose는 대표 컴포넌트 기준), 차체 Box + 바퀴 Sphere처럼 다중 콜라이더가
+// 한 강체로 동작한다.
 // ============================================================
 class FPhysXPhysicsScene : public IPhysicsScene
 {
