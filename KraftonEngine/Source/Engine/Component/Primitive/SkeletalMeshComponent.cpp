@@ -126,8 +126,10 @@ void USkeletalMeshComponent::SetSimulateRagdoll(bool bEnable)
             PhysicsScene->InstantiatePhysicsAssetBodies(this);
         }
 
-        PhysicsScene->SetPhysicsAssetBodiesSimulate(this, true);
+        // 시뮬레이션을 깨우기 전에 현재 애니메이션 포즈로 바디를 맞춘다.
+        // 순서가 반대면 활성화 직후 한 프레임 동안 이전 자세가 노출될 수 있다.
         PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(this, true);
+        PhysicsScene->SetPhysicsAssetBodiesSimulate(this, true);
         bRagdollSimulating = !Bodies.empty();
         return;
     }

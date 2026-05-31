@@ -152,10 +152,12 @@ void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
 
 		// collider가 없는 bone은 현재 pose를 유지하고, body가 있는 bone만 PhysX 결과로 교체한다.
 		// 마지막에 전체 pose를 local transform으로 재계산하므로 손가락 같은 자식 bone도 부모를 따라간다.
-		TArray<FMatrix> DesiredGlobalMatrices;
-		Comp->GetCurrentBoneGlobalMatrices(DesiredGlobalMatrices);
-		if (DesiredGlobalMatrices.size() != Asset->Bones.size()) continue;
+		TArray<FMatrix> CurrentGlobalMatrices;
+		Comp->GetCurrentBoneGlobalMatrices(CurrentGlobalMatrices);
+		if (CurrentGlobalMatrices.size() != Asset->Bones.size()) continue;
 
+		TArray<FMatrix> DesiredGlobalMatrices = CurrentGlobalMatrices;
+		TArray<bool> HasBodyOverride(Asset->Bones.size(), false);
 		const FMatrix& ComponentWorldInv = Comp->GetWorldInverseMatrix();
 		for (FBodyInstance* Body : Comp->GetBodies())
 		{
@@ -170,6 +172,24 @@ void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
 				FVector::OneVector);
 			// PhysX body는 world 좌표계이므로 skeletal component 로컬 좌표계로 변환한다.
 			DesiredGlobalMatrices[BoneIndex] = BodyWorldTransform.ToMatrix() * ComponentWorldInv;
+			HasBodyOverride[BoneIndex] = true;
+		}
+
+		// 바디가 없는 본은 기존 로컬 자세를 유지하면서 시뮬레이션된 부모를 따라간다.
+		// 이전에는 직전 글로벌 위치에 남아 있어 스킨이 아래로 길게 늘어났다.
+		for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Asset->Bones.size()); ++BoneIndex)
+		{
+			if (HasBodyOverride[BoneIndex]) continue;
+
+			const int32 ParentIndex = Asset->Bones[BoneIndex].ParentIndex;
+			const bool bHasParent = ParentIndex >= 0 && ParentIndex < static_cast<int32>(DesiredGlobalMatrices.size());
+			const FMatrix CurrentLocalMatrix = bHasParent
+				? CurrentGlobalMatrices[BoneIndex] * CurrentGlobalMatrices[ParentIndex].GetInverse()
+				: CurrentGlobalMatrices[BoneIndex];
+
+			DesiredGlobalMatrices[BoneIndex] = bHasParent
+				? CurrentLocalMatrix * DesiredGlobalMatrices[ParentIndex]
+				: CurrentLocalMatrix;
 		}
 
 		TArray<FTransform> DesiredLocalTransforms;
