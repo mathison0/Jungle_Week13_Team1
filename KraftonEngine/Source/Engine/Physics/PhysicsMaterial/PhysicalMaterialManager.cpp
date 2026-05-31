@@ -1,6 +1,6 @@
-#include "Physics/PhysicalMaterialManager.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterialManager.h"
 
-#include "Physics/PhysicalMaterial.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterial.h"
 #include "Asset/AssetPackage.h"
 #include "Platform/Paths.h"
 #include "Serialization/WindowsArchive.h"

@@ -3,7 +3,7 @@
 #include "Object/Object.h"
 #include "Core/Types/CoreTypes.h"
 
-#include "Source/Engine/Physics/PhysicalMaterial.generated.h"
+#include "Source/Engine/Physics/PhysicsMaterial/PhysicalMaterial.generated.h"
 
 class FArchive;
 

@@ -2,7 +2,7 @@
 
 #include "Component/PrimitiveComponent.h"
 #include "Core/Logging/Log.h"
-#include "Physics/PhysicalMaterial.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterial.h"
 #include "PhysXCollision.h"
 #include "PhysXHelper.h"
 #include "PhysXShapeDesc.h"

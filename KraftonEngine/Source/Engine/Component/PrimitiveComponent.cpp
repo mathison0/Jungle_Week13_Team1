@@ -10,7 +10,7 @@
 #include "Render/Scene/FScene.h"
 #include "Render/Proxy/PrimitiveSceneProxy.h"
 #include "GameFramework/World.h"
-#include "Physics/PhysicalMaterial.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterial.h"
 
 #include <cmath>
 #include <cstring>
