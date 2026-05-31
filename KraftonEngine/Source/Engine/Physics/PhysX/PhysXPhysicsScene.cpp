@@ -9,7 +9,7 @@
 #include "Math/Quat.h"
 #include "Object/Object.h"
 #include "Core/Logging/Log.h"
-#include "Physics/PhysicalMaterial.h"
+#include "Physics/PhysicsMaterial/PhysicalMaterial.h"
 
 // PhysX headers
 #include <PxPhysicsAPI.h>

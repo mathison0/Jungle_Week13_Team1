@@ -3,6 +3,7 @@
 #include <PxPhysicsAPI.h>
 #include "Core/Logging/Log.h"
 #include "Math/MathUtils.h"
+#include "Serialization/Archive.h"
 
 using namespace physx;
 
@@ -42,63 +43,60 @@ physx::PxMaterial* UPhysicalMaterial::GetOrCreatePxMaterial(physx::PxPhysics* Ph
 
 	if (PxMaterialHandle)
 	{
-		return CastPxMaterial(PxMaterialHandle);
+		return PxMaterialHandle;
 	}
 
-	PxMaterial* NewMaterial = Physics->createMaterial(
+	PxMaterialHandle = Physics->createMaterial(
 		FMath::ClampMin(StaticFriction, 0.f),
 		FMath::ClampMin(DynamicFriction, 0.f),
 		FMath::Clamp(Restitution, 0.f, 1.f)
 	);
 
-	if (!NewMaterial)
+	if (!PxMaterialHandle)
 	{
 		UE_LOG("[Physical Material] Failed to Create Material!");
+		PxMaterialHandle = nullptr;
 		return nullptr;
 	}
 
-	PxMaterialHandle = NewMaterial;
 	UpdatePxMaterial();
 
 	UE_LOG("[Physical Material] Success Create Physical Material!");
-	return NewMaterial;
+	return PxMaterialHandle;
 }
 
 void UPhysicalMaterial::UpdatePxMaterial()
 {
-	PxMaterial* Material = CastPxMaterial(PxMaterialHandle);
-	if (!Material)
+	// 핸들이 비어있는 건 정상 상태(= PxMaterial을 만든 적 없음)다
+	if (!PxMaterialHandle)
 	{
-		UE_LOG("[Physical Material] Invalid PxMaterialHandle");
 		return;
 	}
-	
-	Material->setStaticFriction(FMath::ClampMin(StaticFriction, 0.f));
-	Material->setDynamicFriction(FMath::ClampMin(DynamicFriction, 0.f));
-	Material->setRestitution(FMath::Clamp(Restitution, 0.f, 1.f));
+
+	PxMaterialHandle->setStaticFriction(FMath::ClampMin(StaticFriction, 0.f));
+	PxMaterialHandle->setDynamicFriction(FMath::ClampMin(DynamicFriction, 0.f));
+	PxMaterialHandle->setRestitution(FMath::Clamp(Restitution, 0.f, 1.f));
 
 	if (bOverrideFrictionCombineMode)
 	{
-		Material->setFrictionCombineMode(ToPxCombineMode(FrictionCombineMode));
+		PxMaterialHandle->setFrictionCombineMode(ToPxCombineMode(FrictionCombineMode));
 	}
 
 	if (bOverrideRestitutionCombineMode)
 	{
-		Material->setRestitutionCombineMode(ToPxCombineMode(RestitutionCombineMode));
+		PxMaterialHandle->setRestitutionCombineMode(ToPxCombineMode(RestitutionCombineMode));
 	}
 }
 
 void UPhysicalMaterial::ReleasePxMaterial()
 {
-	PxMaterial* Material = CastPxMaterial(PxMaterialHandle);
-	if (!Material)
+	// 핸들이 비어있는 건 정상 상태(= PxMaterial을 만든 적 없음)다
+	if (!PxMaterialHandle)
 	{
-		UE_LOG("[Physical Material] Invalid PxMaterial Handle! Cancel ReleasePxMaterial");
-
-		PxMaterialHandle = nullptr;
 		return;
 	}
-	Material->release();
+
+	PxMaterialHandle->release();
 	PxMaterialHandle = nullptr;
 }
 
@@ -144,9 +142,18 @@ void UPhysicalMaterial::SetRestitutionCombineMode(EPMCombineMode InMode, bool bO
 	UpdatePxMaterial();
 }
 
-// --- Physical Material Helper 함수 ---
-
-physx::PxMaterial* UPhysicalMaterial::CastPxMaterial(void* Handle)
+// --- Asset 직렬화 ---
+// Manager가 헤더/메타데이터를 쓴 뒤 이 함수로 값만 직렬화한다.
+// enum class:uint8 은 trivially-copyable이라 Archive의 템플릿 operator<< 로 1바이트 왕복.
+void UPhysicalMaterial::Serialize(FArchive& Ar)
 {
-	return static_cast<PxMaterial*>(Handle);
+	Ar << StaticFriction;
+	Ar << DynamicFriction;
+	Ar << Restitution;
+	Ar << Density;
+	Ar << RaiseMassToPower;
+	Ar << bOverrideFrictionCombineMode;
+	Ar << FrictionCombineMode;
+	Ar << bOverrideRestitutionCombineMode;
+	Ar << RestitutionCombineMode;
 }

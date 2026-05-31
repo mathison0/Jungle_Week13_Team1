@@ -3,7 +3,9 @@
 #include "Object/Object.h"
 #include "Core/Types/CoreTypes.h"
 
-#include "Source/Engine/Physics/PhysicalMaterial.generated.h"
+#include "Source/Engine/Physics/PhysicsMaterial/PhysicalMaterial.generated.h"
+
+class FArchive;
 
 namespace physx
 {
@@ -12,6 +14,7 @@ namespace physx
 }
 
 // 두 물리 재질이 만났을 때 마찰/탄성 값을 합치는 방식
+UENUM()
 enum class EPMCombineMode : uint8
 {
 	Average = 0,		// (a + b) / 2
@@ -62,10 +65,15 @@ public:
 	void SetFrictionCombineMode(EPMCombineMode InMode, bool bOverride = true);
 	void SetRestitutionCombineMode(EPMCombineMode InMode, bool bOverride = true);
 
+	// --- Asset Section ---
+	// 에셋 파일로 저장/로드되는 값들. PxMaterialHandle은 런타임 캐시라 제외한다.
+	void Serialize(FArchive& Ar) override;
+
+	// 매니저가 저장 경로로 사용하는 런타임 정보 (직렬화 대상 아님)
+	void SetSourcePath(const FString& InPath) { SourcePath = InPath; }
+	const FString& GetSourcePath() const { return SourcePath; }
 
 private:
-	physx::PxMaterial* CastPxMaterial(void* Handle);
-
 	// 정지 마찰 계수
 	UPROPERTY(Edit, Save, Category = "PhysicalMaterial", DisplayName = "Static Friction", Min = 0.0f, Max = 100.0f, Speed = 0.05f)
 	float StaticFriction = 0.5f;
@@ -98,9 +106,10 @@ private:
 	UPROPERTY(Edit, Save, Category = "PhysicalMaterial", DisplayName = "Restitution Combine Mode", Enum = EPMCombineMode)
 	EPMCombineMode RestitutionCombineMode = EPMCombineMode::Average;
 
-
-
 	// PxMaterial은 runtime Object -> 저장 대상X
 	// UPhysicalMaterial 내부 runtime Cache로 취급
-	void* PxMaterialHandle = nullptr;
+	physx::PxMaterial* PxMaterialHandle = nullptr;
+
+	// 에셋 파일 경로 (런타임 전용, 직렬화 안 함)
+	FString SourcePath;
 };

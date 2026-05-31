@@ -182,6 +182,17 @@ protected:
 	uint32 GetAccentColor() const override { return IM_COL32(255, 120, 120, 255); }
 };
 
+class PhysicalMaterialElement final : public ContentBrowserElement
+{
+public:
+	void OnDoubleLeftClicked(ContentBrowserContext& Context) override;
+
+protected:
+	const char* GetTypeLabel() const override { return "Physical Material"; }
+	// 물리 관련은 주황색(언리얼 컨벤션).
+	uint32 GetAccentColor() const override { return IM_COL32(235, 130, 40, 255); }
+};
+
 class ImageElement final : public ContentBrowserElement
 {
 public:
