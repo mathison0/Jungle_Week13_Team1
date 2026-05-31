@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Data/CubeGrid/uvgrid.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

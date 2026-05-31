@@ -32,6 +32,8 @@ public:
 	uint32 GetHeight() const { return Height; }
 	uint32 GetBloomWidth() const { return BloomWidth; }
 	uint32 GetBloomHeight() const { return BloomHeight; }
+	uint32 GetDepthOfFieldBlurWidth() const { return DepthOfFieldBlurWidth; }
+	uint32 GetDepthOfFieldBlurHeight() const { return DepthOfFieldBlurHeight; }
 
 	// D3D 리소스 접근자
 	ID3D11RenderTargetView* GetRTV() const { return RTV; }
@@ -60,6 +62,14 @@ public:
 	ID3D11ShaderResourceView* GetBloomSRVA() const { return BloomSRVA; }
 	ID3D11RenderTargetView* GetBloomRTVB() const { return BloomRTVB; }
 	ID3D11ShaderResourceView* GetBloomSRVB() const { return BloomSRVB; }
+
+	// Depth of Field temporary RTs
+	ID3D11RenderTargetView* GetDepthOfFieldCoCRTV() const { return DepthOfFieldCoCRTV; }
+	ID3D11ShaderResourceView* GetDepthOfFieldCoCSRV() const { return DepthOfFieldCoCSRV; }
+	ID3D11RenderTargetView* GetDepthOfFieldBlurRTVA() const { return DepthOfFieldBlurRTVA; }
+	ID3D11ShaderResourceView* GetDepthOfFieldBlurSRVA() const { return DepthOfFieldBlurSRVA; }
+	ID3D11RenderTargetView* GetDepthOfFieldBlurRTVB() const { return DepthOfFieldBlurRTVB; }
+	ID3D11ShaderResourceView* GetDepthOfFieldBlurSRVB() const { return DepthOfFieldBlurSRVB; }
 
 	const D3D11_VIEWPORT& GetViewportRect() const { return ViewportRect; }
 
@@ -109,12 +119,27 @@ private:
 	ID3D11RenderTargetView* BloomRTVB = nullptr;
 	ID3D11ShaderResourceView* BloomSRVB = nullptr;
 
+	// Depth of Field resources: full-res CoC and half-res blur ping-pong
+	ID3D11Texture2D* DepthOfFieldCoCTexture = nullptr;
+	ID3D11RenderTargetView* DepthOfFieldCoCRTV = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldCoCSRV = nullptr;
+
+	ID3D11Texture2D* DepthOfFieldBlurTextureA = nullptr;
+	ID3D11RenderTargetView* DepthOfFieldBlurRTVA = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldBlurSRVA = nullptr;
+
+	ID3D11Texture2D* DepthOfFieldBlurTextureB = nullptr;
+	ID3D11RenderTargetView* DepthOfFieldBlurRTVB = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldBlurSRVB = nullptr;
+
 	D3D11_VIEWPORT ViewportRect = {};
 
 	uint32 Width = 0;
 	uint32 Height = 0;
 	uint32 BloomWidth = 0;
 	uint32 BloomHeight = 0;
+	uint32 DepthOfFieldBlurWidth = 0;
+	uint32 DepthOfFieldBlurHeight = 0;
 
 	// 지연 리사이즈 요청
 	uint32 PendingWidth = 0;

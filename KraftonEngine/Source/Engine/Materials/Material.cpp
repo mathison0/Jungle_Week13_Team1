@@ -677,6 +677,11 @@ ERenderPass UMaterialInstance::GetRenderPass() const
 	return Parent ? Parent->GetRenderPass() : ERenderPass::Opaque;
 }
 
+ETranslucencyPass UMaterialInstance::GetTranslucencyPass() const
+{
+	return Parent ? Parent->GetTranslucencyPass() : ETranslucencyPass::AfterDOF;
+}
+
 EBlendState UMaterialInstance::GetBlendState() const
 {
 	return Parent ? Parent->GetBlendState() : EBlendState::Opaque;

@@ -63,6 +63,33 @@ namespace
 		JsonData[MatKeys::EmissiveIntensity] = Material->GetEmissiveIntensity();
 		JsonData[MatKeys::bEnableBloom] = Material->IsBloomEnabled();
 	}
+
+	ETranslucencyPass DefaultTranslucencyPassForRenderPass(ERenderPass Pass)
+	{
+		return Pass == ERenderPass::TranslucencyBeforeDOF
+			? ETranslucencyPass::BeforeDOF
+			: ETranslucencyPass::AfterDOF;
+	}
+
+	ETranslucencyPass StringToTranslucencyPass(const FString& Str, ETranslucencyPass DefaultValue)
+	{
+		if (Str == "BeforeDOF" || Str == "Before DOF" || Str == "MTP_BEFORE_DOF")
+		{
+			return ETranslucencyPass::BeforeDOF;
+		}
+
+		if (Str == "AfterDOF" || Str == "After DOF" || Str == "MTP_AFTER_DOF")
+		{
+			return ETranslucencyPass::AfterDOF;
+		}
+
+		return DefaultValue;
+	}
+
+	const char* TranslucencyPassToString(ETranslucencyPass Pass)
+	{
+		return Pass == ETranslucencyPass::BeforeDOF ? "BeforeDOF" : "AfterDOF";
+	}
 }
 
 void FMaterialManager::ScanMaterialAssets()
@@ -126,6 +153,11 @@ UMaterial* FMaterialManager::GetOrCreateMaterial(const FString& MatFilePath)
 	FString ShaderPath = JsonData[MatKeys::ShaderPath].ToString().c_str();
 	FString RenderPassStr = JsonData[MatKeys::RenderPass].ToString().c_str();
 	ERenderPass RenderPass = StringToRenderPass(RenderPassStr);
+	const bool bHadTranslucencyPass = JsonData.hasKey(MatKeys::TranslucencyPass);
+	FString TranslucencyPassStr = bHadTranslucencyPass ? JsonData[MatKeys::TranslucencyPass].ToString().c_str() : "";
+	ETranslucencyPass TranslucencyPass = StringToTranslucencyPass(
+		TranslucencyPassStr,
+		DefaultTranslucencyPassForRenderPass(RenderPass));
 
 	// 새로운 렌더 상태 추출 (JSON에 없으면 패스 기반 기본값)
 	FString BlendStr = JsonData.hasKey(MatKeys::BlendState) ? JsonData[MatKeys::BlendState].ToString().c_str() : "";
@@ -141,7 +173,7 @@ UMaterial* FMaterialManager::GetOrCreateMaterial(const FString& MatFilePath)
 	const bool bHadEmissiveColor = JsonData.hasKey(MatKeys::EmissiveColor);
 	const bool bHadEmissiveIntensity = JsonData.hasKey(MatKeys::EmissiveIntensity);
 	const bool bHadEnableBloom = JsonData.hasKey(MatKeys::bEnableBloom);
-	const bool bMaterialSettingsInjected = !bHadEmissiveColor || !bHadEmissiveIntensity || !bHadEnableBloom;
+	const bool bMaterialSettingsInjected = !bHadTranslucencyPass || !bHadEmissiveColor || !bHadEmissiveIntensity || !bHadEnableBloom;
 
 	FVector4 EmissiveColor = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
 	float EmissiveIntensity = 0.0f;
@@ -169,6 +201,7 @@ UMaterial* FMaterialManager::GetOrCreateMaterial(const FString& MatFilePath)
 	// 6. UMaterial 인스턴스 생성 및 초기화 (RenderPass는 인스턴스별)
 	UMaterial* Material = UObjectManager::Get().CreateObject<UMaterial>();
 	Material->Create(PathFileName, Template, RenderPass, BlendState, DepthState, RasterState, std::move(InjectedBuffers));
+	Material->SetTranslucencyPass(TranslucencyPass);
 	Material->SetShadowMode(ShadowMode);
 	Material->SetEmissiveColor(EmissiveColor);
 	Material->SetEmissiveIntensity(EmissiveIntensity);
@@ -187,6 +220,7 @@ UMaterial* FMaterialManager::GetOrCreateMaterial(const FString& MatFilePath)
 	Material->RebuildCachedSRVs();
 
 	// JSON 데이터에도 현재 상태를 기록 (나중에 저장 시 유지되도록)
+	JsonData[MatKeys::TranslucencyPass] = TranslucencyPassToString(Material->GetTranslucencyPass());
 	JsonData[MatKeys::BlendState] = BlendStr.empty() ? "" : BlendStr.c_str();
 	JsonData[MatKeys::DepthStencilState] = DepthStr.empty() ? "" : DepthStr.c_str();
 	JsonData[MatKeys::RasterizerState] = RasterStr.empty() ? "" : RasterStr.c_str();
@@ -460,6 +494,8 @@ EBlendState FMaterialManager::StringToBlendState(const FString& Str, ERenderPass
 	switch (Pass)
 	{
 	case ERenderPass::AlphaBlend:
+	case ERenderPass::TranslucencyBeforeDOF:
+	case ERenderPass::TranslucencyAfterDOF:
 	case ERenderPass::Decal:
 	case ERenderPass::EditorLines:
 	case ERenderPass::PostProcess:
@@ -485,6 +521,8 @@ EDepthStencilState FMaterialManager::StringToDepthStencilState(const FString& St
 	switch (Pass)
 	{
 	case ERenderPass::AlphaBlend:
+	case ERenderPass::TranslucencyBeforeDOF:
+	case ERenderPass::TranslucencyAfterDOF:
 	case ERenderPass::Decal:
 	case ERenderPass::AdditiveDecal:
 		return EDepthStencilState::DepthReadOnly;

@@ -28,6 +28,13 @@ enum class EMaterialShadowMode : uint8
 	None,
 };
 
+UENUM()
+enum class ETranslucencyPass : uint8
+{
+	BeforeDOF,
+	AfterDOF,
+};
+
 UCLASS()
 class UMaterialInterface : public UObject
 {
@@ -48,6 +55,7 @@ public:
 
 	virtual FShader* GetShader() const { return nullptr; }
 	virtual ERenderPass GetRenderPass() const { return ERenderPass::Opaque; }
+	virtual ETranslucencyPass GetTranslucencyPass() const { return ETranslucencyPass::AfterDOF; }
 	virtual EBlendState GetBlendState() const { return EBlendState::Opaque; }
 	virtual EDepthStencilState GetDepthStencilState() const { return EDepthStencilState::Default; }
 	virtual ERasterizerState GetRasterizerState() const { return ERasterizerState::SolidBackCull; }
@@ -92,6 +100,9 @@ protected:
 	// 렌더링 상태 정보 (인스턴스별)
 	UPROPERTY(Edit, Save, Category="Material", DisplayName="Render Pass", Enum=ERenderPass)
 	ERenderPass RenderPass = ERenderPass::Opaque;
+
+	UPROPERTY(Edit, Save, Category="Translucency", DisplayName="Translucency Pass", Enum=ETranslucencyPass)
+	ETranslucencyPass TranslucencyPass = ETranslucencyPass::AfterDOF;
 
 	UPROPERTY(Edit, Save, Category="Material", DisplayName="Blend State", Enum=EBlendState)
 	EBlendState BlendState = EBlendState::Opaque;
@@ -168,6 +179,8 @@ public:
 	FVector4 GetEmissiveColor() const override { return EmissiveColor; }
 	float GetEmissiveIntensity() const override { return EmissiveIntensity; }
 	bool IsBloomEnabled() const override { return bEnableBloom; }
+	ETranslucencyPass GetTranslucencyPass() const override { return TranslucencyPass; }
+	void SetTranslucencyPass(ETranslucencyPass InPass) { TranslucencyPass = InPass; }
 	void SetEmissiveColor(const FVector4& InColor) { EmissiveColor = InColor; bMaterialBloomCBDirty = true; }
 	void SetEmissiveIntensity(float InIntensity) { EmissiveIntensity = InIntensity; bMaterialBloomCBDirty = true; }
 	void SetBloomEnabled(bool bInEnableBloom) { bEnableBloom = bInEnableBloom; bMaterialBloomCBDirty = true; }
@@ -315,6 +328,7 @@ public:
 
 	FShader* GetShader() const override;
 	ERenderPass GetRenderPass() const override;
+	ETranslucencyPass GetTranslucencyPass() const override;
 	EBlendState GetBlendState() const override;
 	EDepthStencilState GetDepthStencilState() const override;
 	ERasterizerState GetRasterizerState() const override;

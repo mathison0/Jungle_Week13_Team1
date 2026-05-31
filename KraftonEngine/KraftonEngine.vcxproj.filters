@@ -1895,6 +1895,9 @@
     <ClCompile Include="Source\Engine\Render\RenderPass\DecalPass.cpp">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Render\RenderPass\DepthOfFieldPass.cpp">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Render\RenderPass\EditorLinesPass.cpp">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClCompile>
@@ -1944,6 +1947,12 @@
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\RenderPass\ShadowMapPass.cpp">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Render\RenderPass\TranslucencyAfterDOFPass.cpp">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Render\RenderPass\TranslucencyBeforeDOFPass.cpp">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\RenderPass\UIPass.cpp">
@@ -3158,6 +3167,9 @@
     <ClInclude Include="Source\Engine\Render\RenderPass\DecalPass.h">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Render\RenderPass\DepthOfFieldPass.h">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Render\RenderPass\EditorLinesPass.h">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
@@ -3207,6 +3219,12 @@
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\RenderPass\ShadowMapPass.h">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\RenderPass\TranslucencyAfterDOFPass.h">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\RenderPass\TranslucencyBeforeDOFPass.h">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\RenderPass\UIPass.h">

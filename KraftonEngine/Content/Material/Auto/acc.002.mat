@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Data/Samba Dancing/textures/b0.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

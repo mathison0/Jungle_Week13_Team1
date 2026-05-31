@@ -38,6 +38,8 @@ void FFrameContext::SetViewportInfo(const FViewport* VP)
 	ViewportHeight   = static_cast<float>(VP->GetHeight());
 	BloomWidth       = static_cast<float>(VP->GetBloomWidth());
 	BloomHeight      = static_cast<float>(VP->GetBloomHeight());
+	DepthOfFieldBlurWidth  = static_cast<float>(VP->GetDepthOfFieldBlurWidth());
+	DepthOfFieldBlurHeight = static_cast<float>(VP->GetDepthOfFieldBlurHeight());
 	ViewportRTV             = VP->GetRTV();
 	ViewportDSV             = VP->GetDSV();
 	SceneColorCopySRV       = VP->GetSceneColorCopySRV();
@@ -55,4 +57,10 @@ void FFrameContext::SetViewportInfo(const FViewport* VP)
 	BloomSRVA               = VP->GetBloomSRVA();
 	BloomRTVB               = VP->GetBloomRTVB();
 	BloomSRVB               = VP->GetBloomSRVB();
+	DepthOfFieldCoCRTV      = VP->GetDepthOfFieldCoCRTV();
+	DepthOfFieldCoCSRV      = VP->GetDepthOfFieldCoCSRV();
+	DepthOfFieldBlurRTVA    = VP->GetDepthOfFieldBlurRTVA();
+	DepthOfFieldBlurSRVA    = VP->GetDepthOfFieldBlurSRVA();
+	DepthOfFieldBlurRTVB    = VP->GetDepthOfFieldBlurRTVB();
+	DepthOfFieldBlurSRVB    = VP->GetDepthOfFieldBlurSRVB();
 }

@@ -56,6 +56,10 @@ void FObjViewerRenderPipeline::RenderPreviewViewport(FRenderer& Renderer)
 	Scene.ClearFrameData();
 
 	Frame.SetCameraInfo(Camera);
+	Frame.CameraFade = FCameraFadeState();
+	Frame.CameraVignette = FCameraVignetteState();
+	Frame.CameraLetterbox = FCameraLetterboxState();
+	Frame.CameraDepthOfField = FCameraDepthOfFieldState();
 
 	FViewportRenderOptions Opts;
 	Opts.ViewMode = EViewMode::Lit_Phong;

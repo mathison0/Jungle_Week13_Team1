@@ -44,6 +44,8 @@ struct FFrameContext
 	float ViewportHeight = 0.0f;
 	float BloomWidth     = 0.0f;
 	float BloomHeight    = 0.0f;
+	float DepthOfFieldBlurWidth  = 0.0f;
+	float DepthOfFieldBlurHeight = 0.0f;
 
 	ID3D11RenderTargetView*   ViewportRTV          = nullptr;
 	ID3D11DepthStencilView*   ViewportDSV          = nullptr;
@@ -71,6 +73,13 @@ struct FFrameContext
 	ID3D11RenderTargetView*   BloomRTVB             = nullptr;
 	ID3D11ShaderResourceView* BloomSRVB             = nullptr;
 
+	ID3D11RenderTargetView*   DepthOfFieldCoCRTV       = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldCoCSRV       = nullptr;
+	ID3D11RenderTargetView*   DepthOfFieldBlurRTVA     = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldBlurSRVA     = nullptr;
+	ID3D11RenderTargetView*   DepthOfFieldBlurRTVB     = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldBlurSRVB     = nullptr;
+
 	// Cursor position relative to viewport (for debug visualization)
 	uint32 CursorViewportX = UINT32_MAX;
 	uint32 CursorViewportY = UINT32_MAX;
@@ -93,6 +102,7 @@ struct FFrameContext
 	FCameraFadeState CameraFade;
 	FCameraVignetteState CameraVignette;
 	FCameraLetterboxState CameraLetterbox;
+	FCameraDepthOfFieldState CameraDepthOfField;
 
 	// Derived helpers
 	bool IsFixedOrtho() const
@@ -126,6 +136,8 @@ struct FFrameContext
 		ViewportDSV             = nullptr;
 		BloomWidth              = 0.0f;
 		BloomHeight             = 0.0f;
+		DepthOfFieldBlurWidth   = 0.0f;
+		DepthOfFieldBlurHeight  = 0.0f;
 		SceneColorCopySRV       = nullptr;
 		SceneColorCopyTexture   = nullptr;
 		ViewportRenderTexture   = nullptr;
@@ -141,5 +153,11 @@ struct FFrameContext
 		BloomSRVA               = nullptr;
 		BloomRTVB               = nullptr;
 		BloomSRVB               = nullptr;
+		DepthOfFieldCoCRTV      = nullptr;
+		DepthOfFieldCoCSRV      = nullptr;
+		DepthOfFieldBlurRTVA    = nullptr;
+		DepthOfFieldBlurSRVA    = nullptr;
+		DepthOfFieldBlurRTVB    = nullptr;
+		DepthOfFieldBlurSRVB    = nullptr;
 	}
 };

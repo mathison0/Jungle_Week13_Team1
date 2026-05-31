@@ -709,6 +709,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Render\RenderPass\AlphaBlendPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\BloomPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\DecalPass.cpp" />
+    <ClCompile Include="Source\Engine\Render\RenderPass\DepthOfFieldPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\EditorLinesPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\FXAAPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\FogPass.cpp" />
@@ -726,6 +727,8 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Render\RenderPass\RenderPassRegistry.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\SelectionMaskPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\ShadowMapPass.cpp" />
+    <ClCompile Include="Source\Engine\Render\RenderPass\TranslucencyAfterDOFPass.cpp" />
+    <ClCompile Include="Source\Engine\Render\RenderPass\TranslucencyBeforeDOFPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\UIPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderState\BlendStateManager.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderState\DepthStencilStateManager.cpp" />
@@ -1133,6 +1136,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Render\RenderPass\AlphaBlendPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\BloomPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\DecalPass.h" />
+    <ClInclude Include="Source\Engine\Render\RenderPass\DepthOfFieldPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\EditorLinesPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\FXAAPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\FogPass.h" />
@@ -1150,6 +1154,8 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Render\RenderPass\RenderPassRegistry.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\SelectionMaskPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\ShadowMapPass.h" />
+    <ClInclude Include="Source\Engine\Render\RenderPass\TranslucencyAfterDOFPass.h" />
+    <ClInclude Include="Source\Engine\Render\RenderPass\TranslucencyBeforeDOFPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\UIPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderState\BlendStateManager.h" />
     <ClInclude Include="Source\Engine\Render\RenderState\DepthStencilStateManager.h" />

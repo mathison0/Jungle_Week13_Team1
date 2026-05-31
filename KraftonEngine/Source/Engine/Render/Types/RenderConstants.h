@@ -73,6 +73,8 @@ namespace ESystemTexSlot
 	constexpr uint32 SpotShadowDatas    = 24;  // t24: StructuredBuffer<FSpotShadowDataGPU>
 	constexpr uint32 PointShadowDatas   = 25;  // t25: StructuredBuffer<FPointShadowDataGPU>
 	constexpr uint32 Bloom              = 26;  // t26: Bloom ping-pong texture
+	constexpr uint32 DepthOfFieldCoC    = 27;  // t27: Depth of Field circle of confusion
+	constexpr uint32 DepthOfFieldBlur   = 28;  // t28: Depth of Field blur ping-pong texture
 
 	// 하위 호환용 별칭
 	constexpr uint32 ShadowMap = ShadowMapCSM;

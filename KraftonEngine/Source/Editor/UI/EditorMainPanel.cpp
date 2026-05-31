@@ -4,6 +4,7 @@
 #include "Editor/Settings/EditorSettings.h"
 #include "Editor/Viewport/Level/LevelEditorViewportClient.h"
 #include "Render/Types/MinimalViewInfo.h"
+#include "Render/Types/ViewTypes.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
 #include "Engine/Platform/WindowsWindow.h"
@@ -53,6 +54,19 @@ const FDebugPlaceActorOption GDebugPlaceActorOptions[] = {
 	{ "Character",     FLevelViewportLayout::EViewportPlaceActorType::Character },
 	{ "Lua Character", FLevelViewportLayout::EViewportPlaceActorType::LuaCharacter },
 };
+
+const char* GetDepthOfFieldBlurMethodLabel(EDepthOfFieldBlurMethod Method)
+{
+	switch (Method)
+	{
+	case EDepthOfFieldBlurMethod::Gaussian:
+		return "Gaussian";
+	case EDepthOfFieldBlurMethod::TiledRotatedPoissonDisk:
+		return "Tiled Rotated Poisson Disk";
+	default:
+		return "Unknown";
+	}
+}
 
 }
 
@@ -378,6 +392,43 @@ void FEditorMainPanel::RenderEditorDebugPanel()
 	{
 		ImGui::End();
 		return;
+	}
+
+	if (ImGui::CollapsingHeader("Depth of Field", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
+		if (!ActiveViewport)
+		{
+			ImGui::TextDisabled("No active level viewport.");
+		}
+		else
+		{
+			FViewportRenderOptions& RenderOptions = ActiveViewport->GetRenderOptions();
+			EDepthOfFieldBlurMethod CurrentMethod = RenderOptions.DepthOfFieldBlurMethod;
+			if (ImGui::BeginCombo("Blur Method", GetDepthOfFieldBlurMethodLabel(CurrentMethod)))
+			{
+				const EDepthOfFieldBlurMethod Methods[] = {
+					EDepthOfFieldBlurMethod::Gaussian,
+					EDepthOfFieldBlurMethod::TiledRotatedPoissonDisk
+				};
+
+				for (EDepthOfFieldBlurMethod Method : Methods)
+				{
+					const bool bSelected = (CurrentMethod == Method);
+					if (ImGui::Selectable(GetDepthOfFieldBlurMethodLabel(Method), bSelected))
+					{
+						RenderOptions.DepthOfFieldBlurMethod = Method;
+						CurrentMethod = Method;
+					}
+					if (bSelected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+
+				ImGui::EndCombo();
+			}
+		}
 	}
 
 	if (ImGui::CollapsingHeader("Place Actors (Grid)", ImGuiTreeNodeFlags_DefaultOpen))
