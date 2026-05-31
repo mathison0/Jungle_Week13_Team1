@@ -1,9 +1,10 @@
-#include "PhysXCore.h"
+﻿#include "PhysXCore.h"
 
 #include "Core/Logging/Log.h"
 #include "Core/Types/CoreTypes.h"
 
 #include <PxPhysicsAPI.h>
+#include <vehicle/PxVehicleSDK.h>
 
 using namespace physx;
 
@@ -49,6 +50,7 @@ static PxPvdTransport* GSharedPvdTransport = nullptr;
 
 static int32 GSharedRefCount = 0;
 static bool GSharedExtensionsInitialized = false;
+static bool GSharedVehicleSDKInitialized = false;
 
 #ifdef _DEBUG
 static void ReleasePvd()
@@ -168,7 +170,21 @@ bool FPhysXCore::Acquire(PxFoundation*& OutFoundation, PxPhysics*& OutPhysics)
 		}
 
 		GSharedExtensionsInitialized = true;
-		UE_LOG("[PhysX] Shared Foundation / Physics / Extension Initialized!");
+
+		// Vehicle SDK — 공유 PxPhysics당 한 번 초기화 (Extension 이후). Z-up / X-forward / velocity-change.
+		// PxVehicle* 직접 제어는 FPhysXPhysicsScene::GetPxScene / GetComponentRigidActor 게이트로 접근한다.
+		if (PxInitVehicleSDK(*GSharedPhysics))
+		{
+			PxVehicleSetBasisVectors(PxVec3(0.0f, 0.0f, 1.0f), PxVec3(1.0f, 0.0f, 0.0f));
+			PxVehicleSetUpdateMode(PxVehicleUpdateMode::eVELOCITY_CHANGE);
+			GSharedVehicleSDKInitialized = true;
+		}
+		else
+		{
+			UE_LOG("[PhysX] PxInitVehicleSDK failed (deactivate vehicle)");
+		}
+
+		UE_LOG("[PhysX] Shared Foundation / Physics / Extension / Vehicle Initialized!");
 	}
 
 	++GSharedRefCount;
@@ -187,6 +203,13 @@ void FPhysXCore::Release()
 	if (GSharedRefCount <= 0) { GSharedRefCount = 0; return; }
 	--GSharedRefCount;
 	if (GSharedRefCount > 0) return;
+
+	// Vehicle SDK는 Extension/Physics에 의존하므로 그보다 먼저 닫는다.
+	if (GSharedVehicleSDKInitialized)
+	{
+		PxCloseVehicleSDK();
+		GSharedVehicleSDKInitialized = false;
+	}
 
 	if (GSharedExtensionsInitialized)
 	{
@@ -211,4 +234,16 @@ void FPhysXCore::Release()
 
 	GSharedRefCount = 0;
 	UE_LOG("[PhysX] Shared Foundation / Physics released.");
+}
+
+// NvCloth 등 외부 SDK가 PhysX와 같은 allocator/error 콜백을 공유하도록 노출한다.
+// 이 콜백들은 file-static으로 항상 살아있어 Acquire 전후 어디서든 안전하게 참조 가능.
+physx::PxAllocatorCallback& FPhysXCore::GetAllocatorCallback()
+{
+	return GPhysXAllocator;
+}
+
+physx::PxErrorCallback& FPhysXCore::GetErrorCallback()
+{
+	return GPhysXErrorCallback;
 }

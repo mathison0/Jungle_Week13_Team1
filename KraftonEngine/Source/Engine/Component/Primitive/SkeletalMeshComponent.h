@@ -1,8 +1,12 @@
-#pragma once
+﻿#pragma once
 
 #include "Component/Primitive/SkinnedMeshComponent.h"
 #include "Animation/AnimationMode.h"
 #include "Object/Ptr/SubclassOf.h"
+#include "Physics/BodyInstance.h"
+#include "Physics/ConstraintInstance.h"
+
+#include <memory>
 
 #include "Source/Engine/Component/Primitive/SkeletalMeshComponent.generated.h"
 
@@ -10,8 +14,6 @@ class UAnimInstance;
 class UAnimSingleNodeInstance;
 class UAnimSequenceBase;
 class UClass;
-class FBodyInstance;
-struct FConstraintInstance;
 
 // SkeletalMesh 전용 render proxy만 제공하는 얇은 wrapper.
 // Skinning/bone/material/bounds 상태는 모두 USkinnedMeshComponent가 소유한다.
@@ -76,10 +78,10 @@ public:
     void SetSimulateRagdoll(bool bEnable);
     bool IsRagdollSimulating() const { return bRagdollSimulating; }
 
-    TArray<FBodyInstance*>& GetBodies() { return Bodies; }
-    const TArray<FBodyInstance*>& GetBodies() const { return Bodies; }
-    TArray<FConstraintInstance*>& GetConstraints() { return Constraints; }
-    const TArray<FConstraintInstance*>& GetConstraints() const { return Constraints; }
+    TArray<std::unique_ptr<FBodyInstance>>& GetBodies() { return Bodies; }
+    const TArray<std::unique_ptr<FBodyInstance>>& GetBodies() const { return Bodies; }
+    TArray<std::unique_ptr<FConstraintInstance>>& GetConstraints() { return Constraints; }
+    const TArray<std::unique_ptr<FConstraintInstance>>& GetConstraints() const { return Constraints; }
 
 protected:
     void BeginPlay() override;
@@ -106,8 +108,11 @@ protected:
     UAnimInstance*             AnimInstance  = nullptr;
 
     // PhysicsAsset instantiate 단계에서 채워지는 runtime 상태. 에셋에 저장하지 않는다.
-    // Bodies는 BodySetup과 bone에 대응하고, Constraints는 두 runtime body 사이의 PxJoint를 래핑한다.
-    TArray<FBodyInstance*>      Bodies;
-    TArray<FConstraintInstance*> Constraints;
+    // Bodies는 BodySetup과 bone에, Constraints는 두 runtime body 사이의 PxJoint에 대응한다.
+    // 둘 다 이 컴포넌트가 소유한다(unique_ptr). PhysicsScene은 시뮬레이션만 하고 소유하지 않는다.
+    TArray<std::unique_ptr<FBodyInstance>>       Bodies;
+    TArray<std::unique_ptr<FConstraintInstance>> Constraints;
+
+	UPROPERTY(Edit, Save, Category = "Physics", DisplayName = "Ragdoll Simulating")
     bool bRagdollSimulating = false;
 };

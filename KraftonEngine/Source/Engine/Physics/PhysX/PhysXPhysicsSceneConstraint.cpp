@@ -75,7 +75,7 @@ static void ApplyContraintOptionToD6Joint(PxD6Joint* Joint, const FConstraintOpt
 	Joint->setProjectionAngularTolerance(10.0f * FMath::DegToRad);
 }
 
-FConstraintInstance* FPhysXPhysicsScene::CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
+std::unique_ptr<FConstraintInstance> FPhysXPhysicsScene::CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
 	const FConstraintOption& Option, const FTransform& ParentFrame, const FTransform& ChildFrame, const FString& ConstraintName /*= FString()*/)
 {
 	if (!Physics)
@@ -142,51 +142,13 @@ FConstraintInstance* FPhysXPhysicsScene::CreateConstraint(FBodyInstance* Parent,
 	// Joint Relase는 FConstraintInstance::TerminateConstraint가 담당
 	NewConstraint->SetConstraintHandle(Joint);
 
-	FConstraintInstance* Result = NewConstraint.get();
-	Constraints.push_back(std::move(NewConstraint));
-
-	return Result;
+	// 소유권(unique_ptr)을 호출자(컴포넌트)에게 넘긴다.
+	return NewConstraint;
 }
 
 void FPhysXPhysicsScene::DestroyConstraint(FConstraintInstance* Constraint)
 {
+	// PxJoint만 해제한다. FConstraintInstance 객체는 소유자(컴포넌트 Constraints)가 삭제한다.
 	if (!Constraint) return;
-
 	Constraint->TerminateConstraint();
-
-	Constraints.erase(
-		std::remove_if(
-			Constraints.begin(),
-			Constraints.end(),
-			[Constraint](const std::unique_ptr<FConstraintInstance>& Ptr)
-			{
-				return Ptr.get() == Constraint;
-			}
-		),
-		Constraints.end()
-	);
-}
-
-void FPhysXPhysicsScene::DestroyConstraintsForBody(FBodyInstance* BodyInstance)
-{
-	/*
-	 * Body가 제거될 때 해당 body를 참조하는 joint가 남으면,
-	 * PhysX actor release 이후 joint가 죽은 actor를 물고 있게 됩니다.
-	 * 그래서 body release 전에 연결된 constraint를 먼저 지워야 합니다.
-	 */
-	if (!BodyInstance) return;
-
-	Constraints.erase(std::remove_if(Constraints.begin(), Constraints.end(),
-		[BodyInstance](const std::unique_ptr<FConstraintInstance>& Ptr)
-		{
-			if (!Ptr) return true;
-			if (Ptr->ParentBody == BodyInstance || Ptr->ChildBody == BodyInstance)
-			{
-				Ptr->TerminateConstraint();
-				return true;
-			}
-			return false;
-		}),
-		Constraints.end()
-	);
 }

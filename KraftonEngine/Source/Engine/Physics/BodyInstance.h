@@ -106,6 +106,10 @@ private:
 	UPrimitiveComponent* OwnerComponent = nullptr;
 	physx::PxRigidActor* RigidActor = nullptr;
 
+	// 한 액터의 여러 컴포넌트가 한 강체로 합쳐질 때, 이 body가 대표면 같은 강체에 충돌 모양을 얹은
+	// 컴포넌트들의 목록. 대표 컴포넌트는 OwnerComponent. (ragdoll 같은 단독 body는 비어 있음)
+	TArray<UPrimitiveComponent*> CombinedComponents;
+
 	int32 BoneIndex = -1;
 	int32 BodyIndex = -1;
 

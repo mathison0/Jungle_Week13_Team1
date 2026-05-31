@@ -18,6 +18,8 @@
 #include "Object/Object.h"
 #include "Object/Reflection/ObjectFactory.h"
 #include "Object/Reflection/UClass.h"
+#include "Physics/BodyInstance.h"
+#include "Physics/ConstraintInstance.h"
 #include "Physics/IPhysicsScene.h"
 #include "Render/Proxy/SkeletalMeshSceneProxy.h"
 #include "Serialization/Archive.h"
@@ -27,6 +29,18 @@
 
 USkeletalMeshComponent::~USkeletalMeshComponent()
 {
+    // EndPlay 없이 파괴되는 경로 대비 — World/Scene이 살아있으면 ragdoll body의 PhysX 자원을
+    // 먼저 해제한 뒤 unique_ptr Bodies가 소멸하게 한다. (안 하면 PxActor 미해제 상태로 객체가 delete됨)
+    if (Owner)
+    {
+        if (UWorld* World = Owner->GetWorld())
+        {
+            if (IPhysicsScene* PhysicsScene = World->GetPhysicsScene())
+            {
+                PhysicsScene->DestroyPhysicsAssetBodies(this);
+            }
+        }
+    }
     ClearAnimInstance();
 }
 

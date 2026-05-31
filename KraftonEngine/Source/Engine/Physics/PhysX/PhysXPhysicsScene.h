@@ -39,10 +39,13 @@ class UPhysicalMaterial;
 //
 // IPhysicsScene 인터페이스를 통해 Native와 교체 가능.
 //
-// 등록 단위는 Actor — 한 액터의 여러 PrimitiveComponent는 하나의
-// PxRigidActor에 compound shape로 합쳐진다. 각 shape의 LocalPose는
-// 액터 RootComponent에 대한 상대 transform. 이로써 차체 Box + 바퀴
-// Sphere 4개처럼 다중 콜라이더가 자연스럽게 한 강체로 동작한다.
+// 컴포넌트가 자기 FBodyInstance를 소유하고, Scene은 대표 body들의 비소유
+// 레지스트리(Bodies)로 매 프레임 순회만 한다. ragdoll body/constraint는
+// SkeletalMeshComponent가 소유한다.
+//
+// 같은 액터의 여러 PrimitiveComponent는 하나의 PxRigidActor에 shape로 합쳐지고
+// (LocalPose는 대표 컴포넌트 기준), 차체 Box + 바퀴 Sphere처럼 다중 콜라이더가
+// 한 강체로 동작한다.
 // ============================================================
 class FPhysXPhysicsScene : public IPhysicsScene
 {
@@ -97,7 +100,9 @@ public:
 	const FBodyInstance* GetBodyInstance(UPrimitiveComponent* Comp) const;
 
 	// --- Constraint Instance ---
-	FConstraintInstance* CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
+	// joint를 만들어 소유권(unique_ptr)을 호출자(컴포넌트)에게 넘긴다.
+	// DestroyConstraint는 PxJoint만 해제하며 FConstraintInstance 객체는 호출자가 소유·삭제한다.
+	std::unique_ptr<FConstraintInstance> CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
 		const FConstraintOption& Option,
 		const FTransform& ParentFrame,
 		const FTransform& ChildFrame,
@@ -107,11 +112,19 @@ public:
 
 	// --- PhysicsAsset / Ragdoll Adapter ---
 	// PhysicsAsset/Ragdoll 빌더가 사용할 body 생성/해제 진입점.
-	// BodySetup 1개를 world transform 위치에 독립 body로 만든다 (compound BodyMappings와 별개).
-	// 호출자가 반환 핸들을 보관하고, joint는 CreateConstraint로, 해제는 DestroyBody로 한다.
-	FBodyInstance* CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
+	// BodySetup 1개를 world transform 위치에 독립 body로 만들어 소유권(unique_ptr)을 호출자에게 넘긴다.
+	// 호출자(컴포넌트)가 반환 body를 보관하고, joint는 CreateConstraint로, PhysX 자원 해제는 DestroyBody로 한다.
+	// (DestroyBody는 PxRigidActor만 해제하며 FBodyInstance 객체는 호출자가 소유·삭제한다.)
+	std::unique_ptr<FBodyInstance> CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
 		const FTransform& WorldTransform, bool bDynamic);
 	void DestroyBody(FBodyInstance* Body);
+
+	// --- Vehicle / 고급 PhysX 접근 게이트 ---
+	// PxVehicle 등 PhysX를 직접 제어해야 하는 코드용. 호출 측은 IPhysicsScene을
+	// FPhysXPhysicsScene으로 다운캐스트 + 백엔드 가드(Backend == PhysX) 후 사용한다.
+	// (FBodyInstance의 PhysX 핸들은 계속 private — Scene이 중개한다.)
+	physx::PxScene* GetPxScene() const { return Scene; }
+	physx::PxRigidActor* GetComponentRigidActor(UPrimitiveComponent* Comp);
 
 private:
 	UWorld* World = nullptr;
@@ -135,42 +148,31 @@ private:
 	physx::PxPvdTransport* PvdTransport = nullptr;
 #endif
 
-	// Actor 단위 매핑 — 한 액터의 여러 컴포넌트가 같은 PxRigidActor에 shape로 합쳐진다.
-	struct FBodyMapping
-	{
-		AActor* OwnerActor = nullptr;             // 키
-		physx::PxRigidActor* Actor = nullptr;     // 기존 코드 호환용. 다음 단계에서 제거 또는 축소 예정.
-		UPrimitiveComponent* RootComp = nullptr;  // 트랜스폼 동기화 기준
-		TArray<UPrimitiveComponent*> Components;  // 등록된 컴포넌트들
-	};
-	// PxActor는 대표 UPrimitiveComponent::BodyInstance를 userData로 참조한다.
-	// FBodyMapping은 Actor 단위 compound 관계만 추적한다.
-	TArray<std::unique_ptr<FBodyMapping>> BodyMappings;
+	// 살아있는 강체들의 대표 body 목록. 객체 소유는 컴포넌트가 하고 여기엔 포인터만 둔다(매 프레임 순회용).
+	// 한 강체에 여러 컴포넌트가 합쳐져도 대표 하나만 여기 들어간다.
+	TArray<FBodyInstance*> Bodies;
 
-	// Constraint 는 PxRigidActor를 참조
-	// Shutdown / body unregister시 Bodies보다 먼저 release
-	TArray<std::unique_ptr<FConstraintInstance>> Constraints;
+	// ragdoll body/constraint는 컴포넌트(SkeletalMeshComponent)가 소유한다. 여기엔
+	// bone 계층 writeback(SyncPhysicsAssetBodiesToBones)을 위해 컴포넌트 목록만 둔다.
 	TArray<USkeletalMeshComponent*> SkeletalPhysicsComponents;
 
-	// Adapter(CreateBodyFromBodySetup)로 만든 독립 body. compound BodyMappings와 별개로
-	// scene이 FBodyInstance를 소유하고, Shutdown / DestroyBody에서 PxRigidActor까지 정리한다.
-	TArray<std::unique_ptr<FBodyInstance>> AdapterBodies;
-
 	// 내부 헬퍼
-	FBodyMapping* FindMappingByActor(AActor* OwnerActor);
-	const FBodyMapping* FindMappingByActor(AActor* OwnerActor) const;
-	FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp);
-	const FBodyMapping* FindMappingByComponent(UPrimitiveComponent* Comp) const;
-	void DestroyConstraintsForBody(FBodyInstance* Body);
+	// Comp가 속한 강체의 대표 body. 등록 안 됐으면 nullptr.
+	FBodyInstance* FindHostBody(UPrimitiveComponent* Comp);
+	const FBodyInstance* FindHostBody(UPrimitiveComponent* Comp) const;
+	// Actor의 강체 대표 body. ragdoll/adapter body는 제외.
+	FBodyInstance* FindHostBodyByActor(AActor* OwnerActor);
+	// 강체 하나의 PhysX 자원(PxRigidActor)을 해제하는 공통 경로. FBodyInstance 객체는 소유자가 지우므로 여기서 delete하지 않는다.
+	void ReleaseBodyResource(FBodyInstance* Body);
 	void SyncPhysicsAssetBodiesToBones();
 
 	// FPhysXShapeDesc 하나를 주어진 actor에 PxShape로 생성. 실패 시 nullptr.
 	physx::PxShape* CreateShapeOnActor(physx::PxRigidActor* Actor, const FPhysXShapeDesc& Desc);
 
-	// Comp의 geometry를 Mapping의 PxRigidActor에 shape로 추가. 실패 시 nullptr.
-	physx::PxShape* AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
-	// Comp의 BodySetup AggGeom을 Mapping의 PxRigidActor에 shape로 추가. shape가 하나 이상 생성되면 true.
-	bool AddShapesFromBodySetup(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
-	// Mapping의 actor에서 Comp에 매칭된 shape를 detach.
-	void DetachShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp);
+	// HostActor에 Comp의 geometry를 shape로 추가(RootComp 기준 LocalPose). 실패 시 nullptr.
+	physx::PxShape* AddShapeForComponent(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp);
+	// HostActor에 Comp의 BodySetup AggGeom을 shape로 추가. shape가 하나 이상 생성되면 true.
+	bool AddShapesFromBodySetup(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp);
+	// HostActor에서 Comp에 매칭된 shape를 detach.
+	void DetachShapeForComponent(physx::PxRigidActor* HostActor, UPrimitiveComponent* Comp);
 };

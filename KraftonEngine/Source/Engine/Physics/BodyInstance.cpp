@@ -25,6 +25,8 @@ void FBodyInstance::TerminateBody()
 	OwnerComponent = nullptr;
 	RigidActor = nullptr;
 
+	CombinedComponents.clear();
+
 	bSimulatePhysics = false;
 	bEnableGravity = true;
 	BoneIndex = -1;

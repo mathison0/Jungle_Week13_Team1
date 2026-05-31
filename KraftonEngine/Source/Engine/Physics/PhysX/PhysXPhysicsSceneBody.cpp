@@ -137,28 +137,28 @@ PxShape* FPhysXPhysicsScene::CreateShapeOnActor(PxRigidActor* Actor, const FPhys
 	return Shape;
 }
 
-PxShape* FPhysXPhysicsScene::AddShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
+PxShape* FPhysXPhysicsScene::AddShapeForComponent(PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp)
 {
-	if (!Mapping.Actor || !DefaultMaterial || !Comp) return nullptr;
+	if (!HostActor || !DefaultMaterial || !Comp) return nullptr;
 
 	FPhysXShapeDesc Desc;
-	if (!FPhysXShapeDescUtils::MakeShapeDescFromShapeComponent(Mapping.RootComp, Comp, GetBodyType(Mapping.Actor), Desc)) return nullptr;
+	if (!FPhysXShapeDescUtils::MakeShapeDescFromShapeComponent(RootComp, Comp, GetBodyType(HostActor), Desc)) return nullptr;
 
-	return CreateShapeOnActor(Mapping.Actor, Desc);
+	return CreateShapeOnActor(HostActor, Desc);
 }
 
-bool FPhysXPhysicsScene::AddShapesFromBodySetup(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
+bool FPhysXPhysicsScene::AddShapesFromBodySetup(PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp)
 {
-	if (!Mapping.Actor || !DefaultMaterial || !Comp) return false;
+	if (!HostActor || !DefaultMaterial || !Comp) return false;
 
 	TArray<FPhysXShapeDesc> Descs;
-	FPhysXShapeDescUtils::MakeShapeDescsFromBodySetup(Mapping.RootComp, Comp, GetBodyType(Mapping.Actor), Descs);
+	FPhysXShapeDescUtils::MakeShapeDescsFromBodySetup(RootComp, Comp, GetBodyType(HostActor), Descs);
 	if (Descs.empty()) return false;
 
 	bool bAnyCreated = false;
 	for (const FPhysXShapeDesc& Desc : Descs)
 	{
-		if (CreateShapeOnActor(Mapping.Actor, Desc) != nullptr)
+		if (CreateShapeOnActor(HostActor, Desc) != nullptr)
 		{
 			bAnyCreated = true;
 		}
@@ -167,87 +167,71 @@ bool FPhysXPhysicsScene::AddShapesFromBodySetup(FBodyMapping& Mapping, UPrimitiv
 }
 
 // PxShape::userData는 해당 UPrimitiveComponent가 소유한 FBodyInstance*이다.
-// 같은 PxActor에 여러 component shape가 붙어도 body instance 포인터로 component 단위 detach가 가능하다.
-void FPhysXPhysicsScene::DetachShapeForComponent(FBodyMapping& Mapping, UPrimitiveComponent* Comp)
+// 같은 PxActor에 여러 component shape가 붙어도 그 포인터로 component 단위 detach가 가능하다.
+void FPhysXPhysicsScene::DetachShapeForComponent(PxRigidActor* HostActor, UPrimitiveComponent* Comp)
 {
-	// TODO(Physics): PxShape::userData는 FBodyInstance*이다.
-	// 따라서 Component 단위 detach를 하려면 Shape -> Component 역매핑이 필요하다.
-	// BodyMapping 제거 / BodySetup 기반 생성 경로로 전환할 때 함께 정리한다.
-	// 현재는 Actor 전체 release 경로를 기준으로 동작시킨다.
-	if (!Mapping.Actor || !Comp) return;
+	if (!HostActor || !Comp) return;
 	FBodyInstance* ComponentBody = Comp->GetBodyInstance();
 	if (!ComponentBody) return;
 
-	const PxU32 NumShapes = Mapping.Actor->getNbShapes();
+	const PxU32 NumShapes = HostActor->getNbShapes();
 	if (NumShapes == 0) return;
 
 	std::vector<PxShape*> Shapes(NumShapes);
-	Mapping.Actor->getShapes(Shapes.data(), NumShapes);
+	HostActor->getShapes(Shapes.data(), NumShapes);
 
 	for (PxShape* Shape : Shapes)
 	{
 		if (Shape && FPhysXHelper::IsShapeBodyRecord(Shape, ComponentBody))
 		{
 			FPhysXHelper::SetShapeBodyRecord(Shape, nullptr);
-			Mapping.Actor->detachShape(*Shape);
+			HostActor->detachShape(*Shape);
 		}
 	}
 }
 
-FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByActor(AActor* OwnerActor)
+FBodyInstance* FPhysXPhysicsScene::FindHostBodyByActor(AActor* OwnerActor)
 {
-	for (auto& M : BodyMappings)
+	if (!OwnerActor) return nullptr;
+	for (FBodyInstance* Host : Bodies)
 	{
-		if (M && M->OwnerActor == OwnerActor) return M.get();
-	}
-	return nullptr;
-}
-
-const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByActor(AActor* OwnerActor) const
-{
-	for (const auto& M : BodyMappings)
-	{
-		if (M && M->OwnerActor == OwnerActor) return M.get();
-	}
-	return nullptr;
-}
-
-// "이 컴포넌트가 shape로 추가된 mapping" 검색 - 등록 가드 + Force/Velocity API 라우팅용.
-// owner 기반 lookup과 다름: 같은 owner라도 컴포넌트가 아직 Components에 push되지 않았으면
-// 다른 컴포넌트의 shape를 통해 force가 잘못 적용되지 않도록 nullptr 반환.
-FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByComponent(UPrimitiveComponent* Comp)
-{
-	if (!Comp) return nullptr;
-
-	for (auto& M : BodyMappings)
-	{
-		if (!M) continue;
-
-		for (UPrimitiveComponent* C : M->Components)
+		if (Host && Host->GetOwnerComponent() && Host->GetOwnerActor() == OwnerActor)
 		{
-			if (C == Comp)
-			{
-				return M.get();
-			}
+			return Host;
 		}
 	}
 	return nullptr;
 }
 
-const FPhysXPhysicsScene::FBodyMapping* FPhysXPhysicsScene::FindMappingByComponent(UPrimitiveComponent* Comp) const
+// Comp가 속한 강체의 대표 body를 찾는다 - 등록 여부 확인 + Force/Velocity API 라우팅용.
+// 액터가 같아도 Comp가 아직 그 강체에 등록되기 전이면, 엉뚱한 컴포넌트에 힘이 가지 않도록 nullptr 반환.
+FBodyInstance* FPhysXPhysicsScene::FindHostBody(UPrimitiveComponent* Comp)
 {
 	if (!Comp) return nullptr;
 
-	for (const auto& M : BodyMappings)
+	for (FBodyInstance* Host : Bodies)
 	{
-		if (!M) continue;
-
-		for (UPrimitiveComponent* C : M->Components)
+		if (!Host) continue;
+		if (Host->GetOwnerComponent() == Comp) return Host;
+		for (UPrimitiveComponent* C : Host->CombinedComponents)
 		{
-			if (C == Comp)
-			{
-				return M.get();
-			}
+			if (C == Comp) return Host;
+		}
+	}
+	return nullptr;
+}
+
+const FBodyInstance* FPhysXPhysicsScene::FindHostBody(UPrimitiveComponent* Comp) const
+{
+	if (!Comp) return nullptr;
+
+	for (const FBodyInstance* Host : Bodies)
+	{
+		if (!Host) continue;
+		if (Host->GetOwnerComponent() == Comp) return Host;
+		for (UPrimitiveComponent* C : Host->CombinedComponents)
+		{
+			if (C == Comp) return Host;
 		}
 	}
 	return nullptr;
@@ -348,7 +332,7 @@ FVector FPhysXPhysicsScene::GetCenterOfMass(UPrimitiveComponent* Comp) const
 
 FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Comp)
 {
-	if (!Comp || !FindMappingByComponent(Comp))
+	if (!Comp || !FindHostBody(Comp))
 	{
 		return nullptr;
 	}
@@ -359,11 +343,18 @@ FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Comp)
 
 const FBodyInstance* FPhysXPhysicsScene::GetBodyInstance(UPrimitiveComponent* Comp) const
 {
-	if (!Comp || !FindMappingByComponent(Comp))
+	if (!Comp || !FindHostBody(Comp))
 	{
 		return nullptr;
 	}
 
 	const FBodyInstance* BodyInstance = Comp->GetBodyInstance();
 	return BodyInstance && BodyInstance->IsValidBodyInstance() ? BodyInstance : nullptr;
+}
+
+// Vehicle 등 PhysX 직접 제어용 — Comp가 속한 강체의 PxRigidActor. 미등록이면 nullptr.
+physx::PxRigidActor* FPhysXPhysicsScene::GetComponentRigidActor(UPrimitiveComponent* Comp)
+{
+	FBodyInstance* Host = FindHostBody(Comp);
+	return Host ? FPhysXHelper::GetRigidActor(Host) : nullptr;
 }
