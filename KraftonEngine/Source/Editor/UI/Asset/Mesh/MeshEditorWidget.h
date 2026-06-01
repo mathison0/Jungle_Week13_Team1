@@ -118,6 +118,7 @@ private:
 	// Skeleton tab state
 	int32 SelectedBoneIndex = -1;
 	UBodySetup* SelectedBodySetup = nullptr;
+	UBodySetup* PhysicsGraphFocusBodySetup = nullptr;
 	int32 SelectedConstraintIndex = -1;
 	TMap<FString, FPhysicsGraphNodePosition> PhysicsGraphNodePositions;
 	bool bPhysicsGraphCapturingMouse = false;
