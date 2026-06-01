@@ -9,6 +9,7 @@
 #include "Physics/BodySetup.h"
 #include "Physics/PhysicsGeometry.h"
 #include <algorithm>
+#include <cmath>
 
 static FTransform BuildComponentLocalTransform(UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp)
 {
@@ -57,6 +58,23 @@ static FTransform BuildElemLocalTransform(const FTransform& CompLocalTransform, 
 	FVector FinalPos = CompLocalTransform.Location + CompRot.RotateVector(ScaledElemPos);
 	FQuat FinalRot = CompRot * Elem.Transform.Rotation;
 	return FTransform(FinalPos, FinalRot, FVector::OneVector);
+}
+
+static float SanitizeUniformScale(float UniformScale)
+{
+	if (!std::isfinite(UniformScale))
+	{
+		return 1.0f;
+	}
+	return std::max(std::fabs(UniformScale), 1.0e-4f);
+}
+
+static FTransform ScaleLocalTransformUniform(const FTransform& Transform, float UniformScale)
+{
+	FTransform Result = Transform;
+	Result.Location *= UniformScale;
+	Result.Scale = FVector::OneVector;
+	return Result;
 }
 
 bool FPhysXShapeDescUtils::MakeShapeDescFromShapeComponent(
@@ -175,10 +193,12 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(
 	const FPhysXShapeCollisionDesc& Collision,
 	const FPhysXShapeMaterialDesc& Material,
 	FBodyInstance* BodyInstance,
+	float UniformScale,
 	TArray<FPhysXShapeDesc>& OutDescs)
 {
 	if (!BodySetup) return;
 
+	const float Scale = SanitizeUniformScale(UniformScale);
 	const FKAggregateGeom& AggGeom = BodySetup->GetAggGeom();
 
 	for (const FKSphereElem& Sphere : AggGeom.SphereElems)
@@ -186,8 +206,8 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(
 		FPhysXShapeDesc Desc;
 		Desc.BodyType = BodyType;
 		Desc.ShapeType = EPhysXShapeType::Sphere;
-		Desc.Radius = Sphere.Radius;
-		Desc.LocalTransform = Sphere.Transform;
+		Desc.Radius = Sphere.Radius * Scale;
+		Desc.LocalTransform = ScaleLocalTransformUniform(Sphere.Transform, Scale);
 		Desc.Collision = Collision;
 		Desc.Material = Material;
 		Desc.BodyInstance = BodyInstance;
@@ -199,8 +219,8 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(
 		FPhysXShapeDesc Desc;
 		Desc.BodyType = BodyType;
 		Desc.ShapeType = EPhysXShapeType::Box;
-		Desc.BoxHalfExtent = Box.Extent;
-		Desc.LocalTransform = Box.Transform;
+		Desc.BoxHalfExtent = Box.Extent * Scale;
+		Desc.LocalTransform = ScaleLocalTransformUniform(Box.Transform, Scale);
 		Desc.Collision = Collision;
 		Desc.Material = Material;
 		Desc.BodyInstance = BodyInstance;
@@ -214,9 +234,9 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(
 		FPhysXShapeDesc Desc;
 		Desc.BodyType = BodyType;
 		Desc.ShapeType = EPhysXShapeType::Capsule;
-		Desc.Radius = Sphyl.Radius;
-		Desc.HalfHeight = Sphyl.Length * 0.5f + Sphyl.Radius;
-		Desc.LocalTransform = Sphyl.Transform;
+		Desc.Radius = Sphyl.Radius * Scale;
+		Desc.HalfHeight = (Sphyl.Length * 0.5f + Sphyl.Radius) * Scale;
+		Desc.LocalTransform = ScaleLocalTransformUniform(Sphyl.Transform, Scale);
 		// PhysX 캡슐은 로컬 X축 기준 → 엔진 Z-up(수직)으로 세우려면 Y축으로 90° 회전.
 		Desc.LocalTransform.Rotation *= FQuat::FromAxisAngle(FVector(0.0f, 1.0f, 0.0f), FMath::Pi * 0.5f);
 		Desc.Collision = Collision;

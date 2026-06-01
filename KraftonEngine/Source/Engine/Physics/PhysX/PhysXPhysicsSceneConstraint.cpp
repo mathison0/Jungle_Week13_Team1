@@ -75,8 +75,10 @@ static void ApplyContraintOptionToD6Joint(PxD6Joint* Joint, const FConstraintOpt
 	Joint->setProjectionAngularTolerance(10.0f * FMath::DegToRad);
 }
 
-std::unique_ptr<FConstraintInstance> FPhysXPhysicsScene::CreateConstraint(FBodyInstance* Parent, FBodyInstance* Child,
-	const FConstraintOption& Option, const FTransform& ParentFrame, const FTransform& ChildFrame, const FString& ConstraintName /*= FString()*/)
+std::unique_ptr<FConstraintInstance> FPhysXPhysicsScene::CreateConstraint(
+	FBodyInstance* Parent,
+	FBodyInstance* Child,
+	const FConstraintSetup& Setup)
 {
 	if (!Physics)
 	{
@@ -113,15 +115,10 @@ std::unique_ptr<FConstraintInstance> FPhysXPhysicsScene::CreateConstraint(FBodyI
 	}
 
 	auto NewConstraint = std::make_unique<FConstraintInstance>();
+	NewConstraint->InitConstraint(Setup, Parent, Child);
 
-	NewConstraint->ConstraintName = ConstraintName;
-	NewConstraint->ParentFrame = ParentFrame;
-	NewConstraint->ChildFrame = ChildFrame;
-	NewConstraint->Option = Option;
-	NewConstraint->InitConstraint(Parent, Child);
-
-	const PxTransform PxParentFrame = FPhysXHelper::ToPxTransform(ParentFrame);
-	const PxTransform PxChildFrame = FPhysXHelper::ToPxTransform(ChildFrame);
+	const PxTransform PxParentFrame = FPhysXHelper::ToPxTransform(Setup.ParentFrame);
+	const PxTransform PxChildFrame = FPhysXHelper::ToPxTransform(Setup.ChildFrame);
 
 	PxD6Joint* Joint = PxD6JointCreate(
 		*Physics,
@@ -137,7 +134,7 @@ std::unique_ptr<FConstraintInstance> FPhysXPhysicsScene::CreateConstraint(FBodyI
 		return nullptr;
 	}
 
-	ApplyContraintOptionToD6Joint(Joint, Option);
+	ApplyContraintOptionToD6Joint(Joint, Setup.Option);
 
 	// Joint Relase는 FConstraintInstance::TerminateConstraint가 담당
 	NewConstraint->SetConstraintHandle(Joint);

@@ -85,8 +85,14 @@ namespace
 		case EPropertyType::ByteBool:
 			OutValue = *static_cast<uint8*>(ValuePtr);
 			return true;
+		case EPropertyType::Byte:
+			OutValue = *static_cast<uint8*>(ValuePtr);
+			return true;
 		case EPropertyType::Int:
 			OutValue = *static_cast<int32*>(ValuePtr);
+			return true;
+		case EPropertyType::UInt64:
+			OutValue = static_cast<int64>(*static_cast<uint64*>(ValuePtr));
 			return true;
 		case EPropertyType::Enum:
 		{

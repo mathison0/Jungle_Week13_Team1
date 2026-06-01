@@ -13,6 +13,9 @@ void FGenericProperty::SerializeValue(void* ValuePtr, FArchive& Ar) const
 
 	switch (Type)
 	{
+	case EPropertyType::Byte:
+		Ar << *static_cast<uint8*>(ValuePtr);
+		break;
 	case EPropertyType::ByteBool:
 	{
 		bool bValue = Ar.IsSaving() ? (*static_cast<uint8*>(ValuePtr) != 0) : false;
@@ -23,6 +26,9 @@ void FGenericProperty::SerializeValue(void* ValuePtr, FArchive& Ar) const
 		}
 		break;
 	}
+	case EPropertyType::UInt64:
+		Ar << *static_cast<uint64*>(ValuePtr);
+		break;
 	case EPropertyType::Vec3:
 		Ar << *static_cast<FVector*>(ValuePtr);
 		break;

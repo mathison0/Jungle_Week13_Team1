@@ -34,7 +34,9 @@ enum class EPropertyType : uint8_t
 {
 	Bool,
 	ByteBool, // uint8을 bool처럼 사용 (std::vector<bool> 회피용)
+	Byte,     // raw uint8 byte
 	Int,
+	UInt64,
 	Float,
 	Vec3,
 	Vec4,

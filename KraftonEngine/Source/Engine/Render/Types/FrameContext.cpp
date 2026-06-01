@@ -59,8 +59,12 @@ void FFrameContext::SetViewportInfo(const FViewport* VP)
 	BloomSRVB               = VP->GetBloomSRVB();
 	DepthOfFieldCoCRTV      = VP->GetDepthOfFieldCoCRTV();
 	DepthOfFieldCoCSRV      = VP->GetDepthOfFieldCoCSRV();
-	DepthOfFieldBlurRTVA    = VP->GetDepthOfFieldBlurRTVA();
-	DepthOfFieldBlurSRVA    = VP->GetDepthOfFieldBlurSRVA();
-	DepthOfFieldBlurRTVB    = VP->GetDepthOfFieldBlurRTVB();
-	DepthOfFieldBlurSRVB    = VP->GetDepthOfFieldBlurSRVB();
+	DepthOfFieldFarRTVA     = VP->GetDepthOfFieldFarRTVA();
+	DepthOfFieldFarSRVA     = VP->GetDepthOfFieldFarSRVA();
+	DepthOfFieldFarRTVB     = VP->GetDepthOfFieldFarRTVB();
+	DepthOfFieldFarSRVB     = VP->GetDepthOfFieldFarSRVB();
+	DepthOfFieldNearRTVA    = VP->GetDepthOfFieldNearRTVA();
+	DepthOfFieldNearSRVA    = VP->GetDepthOfFieldNearSRVA();
+	DepthOfFieldNearRTVB    = VP->GetDepthOfFieldNearRTVB();
+	DepthOfFieldNearSRVB    = VP->GetDepthOfFieldNearSRVB();
 }

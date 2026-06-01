@@ -51,6 +51,8 @@ namespace Key
 	constexpr const char* EdgeThresholdMin = "EdgeThresholdMin";
 	constexpr const char* Gamma = "Gamma";
 	constexpr const char* DepthOfFieldBlurMethod = "DepthOfFieldBlurMethod";
+	constexpr const char* DepthOfFieldAcceptableCoCPixels = "DepthOfFieldAcceptableCoCPixels";
+	constexpr const char* DepthOfFieldFocusTransitionPixels = "DepthOfFieldFocusTransitionPixels";
 	constexpr const char* LightCullingMode = "LightCullingMode";
 	constexpr const char* HeatMapMax = "HeatMapMax";
 	constexpr const char* Enable25DCulling = "Enable25DCulling";
@@ -183,6 +185,8 @@ json::JSON SaveRenderOptions(const FViewportRenderOptions& Opts)
 	Obj[Key::EdgeThresholdMin] = Opts.EdgeThresholdMin;
 	Obj[Key::Gamma] = Opts.Gamma;
 	Obj[Key::DepthOfFieldBlurMethod] = static_cast<int32>(Opts.DepthOfFieldBlurMethod);
+	Obj[Key::DepthOfFieldAcceptableCoCPixels] = Opts.DepthOfFieldAcceptableCoCPixels;
+	Obj[Key::DepthOfFieldFocusTransitionPixels] = Opts.DepthOfFieldFocusTransitionPixels;
 	Obj[Key::LightCullingMode] = static_cast<int32>(Opts.LightCullingMode);
 	Obj[Key::HeatMapMax] = Opts.HeatMapMax;
 	Obj[Key::Enable25DCulling] = Opts.Enable25DCulling;
@@ -262,6 +266,10 @@ void LoadRenderOptions(json::JSON Obj, FViewportRenderOptions& Opts)
 			Opts.DepthOfFieldBlurMethod = static_cast<EDepthOfFieldBlurMethod>(RawMode);
 		}
 	}
+	if (Obj.hasKey(Key::DepthOfFieldAcceptableCoCPixels))
+		Opts.DepthOfFieldAcceptableCoCPixels = static_cast<float>(Obj[Key::DepthOfFieldAcceptableCoCPixels].ToFloat());
+	if (Obj.hasKey(Key::DepthOfFieldFocusTransitionPixels))
+		Opts.DepthOfFieldFocusTransitionPixels = static_cast<float>(Obj[Key::DepthOfFieldFocusTransitionPixels].ToFloat());
 	if (Obj.hasKey(Key::LightCullingMode))
 		Opts.LightCullingMode = static_cast<ELightCullingMode>(Obj[Key::LightCullingMode].ToInt());
 	if (Obj.hasKey(Key::HeatMapMax))

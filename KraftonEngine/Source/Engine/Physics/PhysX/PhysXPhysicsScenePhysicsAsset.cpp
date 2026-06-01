@@ -8,7 +8,75 @@
 #include "Physics/PhysicsAsset.h"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
+
+namespace
+{
+	constexpr float MatrixDecomposeTolerance = 1.0e-6f;
+
+	float GetPhysicsAssetUniformScale(const FVector& WorldScale)
+	{
+		const float MaxAxisScale = std::max({ std::fabs(WorldScale.X), std::fabs(WorldScale.Y), std::fabs(WorldScale.Z) });
+		return std::max(MaxAxisScale, 1.0e-4f);
+	}
+
+	FConstraintSetup MakeRuntimeConstraintSetup(const FConstraintSetup& Setup, float UniformScale)
+	{
+		FConstraintSetup RuntimeSetup = Setup;
+		RuntimeSetup.ParentFrame.Location *= UniformScale;
+		RuntimeSetup.ChildFrame.Location *= UniformScale;
+		RuntimeSetup.ParentFrame.Scale = FVector::OneVector;
+		RuntimeSetup.ChildFrame.Scale = FVector::OneVector;
+		return RuntimeSetup;
+	}
+
+	FQuat ExtractRotationNoScale(const FMatrix& Matrix)
+	{
+		const FVector Scale = Matrix.GetScale();
+		FMatrix RotationMatrix = Matrix;
+		RotationMatrix.M[3][0] = 0.0f;
+		RotationMatrix.M[3][1] = 0.0f;
+		RotationMatrix.M[3][2] = 0.0f;
+		RotationMatrix.M[3][3] = 1.0f;
+
+		if (std::fabs(Scale.X) > MatrixDecomposeTolerance)
+		{
+			RotationMatrix.M[0][0] /= Scale.X;
+			RotationMatrix.M[0][1] /= Scale.X;
+			RotationMatrix.M[0][2] /= Scale.X;
+		}
+
+		if (std::fabs(Scale.Y) > MatrixDecomposeTolerance)
+		{
+			RotationMatrix.M[1][0] /= Scale.Y;
+			RotationMatrix.M[1][1] /= Scale.Y;
+			RotationMatrix.M[1][2] /= Scale.Y;
+		}
+
+		if (std::fabs(Scale.Z) > MatrixDecomposeTolerance)
+		{
+			RotationMatrix.M[2][0] /= Scale.Z;
+			RotationMatrix.M[2][1] /= Scale.Z;
+			RotationMatrix.M[2][2] /= Scale.Z;
+		}
+
+		return RotationMatrix.ToQuat().GetNormalized();
+	}
+
+	FTransform MakeComponentSpaceBodyTransform(
+		const FVector& BodyWorldLocation,
+		const FQuat& BodyWorldRotation,
+		const FMatrix& ComponentWorldMatrix,
+		const FMatrix& ComponentWorldInverse)
+	{
+		const FQuat ComponentWorldRotationInv = ExtractRotationNoScale(ComponentWorldMatrix).Inverse();
+		return FTransform(
+			ComponentWorldInverse.TransformPositionWithW(BodyWorldLocation),
+			(BodyWorldRotation.GetNormalized() * ComponentWorldRotationInv).GetNormalized(),
+			FVector::OneVector);
+	}
+}
 
 bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp)
 {
@@ -21,6 +89,8 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 	USkeletalMesh* SkeletalMesh = Comp->GetSkeletalMesh();
 	UPhysicsAsset* PhysicsAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
 	if (!PhysicsAsset || !PhysicsAsset->HasAnyBodySetup()) return false;
+
+	const float UniformScale = GetPhysicsAssetUniformScale(Comp->GetWorldScale());
 
 	TArray<std::unique_ptr<FBodyInstance>>& RuntimeBodies = Comp->GetBodies();
 	RuntimeBodies.reserve(PhysicsAsset->BodySetups.size());
@@ -43,7 +113,7 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 		// refactor/PhysX-Core의 adapter를 통해 bone-local AggGeom을 독립 dynamic body로 만든다.
 		// shape 생성 정책은 StaticMesh 경로와 같은 CreateShapeOnActor()를 공유한다.
-		std::unique_ptr<FBodyInstance> RuntimeBody = CreateBodyFromBodySetup(Comp, BodySetup, BoneWorldTransform, true);
+		std::unique_ptr<FBodyInstance> RuntimeBody = CreateBodyFromBodySetup(Comp, BodySetup, BoneWorldTransform, true, UniformScale);
 		if (!RuntimeBody) continue;
 
 		RuntimeBody->SetBodyIndex(BodySetupIndex);
@@ -54,7 +124,7 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 	// Editor에서 저장한 bone 이름으로 runtime body를 찾아 PxD6Joint를 생성한다.
 	// BodySetup이 없거나 bone 이름이 틀린 constraint는 건너뛴다.
-	for (const FConstraintInstance& ConstraintSetup : PhysicsAsset->ConstraintSetups)
+	for (const FConstraintSetup& ConstraintSetup : PhysicsAsset->ConstraintSetups)
 	{
 		FBodyInstance* ParentBody = nullptr;
 		FBodyInstance* ChildBody = nullptr;
@@ -70,9 +140,8 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 		if (!ParentBody || !ChildBody) continue;
 
-		if (std::unique_ptr<FConstraintInstance> Constraint = CreateConstraint(
-			ParentBody, ChildBody, ConstraintSetup.Option,
-			ConstraintSetup.ParentFrame, ConstraintSetup.ChildFrame, ConstraintSetup.ConstraintName))
+		const FConstraintSetup RuntimeConstraintSetup = MakeRuntimeConstraintSetup(ConstraintSetup, UniformScale);
+		if (std::unique_ptr<FConstraintInstance> Constraint = CreateConstraint(ParentBody, ChildBody, RuntimeConstraintSetup))
 		{
 			Comp->GetConstraints().push_back(std::move(Constraint));
 		}
@@ -81,8 +150,10 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 	if (!RuntimeBodies.empty())
 	{
 		SkeletalPhysicsComponents.push_back(Comp);
+		Comp->CachePhysicsAssetRuntimeScale();
 		return true;
 	}
+	Comp->InvalidatePhysicsAssetRuntimeScale();
 	return false;
 }
 
@@ -104,6 +175,7 @@ void FPhysXPhysicsScene::DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp)
 		if (Body) ReleaseBodyResource(Body.get());
 	}
 	Comp->GetBodies().clear();
+	Comp->InvalidatePhysicsAssetRuntimeScale();
 
 	SkeletalPhysicsComponents.erase(
 		std::remove(SkeletalPhysicsComponents.begin(), SkeletalPhysicsComponents.end(), Comp),
@@ -160,6 +232,7 @@ void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
 
 		TArray<FMatrix> DesiredGlobalMatrices = CurrentGlobalMatrices;
 		TArray<bool> HasBodyOverride(Asset->Bones.size(), false);
+		const FMatrix& ComponentWorld = Comp->GetWorldMatrix();
 		const FMatrix& ComponentWorldInv = Comp->GetWorldInverseMatrix();
 		for (auto& Body : Comp->GetBodies())
 		{
@@ -168,12 +241,13 @@ void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
 			const int32 BoneIndex = Body->GetBoneIndex();
 			if (BoneIndex < 0 || BoneIndex >= static_cast<int32>(Asset->Bones.size())) continue;
 
-			const FTransform BodyWorldTransform(
+			const FTransform BodyComponentTransform = MakeComponentSpaceBodyTransform(
 				Body->GetEngineWorldLocation(),
 				Body->GetEngineWorldRotation(),
-				FVector::OneVector);
-			// PhysX body는 world 좌표계이므로 skeletal component 로컬 좌표계로 변환한다.
-			DesiredGlobalMatrices[BoneIndex] = BodyWorldTransform.ToMatrix() * ComponentWorldInv;
+				ComponentWorld,
+				ComponentWorldInv);
+			// PhysX body에는 scale이 없으므로 위치와 회전을 분리해서 component-local로 변환한다.
+			DesiredGlobalMatrices[BoneIndex] = BodyComponentTransform.ToMatrix();
 			HasBodyOverride[BoneIndex] = true;
 		}
 
