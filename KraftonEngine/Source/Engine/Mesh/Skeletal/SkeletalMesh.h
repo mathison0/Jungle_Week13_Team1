@@ -45,6 +45,7 @@ public:
 
     UPhysicsAsset* GetPhysicsAsset() const { return PhysicsAsset; }
     UPhysicsAsset* EnsurePhysicsAsset();
+    bool GenerateDefaultPhysicsAsset(bool bOverwriteExisting = false);
 
 private:
     void CacheSectionMaterialIndices();

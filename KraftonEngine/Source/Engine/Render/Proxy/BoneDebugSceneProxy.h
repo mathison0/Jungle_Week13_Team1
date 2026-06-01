@@ -3,6 +3,8 @@
 #include "ShapeSceneProxy.h"
 
 class UBoneDebugComponent;
+class USkeletalMeshComponent;
+struct FSkeletalMesh;
 
 class FBoneDebugSceneProxy : public FPrimitiveSceneProxy
 {
@@ -11,20 +13,26 @@ public:
 	~FBoneDebugSceneProxy() override;
 
 	void UpdateTransform() override;
+	void UpdatePerViewport(const FFrameContext& Frame) override;
 
 	const TArray<FWireLine>& GetCachedLines() const { return CachedLines; }
 	const TArray<FWireLine>& GetCachedParentBoneLines() const { return CachedParentBoneLines; }
+	const TArray<FWireLine>& GetCachedPhysicsAssetLines() const { return CachedPhysicsAssetLines; }
 
 	const FVector4& GetBoneColor() const { return BoneColor; }
 	const FVector4& GetParentBoneColor() const { return ParentBoneColor; }
+	const FVector4& GetPhysicsAssetColor() const { return PhysicsAssetColor; }
 
 private:
 	void RebuildLines();
+	void RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, USkeletalMeshComponent* MeshComp, const FSkeletalMesh* Asset);
 
 private:
 	TArray<FWireLine> CachedLines;
 	TArray<FWireLine> CachedParentBoneLines;
+	TArray<FWireLine> CachedPhysicsAssetLines;
 
 	FVector4 BoneColor;
 	FVector4 ParentBoneColor;
+	FVector4 PhysicsAssetColor;
 };

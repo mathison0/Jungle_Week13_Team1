@@ -57,6 +57,7 @@ public:
 
 	EBoneDebugDrawMode GetBoneDebugDrawMode() const;
 	void SetBoneDebugDrawMode(EBoneDebugDrawMode InDrawMode);
+	void SetPhysicsAssetDebugDrawEnabled(bool bEnabled);
 
 	void ApplyTransformSettingsToGizmo();
 

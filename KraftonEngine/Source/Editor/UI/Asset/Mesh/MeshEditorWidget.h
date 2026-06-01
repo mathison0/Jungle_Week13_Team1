@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Editor/UI/Asset/AssetEditorWidget.h"
 #include "Editor/Viewport/Asset/MeshEditorViewportClient.h"
 #include "Editor/UI/Dialog/FbxImportOptionsDialog.h"
@@ -10,8 +10,11 @@ struct ImVec2;
 class UAnimSequence;
 class UAnimMontage;
 class UAnimSingleNodeInstance;
+class USkeletalMesh;
+class UPhysicsAsset;
+class UBodySetup;
 
-enum class EMeshEditorTab : uint8 { Skeleton, Mesh, Animation };
+enum class EMeshEditorTab : uint8 { Skeleton, Mesh, Animation, PhysicalAsset };
 
 struct FAnimationTabState
 {
@@ -89,6 +92,10 @@ private:
 	void RefreshAnimationPreviewPose();
 	void MarkAnimationListDirty();
 	const TArray<FAssetListItem>& GetCachedAnimationFilesForCurrentSkeleton();
+
+	//Physical Asset Editor
+	void RenderPhysicalAssetLayout();
+	void RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asset, const TArray<UBodySetup*>& Bodies, int32 Index);
 
 private:
 	FMeshEditorViewportClient ViewportClient;

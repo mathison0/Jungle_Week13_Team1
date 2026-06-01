@@ -31,8 +31,17 @@ public:
 	EBoneDebugDrawMode GetDrawMode() const { return DrawMode; }
 	void SetDrawMode(EBoneDebugDrawMode InDrawMode) { DrawMode = InDrawMode; MarkRenderStateDirty(); }
 
+	bool ShouldDrawPhysicsAsset() const { return bDrawPhysicsAsset; }
+	void SetDrawPhysicsAsset(bool bInDrawPhysicsAsset)
+	{
+		if (bDrawPhysicsAsset == bInDrawPhysicsAsset) return;
+		bDrawPhysicsAsset = bInDrawPhysicsAsset;
+		MarkRenderStateDirty();
+	}
+
 private:
 	USkeletalMeshComponent* TargetMeshComponent = nullptr;
 	int32 SelectedBoneIndex = -1;
 	EBoneDebugDrawMode DrawMode = EBoneDebugDrawMode::SelectedOnly;
+	bool bDrawPhysicsAsset = false;
 };

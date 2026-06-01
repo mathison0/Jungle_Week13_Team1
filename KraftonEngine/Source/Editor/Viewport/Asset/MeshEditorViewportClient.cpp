@@ -214,6 +214,14 @@ void FMeshEditorViewportClient::SetBoneDebugDrawMode(EBoneDebugDrawMode InDrawMo
 	}
 }
 
+void FMeshEditorViewportClient::SetPhysicsAssetDebugDrawEnabled(bool bEnabled)
+{
+	if (BoneDebugComponent)
+	{
+		BoneDebugComponent->SetDrawPhysicsAsset(bEnabled);
+	}
+}
+
 void FMeshEditorViewportClient::TickShortcuts()
 {
 	if (!FSlateApplication::Get().DoesClientOwnKeyboardInput(this)) return;
