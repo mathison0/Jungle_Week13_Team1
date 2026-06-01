@@ -106,6 +106,7 @@ private:
 
 	// Skeleton tab state
 	int32 SelectedBoneIndex = -1;
+	UBodySetup* SelectedBodySetup = nullptr;
 	float HierarchyWidth    = 250.0f;
 	float DetailsWidth      = 300.0f;
 

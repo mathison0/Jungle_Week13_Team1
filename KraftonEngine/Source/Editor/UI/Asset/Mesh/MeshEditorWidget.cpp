@@ -31,6 +31,8 @@
 #include "Editor/UI/Util/EditorTextureManager.h"
 #include "Platform/Paths.h"
 #include "Object/Object.h"
+#include "Physics/BodySetup.h"
+#include "Physics/PhysicsGeometry.h"
 
 #include <imgui.h>
 #include <algorithm>
@@ -49,6 +51,49 @@ namespace
 		const FString Path = FPaths::ToUtf8(
 			FPaths::Combine(FPaths::AssetDir(), L"Editor/ToolIcons/", FileName));
 		return FEditorTextureManager::Get().GetOrLoadIcon(Path);
+	}
+
+	ID3D11ShaderResourceView* LoadEditorIcon(const wchar_t* FileName)
+	{
+		const FString Path = FPaths::ToUtf8(
+			FPaths::Combine(FPaths::AssetDir(), L"Editor/Icons/", FileName));
+		return FEditorTextureManager::Get().GetOrLoadIcon(Path);
+	}
+
+	FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutShapeType = nullptr)
+	{
+		if (OutShapeType)
+		{
+			*OutShapeType = "None";
+		}
+
+		if (!BodySetup)
+		{
+			return nullptr;
+		}
+
+		FKAggregateGeom& AggGeom = BodySetup->GetAggGeom();
+		if (!AggGeom.SphereElems.empty())
+		{
+			if (OutShapeType) *OutShapeType = "Sphere";
+			return &AggGeom.SphereElems[0];
+		}
+		if (!AggGeom.BoxElems.empty())
+		{
+			if (OutShapeType) *OutShapeType = "Box";
+			return &AggGeom.BoxElems[0];
+		}
+		if (!AggGeom.SphylElems.empty())
+		{
+			if (OutShapeType) *OutShapeType = "Capsule";
+			return &AggGeom.SphylElems[0];
+		}
+		if (!AggGeom.ConvexElems.empty())
+		{
+			if (OutShapeType) *OutShapeType = "Convex";
+			return &AggGeom.ConvexElems[0];
+		}
+		return nullptr;
 	}
 
 	FString FormatMeshStatCount(size_t Value)
@@ -257,6 +302,7 @@ void FMeshEditorWidget::Open(UObject* Object)
 	ActiveTab = EMeshEditorTab::Skeleton;
 	AnimTabState = FAnimationTabState{};
 	SelectedBoneIndex = -1;
+	SelectedBodySetup = nullptr;
 }
 
 void FMeshEditorWidget::Close()
@@ -277,6 +323,7 @@ void FMeshEditorWidget::Close()
 	FSlateApplication::Get().UnregisterViewport(&ViewportClient);
 
 	ViewportClient.Release();
+	SelectedBodySetup = nullptr;
 }
 
 void FMeshEditorWidget::Tick(float DeltaTime)
@@ -1318,6 +1365,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 				if (SkeletalMesh->GenerateDefaultPhysicsAsset(false))
 				{
 					PhysAsset = SkeletalMesh->GetPhysicsAsset();
+					SelectedBodySetup = nullptr;
 					MarkDirty();
 				}
 			}
@@ -1376,10 +1424,61 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 
 	// Right: bone details
 	ImGui::BeginChild("BoneDetails", ImVec2(DetailsWidth, 0), true);
-	ImGui::Text("Bone Details");
+	ImGui::Text(SelectedBodySetup ? "Body Details" : "Bone Details");
 	ImGui::Separator();
 
-	if (SkeletalMesh && SelectedBoneIndex != -1)
+	if (SkeletalMesh && SelectedBoneIndex != -1 && SelectedBodySetup)
+	{
+		FSkeletalMesh* Asset = SkeletalMesh->GetSkeletalMeshAsset();
+		FBone& Bone = Asset->Bones[SelectedBoneIndex];
+		const char* ShapeType = nullptr;
+		FKShapeElem* ShapeElem = GetFirstPhysicsShapeElem(SelectedBodySetup, &ShapeType);
+
+		ImGui::Text("Body: %s", SelectedBodySetup->GetName().c_str());
+		ImGui::Text("Bone: %s", Bone.Name.c_str());
+		ImGui::Text("Shape: %s", ShapeType ? ShapeType : "None");
+		ImGui::Dummy(ImVec2(0, 10));
+
+		if (ShapeElem)
+		{
+			bool bEdited = false;
+
+			FVector Location = ShapeElem->Transform.Location;
+			if (ImGui::DragFloat3("Location", &Location.X, 0.1f))
+			{
+				ShapeElem->Transform.Location = Location;
+				bEdited = true;
+			}
+
+			FVector Rotation = ShapeElem->Transform.GetRotator().ToVector();
+			if (ImGui::DragFloat3("Rotation", &Rotation.X, 0.1f))
+			{
+				ShapeElem->Transform.SetRotation(FRotator(Rotation));
+				bEdited = true;
+			}
+
+			FVector Scale = ShapeElem->Transform.Scale;
+			if (ImGui::DragFloat3("Scale", &Scale.X, 0.1f, 0.01f))
+			{
+				ShapeElem->Transform.Scale = FVector(
+					std::max(0.01f, Scale.X),
+					std::max(0.01f, Scale.Y),
+					std::max(0.01f, Scale.Z));
+				bEdited = true;
+			}
+
+			if (bEdited)
+			{
+				ViewportClient.SetSelectedPhysicsBody(SkeletalMesh, SelectedBoneIndex, SelectedBodySetup);
+				MarkDirty();
+			}
+		}
+		else
+		{
+			ImGui::TextDisabled("No editable shape in this body.");
+		}
+	}
+	else if (SkeletalMesh && SelectedBoneIndex != -1)
 	{
 		FSkeletalMesh* Asset = SkeletalMesh->GetSkeletalMeshAsset();
 		FBone& Bone = Asset->Bones[SelectedBoneIndex];
@@ -1447,7 +1546,7 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 
 	ImGuiTreeNodeFlags Flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
 
-	if (Index == SelectedBoneIndex)
+	if (Index == SelectedBoneIndex && SelectedBodySetup == nullptr)
 	{
 		Flags |= ImGuiTreeNodeFlags_Selected;
 	}
@@ -1478,11 +1577,17 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 	}
 
 	ImGui::PushID(Index);
+	if (ID3D11ShaderResourceView* BoneIcon = LoadEditorIcon(L"Bone.png"))
+	{
+		ImGui::Image(reinterpret_cast<ImTextureID>(BoneIcon), ImVec2(14.0f, 14.0f));
+		ImGui::SameLine(0.0f, 4.0f);
+	}
 	bool bOpen = ImGui::TreeNodeEx("Bone", Flags, "%s", Bone.Name.c_str());
 
 	if (ImGui::IsItemClicked())
 	{
 		SelectedBoneIndex = Index;
+		SelectedBodySetup = nullptr;
 		ViewportClient.SetSelectedBone(Cast<USkeletalMesh>(EditedObject), Index);
 	}
 
@@ -1497,13 +1602,18 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 			ImGuiTreeNodeFlags BodyFlags = ImGuiTreeNodeFlags_Leaf
 				| ImGuiTreeNodeFlags_NoTreePushOnOpen
 				| ImGuiTreeNodeFlags_SpanAvailWidth;
+			if (SelectedBodySetup == Body)
+			{
+				BodyFlags |= ImGuiTreeNodeFlags_Selected;
+			}
 
 			ImGui::PushID(BodyIndex);
 			ImGui::TreeNodeEx("Body", BodyFlags, "Body (%d shapes)", ShapeCount);
 			if (ImGui::IsItemClicked())
 			{
 				SelectedBoneIndex = Index;
-				ViewportClient.SetSelectedBone(Cast<USkeletalMesh>(EditedObject), Index);
+				SelectedBodySetup = Body;
+				ViewportClient.SetSelectedPhysicsBody(Cast<USkeletalMesh>(EditedObject), Index, Body);
 			}
 			if (ImGui::IsItemHovered())
 			{
@@ -1604,6 +1714,7 @@ void FMeshEditorWidget::RenderBoneTree(const FSkeletalMesh* Asset, int32 Index)
 	if (ImGui::IsItemClicked())
 	{
 		SelectedBoneIndex = Index;
+		SelectedBodySetup = nullptr;
 		ViewportClient.SetSelectedBone(Cast<USkeletalMesh>(EditedObject), Index);
 	}
 

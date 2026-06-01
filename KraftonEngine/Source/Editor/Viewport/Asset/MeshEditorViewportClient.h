@@ -7,6 +7,7 @@
 #include "Editor/Slate/SWindow.h"
 #include "Core/Types/RayTypes.h"
 #include "Gizmo/BoneTransformGizmoTarget.h"
+#include "Gizmo/GizmoTransformTarget.h"
 #include "Component/Debug/BoneDebugComponent.h"
 
 #include <d3d11.h>
@@ -16,6 +17,39 @@ class FWindowsWindow;
 class UWorld;
 class AActor;
 class USkeletalMesh;
+class USkeletalMeshComponent;
+class UBodySetup;
+
+class FPhysicsBodyTransformGizmoTarget : public IGizmoTransformTarget
+{
+public:
+	void SetBody(USkeletalMeshComponent* InMeshComp, UBodySetup* InBodySetup);
+	void Clear();
+
+	bool IsValid() const override;
+	UWorld* GetWorld() const override;
+
+	FVector GetWorldLocation() const override;
+	FRotator GetWorldRotation() const override;
+	FQuat GetWorldQuat() const override;
+	FVector GetWorldScale() const override;
+
+	void SetWorldLocation(const FVector& NewLocation) override;
+	void SetWorldRotation(const FRotator& NewRotation) override;
+	void SetWorldRotation(const FQuat& NewQuat) override;
+	void SetWorldScale(const FVector& NewScale) override;
+
+	void AddWorldOffset(const FVector& Delta) override;
+	void AddWorldRotation(const FQuat& Delta, bool bWorldSpace) override;
+	void AddScaleDelta(const FVector& Delta) override;
+
+private:
+	bool GetShapeWorldTransform(FTransform& OutTransform) const;
+	void SetShapeWorldTransform(const FTransform& WorldTransform);
+
+	USkeletalMeshComponent* MeshComponent = nullptr;
+	UBodySetup* BodySetup = nullptr;
+};
 
 class FMeshEditorViewportClient : public FViewportClient, public IEditorPreviewViewportClient
 {
@@ -53,6 +87,7 @@ public:
 	void Tick(float DeltaTime);
 
 	void SetSelectedBone(USkeletalMesh* Mesh, int32 BoneIndex);
+	void SetSelectedPhysicsBody(USkeletalMesh* Mesh, int32 BoneIndex, UBodySetup* BodySetup);
 	const FBone* GetSelectedBone() const;
 
 	EBoneDebugDrawMode GetBoneDebugDrawMode() const;
@@ -81,6 +116,7 @@ private:
 	FViewportRenderOptions RenderOptions;
 
 	FBoneTransformGizmoTarget BoneTarget;
+	FPhysicsBodyTransformGizmoTarget PhysicsBodyTarget;
 	UGizmoComponent* Gizmo = nullptr;
 	USkeletalMeshComponent* PreviewMeshComponent = nullptr;
 	UBoneDebugComponent* BoneDebugComponent = nullptr;
