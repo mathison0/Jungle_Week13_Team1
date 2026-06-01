@@ -1,7 +1,11 @@
 #include "SkeletalMesh.h"
 #include "Object/Reflection/ObjectFactory.h"
+#include "Object/ReferenceCollector.h"
 #include "Serialization/Archive.h"
 #include "Animation/Skeleton/Skeleton.h"
+#include "Physics/PhysicsAssetManager.h"
+
+#include <cstring>
 
 void USkeletalMesh::Serialize(FArchive& Ar)
 {
@@ -27,15 +31,7 @@ void USkeletalMesh::Serialize(FArchive& Ar)
 	Ar << SkeletalMaterials;
 	Ar << SkeletalMeshAsset->MorphTargets;
 
-	if (Ar.IsSaving())
-	{
-		EnsurePhysicsAsset();
-	}
 	SerializeProperties(Ar, PF_Save);
-	if (PhysicsAsset)
-	{
-		PhysicsAsset->SetOuter(this);
-	}
 
 	if (Ar.IsLoading())
 	{
@@ -43,14 +39,13 @@ void USkeletalMesh::Serialize(FArchive& Ar)
         SyncSkeletonBindingFromAsset();
 		CacheSectionMaterialIndices();
 		SkeletalMeshAsset->bBoundsValid = false;
-		EnsurePhysicsAsset();
+		LoadPhysicsAssetFromPath();
 	}
 }
 
 void USkeletalMesh::SetSkeletalMeshAsset(FSkeletalMesh* InMesh)
 {
 	SkeletalMeshAsset = InMesh;
-	EnsurePhysicsAsset();
 	if (SkeletalMeshAsset)
 	{
 		SkeletalMeshAsset->NormalizeBonePoseData();
@@ -68,14 +63,49 @@ UPhysicsAsset* USkeletalMesh::EnsurePhysicsAsset()
 {
 	if (!PhysicsAsset)
 	{
-		PhysicsAsset = UObjectManager::Get().CreateObject<UPhysicsAsset>(this);
-	}
-	else
-	{
-		PhysicsAsset->SetOuter(this);
+		PhysicsAsset = UObjectManager::Get().CreateObject<UPhysicsAsset>();
 	}
 
 	return PhysicsAsset;
+}
+
+void USkeletalMesh::SetPhysicsAsset(UPhysicsAsset* InPhysicsAsset)
+{
+	PhysicsAsset = InPhysicsAsset;
+	if (PhysicsAsset)
+	{
+		PhysicsAssetPath = PhysicsAsset->GetAssetPathFileName();
+	}
+	else
+	{
+		PhysicsAssetPath = "None";
+	}
+	PhysicsAssetPath.SetCachedObject(PhysicsAsset);
+}
+
+void USkeletalMesh::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	UObject::AddReferencedObjects(Collector);
+	Collector.AddReferencedObject(PhysicsAsset);
+}
+
+void USkeletalMesh::PostEditProperty(const char* PropertyName)
+{
+	UObject::PostEditProperty(PropertyName);
+	if (PropertyName && std::strcmp(PropertyName, "PhysicsAssetPath") == 0)
+	{
+		LoadPhysicsAssetFromPath();
+	}
+}
+
+void USkeletalMesh::LoadPhysicsAssetFromPath()
+{
+	PhysicsAsset = nullptr;
+	if (!PhysicsAssetPath.IsNull())
+	{
+		PhysicsAsset = FPhysicsAssetManager::Get().Load(PhysicsAssetPath.ToString());
+	}
+	PhysicsAssetPath.SetCachedObject(PhysicsAsset);
 }
 
 void USkeletalMesh::SetSkeletalMaterials(TArray<FSkeletalMaterial>&& InMaterials)
