@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Texture/Auto/Ahri/Skin14_Tail_All_Mat.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

@@ -685,6 +685,16 @@ void FMaterialEditorWidget::SaveMaterialJson()
 
 	if (UMaterial* BaseMaterial = Cast<UMaterial>(Material))
 	{
+		const FEnum* TranslucencyPassEnum = FEnum::FindEnumByName("ETranslucencyPass");
+		if (TranslucencyPassEnum && TranslucencyPassEnum->GetNames())
+		{
+			const int32 Index = static_cast<int32>(BaseMaterial->GetTranslucencyPass());
+			if (Index >= 0 && static_cast<uint32>(Index) < TranslucencyPassEnum->GetCount())
+			{
+				CachedJson[MatKeys::TranslucencyPass] = TranslucencyPassEnum->GetNames()[Index];
+			}
+		}
+
 		const FEnum* ShadowEnum = FEnum::FindEnumByName("EMaterialShadowMode");
 		if (ShadowEnum && ShadowEnum->GetNames())
 		{

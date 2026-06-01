@@ -28,7 +28,7 @@ private:
 	// RenderViewport 내부 단계 — POV 통화로 통일. 컴포넌트 의존성은 RenderViewport 진입부의
 	// 게임 ActiveCamera 폴백 한 곳에만 남는다.
 	void PrepareViewport(FLevelEditorViewportClient* VC, FViewport* VP, ID3D11DeviceContext* Ctx);
-	void BuildFrame(FLevelEditorViewportClient* VC, const FMinimalViewInfo& POV, FViewport* VP, UWorld* World);
+	void BuildFrame(FLevelEditorViewportClient* VC, const FMinimalViewInfo& POV, FViewport* VP, UWorld* World, bool bAllowCameraPostProcess);
 	void CollectCommands(FLevelEditorViewportClient* VC, UWorld* World, FRenderer& Renderer, FCollectOutput& Output);
 
 	void RenderPreviewViewport(IEditorPreviewViewportClient* PreviewVC, FRenderer& Renderer);

@@ -67,6 +67,9 @@
     <Filter Include="Source\Editor\UI\Asset\Material">
       <UniqueIdentifier>{994177d8-b52e-61fd-e3e8-c510233e7128}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source\Editor\UI\Asset\Physics">
+      <UniqueIdentifier>{d150d84f-33f2-4e12-9ca5-82881bb3f0d2}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source\Editor\UI\Asset\Mesh">
       <UniqueIdentifier>{5084842c-4071-bc7f-36a2-4a3bf67026e8}</UniqueIdentifier>
     </Filter>
@@ -271,8 +274,14 @@
     <Filter Include="Source\Engine\Physics">
       <UniqueIdentifier>{c1985821-1144-9a46-639a-f7de31f4a1fa}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source\Engine\Physics\PhysicsMaterial">
+      <UniqueIdentifier>{61602886-78b7-4c24-8988-8f7ee43c4beb}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source\Engine\Physics\Vehicle">
       <UniqueIdentifier>{92afbb1a-fe08-a460-851e-dbd22a2602cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Engine\Physics\PhysX">
+      <UniqueIdentifier>{bcbcfcd8-0c46-4a6a-85f4-8ba3ca6e7382}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Engine\Platform">
       <UniqueIdentifier>{813e0a37-91de-2afc-805f-1a0f801727b9}</UniqueIdentifier>
@@ -1088,6 +1097,9 @@
     <ClCompile Include="Source\Editor\UI\Asset\Material\MaterialEditorWidget.cpp">
       <Filter>Source\Editor\UI\Asset\Material</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Editor\UI\Asset\Physics\PhysicalMaterialEditorWidget.cpp">
+      <Filter>Source\Editor\UI\Asset\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget.cpp">
       <Filter>Source\Editor\UI\Asset\Mesh</Filter>
     </ClCompile>
@@ -1736,20 +1748,53 @@
     <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Physics\PhysXPhysicsScene.cpp">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Engine\Physics\PhysicalMaterial.cpp">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysicsAsset.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysicsGeometry.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterial.cpp">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.cpp">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.cpp">
       <Filter>Source\Engine\Physics\Vehicle</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCore.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCollision.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsScene.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneBody.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneConstraint.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsScenePhysicsAsset.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneQuery.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneAdapter.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp">
       <Filter>Source\Engine\Platform</Filter>
@@ -1874,6 +1919,9 @@
     <ClCompile Include="Source\Engine\Render\RenderPass\DecalPass.cpp">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Render\RenderPass\DepthOfFieldPass.cpp">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Render\RenderPass\EditorLinesPass.cpp">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClCompile>
@@ -1923,6 +1971,12 @@
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\RenderPass\ShadowMapPass.cpp">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Render\RenderPass\TranslucencyAfterDOFPass.cpp">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Render\RenderPass\TranslucencyBeforeDOFPass.cpp">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\RenderPass\UIPass.cpp">
@@ -2170,6 +2224,9 @@
     </ClInclude>
     <ClInclude Include="Source\Editor\UI\Asset\Material\MaterialEditorWidget.h">
       <Filter>Source\Editor\UI\Asset\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\UI\Asset\Physics\PhysicalMaterialEditorWidget.h">
+      <Filter>Source\Editor\UI\Asset\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget.h">
       <Filter>Source\Editor\UI\Asset\Mesh</Filter>
@@ -2972,20 +3029,17 @@
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysXHelper.h">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysXPhysicsScene.h">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysicalMaterial.h">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysicsAsset.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysicsGeometry.h">
       <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterial.h">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.h">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.h">
       <Filter>Source\Engine\Physics\Vehicle</Filter>
@@ -2995,6 +3049,27 @@
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\Vehicle\VehicleWheel.h">
       <Filter>Source\Engine\Physics\Vehicle</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCore.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCollision.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXHelper.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXPhysicsScene.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Platform\ConsoleHelper.h">
       <Filter>Source\Engine\Platform</Filter>
@@ -3140,6 +3215,9 @@
     <ClInclude Include="Source\Engine\Render\RenderPass\DecalPass.h">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Render\RenderPass\DepthOfFieldPass.h">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Render\RenderPass\EditorLinesPass.h">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
@@ -3189,6 +3267,12 @@
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\RenderPass\ShadowMapPass.h">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\RenderPass\TranslucencyAfterDOFPass.h">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\RenderPass\TranslucencyBeforeDOFPass.h">
       <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\RenderPass\UIPass.h">

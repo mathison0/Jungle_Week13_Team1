@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Texture/Auto/sonic/chr_sonic_shoes_dif_HD.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

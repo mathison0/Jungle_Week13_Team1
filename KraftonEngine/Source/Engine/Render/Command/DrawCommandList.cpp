@@ -9,6 +9,16 @@
 #include "Profiling/Stats/Stats.h"
 #include "Profiling/GPUProfiler.h"
 
+namespace
+{
+	bool IsTranslucentSortPass(ERenderPass Pass)
+	{
+		return Pass == ERenderPass::AlphaBlend
+			|| Pass == ERenderPass::TranslucencyBeforeDOF
+			|| Pass == ERenderPass::TranslucencyAfterDOF;
+	}
+}
+
 // ============================================================
 // FStateCache
 // ============================================================
@@ -78,7 +88,7 @@ void FDrawCommandList::Sort()
 				return A.Pass < B.Pass;
 			}
 
-			if (A.Pass == ERenderPass::AlphaBlend)
+			if (IsTranslucentSortPass(A.Pass))
 			{
 				if (A.TranslucentSortPriority != B.TranslucentSortPriority)
 				{

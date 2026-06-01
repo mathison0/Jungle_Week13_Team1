@@ -7,14 +7,17 @@
 #include "Core/Types/CollisionTypes.h"
 #include "Core/Types/EngineTypes.h"
 #include "Core/Delegate.h"
+#include "Physics/BodyInstance.h"
 #include "Render/Types/VertexTypes.h"
 #include "Render/Proxy/DirtyFlag.h"
+#include "Object/Ptr/SoftObjectPtr.h"
 
 #include "Source/Engine/Component/PrimitiveComponent.generated.h"
 class FPrimitiveSceneProxy;
 class FScene;
 class FMeshBuffer;
 class FOctree;
+class UBodySetup;
 class UPhysicalMaterial;
 
 // Overlap/Hit 델리게이트 시그니처
@@ -71,6 +74,7 @@ public:
 
 	virtual FMeshBuffer* GetMeshBuffer() const { return nullptr; }
 	virtual FMeshDataView GetMeshDataView() const { return {}; }
+	virtual UBodySetup* GetBodySetup() const { return nullptr; }
 
 	void SetVisibility(bool bNewVisible);
 	inline bool IsVisible() const { return bIsVisible; }
@@ -153,6 +157,8 @@ public:
 	bool GetSimulatePhysics() const { return bSimulatePhysics; }
 
 	// --- Physics Force/Velocity API ---
+	FBodyInstance* GetBodyInstance() { return &BodyInstance; }
+	const FBodyInstance* GetBodyInstance() const { return &BodyInstance; }
 	void AddForce(const FVector& Force);
 	void AddForceAtLocation(const FVector& Force, const FVector& Location);
 	void AddTorque(const FVector& Torque);
@@ -216,6 +222,9 @@ protected:
 	// 컴포넌트가 BeginPlay 후에만 PhysicsScene::RebuildBody 호출. 이전이면 skip.
 	void NotifyPhysicsBodyDirty();
 
+	// PhysicalMaterialPath(소프트참조 에셋)를 로드해 PhysicalMaterialOverride에 적용.
+	void ResolvePhysicalMaterial();
+
 	FVector LocalExtents = { 0.5f, 0.5f, 0.5f };
 	mutable FVector WorldAABBMinLocation;
 	mutable FVector WorldAABBMaxLocation;
@@ -255,7 +264,14 @@ protected:
 	FOctree* OctreeNode = nullptr;
 	bool bInOctreeOverflow = false;
 
+	// Detail 창에서 고르는 PhysicalMaterial 에셋 참조(경로로 직렬화).
+	// 로드/편집 시 resolve되어 아래 PhysicalMaterialOverride에 적용된다.
+	UPROPERTY(Edit, Save, Category="Physics", DisplayName="Physical Material", AssetType="UPhysicalMaterial")
+	FSoftObjectPtr PhysicalMaterialPath = "None";
+
 	// Component 단위 물리 재질 override
 	// 이후 UBodySetup이 들어오면 : Component Override > BodySetup PhysMaterial > Scene Default 순서로 확장한다
 	UPhysicalMaterial* PhysicalMaterialOverride = nullptr;
+
+	FBodyInstance BodyInstance;
 };

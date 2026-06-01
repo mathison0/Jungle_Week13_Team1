@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Data/BasicShape/BasicShape.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

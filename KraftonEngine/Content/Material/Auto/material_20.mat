@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Data/Map/de_dust2-cs-map/source/de_dust2/de_dust2_material_20.tga"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

@@ -5,6 +5,8 @@
 #include "Math/Quat.h"
 
 class AActor;
+class FPhysXHelper;
+class FPhysXPhysicsScene;
 class UPrimitiveComponent;
 
 namespace physx
@@ -15,9 +17,10 @@ namespace physx
 
 // =============================================================
 // FBodyInstance
-// - Runtime Physics Body Wrapper
-// 
-// 에셋 데이터가 아닌, 실제 Scene에 존재하는 물리 Body 1개를 나타낸다
+//
+// 에셋 데이터가 아니라 실제 Scene에 생성된 물리 Body를 가리키는 런타임 wrapper.
+// owner component와 backend body handle을 들고, body 상태 조회와
+// force / velocity / mass / center-of-mass 조작만 담당한다.
 // =============================================================
 
 class FBodyInstance
@@ -32,8 +35,7 @@ public:
 	FBodyInstance(FBodyInstance&&) = delete;
 	FBodyInstance& operator=(FBodyInstance&&) = delete;
 
-	// --- 초기화 / 종료 ---
-	void InitBody(UPrimitiveComponent* InOwnerComponent, physx::PxRigidActor* InRigidActor);
+	// --- 종료 ---
 	void TerminateBody();
 
 	// --- 기본 접근자 ---
@@ -46,15 +48,9 @@ public:
 	AActor* GetOwnerActor() const;
 	UPrimitiveComponent* GetOwnerComponent() const;
 
-	physx::PxRigidActor* GetPxRigidActor() const;
-	physx::PxRigidDynamic* GetPxRigidDynamic() const;
-
-	void SetPxRigidActor(physx::PxRigidActor* InRigidActor);
-
-	// --- Ragdoll / Physics Asset 준비용 식별자 ---
+	// --- Ragdoll / Physics Asset identifiers ---
 	void SetBoneIndex(int32 InBoneIndex);
 	int32 GetBoneIndex() const;
-
 	void SetBodyIndex(int32 InBodyIndex);
 	int32 GetBodyIndex() const;
 
@@ -98,11 +94,22 @@ public:
 	bool IsInstanceSleeping() const;
 
 private:
+	friend class FPhysXHelper;
+	friend class FPhysXPhysicsScene;
+
+	// --- 초기화 ---
+	void InitBody(UPrimitiveComponent* InOwnerComponent, physx::PxRigidActor* InRigidActor);
+
+	physx::PxRigidActor* GetPxRigidActor() const;
+	physx::PxRigidDynamic* GetPxRigidDynamic() const;
+
 	UPrimitiveComponent* OwnerComponent = nullptr;
 	physx::PxRigidActor* RigidActor = nullptr;
 
-	// SkeletalMesh / Ragdoll
-	// 일반 StaticMesh / ShapeComponent body는 -1.
+	// 한 액터의 여러 컴포넌트가 한 강체로 합쳐질 때, 이 body가 대표면 같은 강체에 충돌 모양을 얹은
+	// 컴포넌트들의 목록. 대표 컴포넌트는 OwnerComponent. (ragdoll 같은 단독 body는 비어 있음)
+	TArray<UPrimitiveComponent*> CombinedComponents;
+
 	int32 BoneIndex = -1;
 	int32 BodyIndex = -1;
 

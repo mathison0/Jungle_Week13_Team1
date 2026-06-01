@@ -18,5 +18,6 @@
     "DiffuseTexture" : "Content/Texture/Auto/sonic/d636zef-7c753c88-4923-47fd-91b2-3d953ffca2ab.png",
     "NormalTexture" : "Content/Texture/Auto/sonic/chr_sonic_cloth_nrm_HD.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

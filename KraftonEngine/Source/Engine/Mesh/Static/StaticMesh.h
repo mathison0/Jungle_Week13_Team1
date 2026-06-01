@@ -3,6 +3,7 @@
 #include "Object/Object.h"
 #include "Collision/BVH/MeshTriangleBVH.h"
 #include "Mesh/Static/StaticMeshAsset.h"
+#include "Physics/BodySetup.h"
 #include "Serialization/Archive.h"
 
 #include "Source/Engine/Mesh/Static/StaticMesh.generated.h"
@@ -35,6 +36,8 @@ public:
 
 	void SetStaticMeshAsset(FStaticMesh* InMesh);
 	FStaticMesh* GetStaticMeshAsset() const;
+	UBodySetup* GetBodySetup() const { return BodySetup; }
+	UBodySetup* EnsureBodySetup();
 	void SetStaticMaterials(TArray<FStaticMaterial>&& InMaterials);
 	const TArray<FStaticMaterial>& GetStaticMaterials() const;
 
@@ -53,6 +56,8 @@ private:
 	FString AssetPathFileName = "None";
 
 	FStaticMesh* StaticMeshAsset = nullptr;
+	UPROPERTY(Edit, Save, Instanced, Category="Physics", DisplayName="Body Setup", Type=ObjectRef, AllowedClass=UBodySetup)
+	UBodySetup* BodySetup = nullptr;
 	TArray<FStaticMaterial> StaticMaterials; // 슬롯 이름과 머티리얼 인터페이스를 묶어서 저장하는 배열
 	mutable FMeshTriangleBVH MeshTrianglePickingBVH; // 빠른 picking을 위해 메시 내부에 트리 형태로 만들어지는 자료구조
 

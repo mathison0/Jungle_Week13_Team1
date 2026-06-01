@@ -17,5 +17,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Texture/Auto/sonic/sonic_body_texture_by_tomothys_d5hhp2h-pre.jpg"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

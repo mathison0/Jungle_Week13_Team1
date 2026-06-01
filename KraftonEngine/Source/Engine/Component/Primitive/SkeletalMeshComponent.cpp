@@ -10,6 +10,7 @@
 #include "Asset/AssetRegistry.h"
 #include "Core/Logging/Log.h"
 #include "GameFramework/AActor.h"
+#include "GameFramework/World.h"
 #include "Math/Quat.h"
 #include "Math/Vector.h"
 #include "Mesh/Skeletal/SkeletalMesh.h"
@@ -17,6 +18,9 @@
 #include "Object/Object.h"
 #include "Object/Reflection/ObjectFactory.h"
 #include "Object/Reflection/UClass.h"
+#include "Physics/BodyInstance.h"
+#include "Physics/ConstraintInstance.h"
+#include "Physics/IPhysicsScene.h"
 #include "Render/Proxy/SkeletalMeshSceneProxy.h"
 #include "Serialization/Archive.h"
 
@@ -25,12 +29,57 @@
 
 USkeletalMeshComponent::~USkeletalMeshComponent()
 {
+    // EndPlay 없이 파괴되는 경로 대비 — World/Scene이 살아있으면 ragdoll body의 PhysX 자원을
+    // 먼저 해제한 뒤 unique_ptr Bodies가 소멸하게 한다. (안 하면 PxActor 미해제 상태로 객체가 delete됨)
+    if (Owner)
+    {
+        if (UWorld* World = Owner->GetWorld())
+        {
+            if (IPhysicsScene* PhysicsScene = World->GetPhysicsScene())
+            {
+                PhysicsScene->DestroyPhysicsAssetBodies(this);
+            }
+        }
+    }
     ClearAnimInstance();
 }
 
 FPrimitiveSceneProxy* USkeletalMeshComponent::CreateSceneProxy()
 {
     return new FSkeletalMeshSceneProxy(this);
+}
+
+void USkeletalMeshComponent::BeginPlay()
+{
+    Super::BeginPlay();
+
+    if (Owner)
+    {
+        if (UWorld* World = Owner->GetWorld())
+        {
+            if (IPhysicsScene* PhysicsScene = World->GetPhysicsScene())
+            {
+                PhysicsScene->InstantiatePhysicsAssetBodies(this);
+            }
+        }
+    }
+}
+
+void USkeletalMeshComponent::EndPlay()
+{
+    if (Owner)
+    {
+        if (UWorld* World = Owner->GetWorld())
+        {
+            if (IPhysicsScene* PhysicsScene = World->GetPhysicsScene())
+            {
+                PhysicsScene->DestroyPhysicsAssetBodies(this);
+            }
+        }
+    }
+    bRagdollSimulating = false;
+
+    Super::EndPlay();
 }
 
 void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InMesh)
@@ -63,6 +112,46 @@ void USkeletalMeshComponent::StopAnimation()
 // ──────────────────────────────────────────────
 // Animation API
 // ──────────────────────────────────────────────
+void USkeletalMeshComponent::SetSimulateRagdoll(bool bEnable)
+{
+    if (bRagdollSimulating == bEnable)
+    {
+        return;
+    }
+
+    if (!Owner)
+    {
+        bRagdollSimulating = bEnable;
+        return;
+    }
+
+    UWorld* World = Owner->GetWorld();
+    IPhysicsScene* PhysicsScene = World ? World->GetPhysicsScene() : nullptr;
+    if (!PhysicsScene)
+    {
+        bRagdollSimulating = bEnable;
+        return;
+    }
+
+    if (bEnable)
+    {
+        if (Bodies.empty())
+        {
+            PhysicsScene->InstantiatePhysicsAssetBodies(this);
+        }
+
+        // 시뮬레이션을 깨우기 전에 현재 애니메이션 포즈로 바디를 맞춘다.
+        // 순서가 반대면 활성화 직후 한 프레임 동안 이전 자세가 노출될 수 있다.
+        PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(this, true);
+        PhysicsScene->SetPhysicsAssetBodiesSimulate(this, true);
+        bRagdollSimulating = !Bodies.empty();
+        return;
+    }
+
+    PhysicsScene->SetPhysicsAssetBodiesSimulate(this, false);
+    bRagdollSimulating = false;
+}
+
 void USkeletalMeshComponent::SetAnimationMode(EAnimationMode InMode)
 {
     if (AnimationMode == InMode) return;
@@ -292,6 +381,12 @@ void USkeletalMeshComponent::ClearAnimInstance()
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction)
 {
+    if (bRagdollSimulating && !Bodies.empty())
+    {
+        Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+        return;
+    }
+
     if (EvaluateAnimInstance(DeltaTime))
     {
         UMeshComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);

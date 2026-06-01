@@ -13,6 +13,7 @@ namespace MatKeys
 	static constexpr const char* PathFileName = "PathFileName";
 	static constexpr const char* ShaderPath = "ShaderPath";
 	static constexpr const char* RenderPass = "RenderPass";
+	static constexpr const char* TranslucencyPass = "TranslucencyPass";
 	static constexpr const char* BlendState = "BlendState";
 	static constexpr const char* DepthStencilState = "DepthStencilState";
 	static constexpr const char* RasterizerState = "RasterizerState";

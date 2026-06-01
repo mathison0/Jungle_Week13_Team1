@@ -17,5 +17,6 @@
   "Textures" : {
     "NormalTexture" : "C:/Program Files/Epic Games/temp/render/ttt/M_tex/Baked/T_Manny_02_BN.TGA"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

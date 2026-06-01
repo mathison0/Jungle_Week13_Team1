@@ -418,6 +418,8 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterial.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.cpp" />
     <ClCompile Include="Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Source\Editor\EditorRenderPipeline.cpp" />
     <ClCompile Include="Source\Editor\Selection\SelectionManager.cpp" />
@@ -439,6 +441,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Editor\UI\Asset\CameraShake\CameraShakeEditorWidget.cpp" />
     <ClCompile Include="Source\Editor\UI\Asset\Curve\FloatCurveEditorWidget.cpp" />
     <ClCompile Include="Source\Editor\UI\Asset\Material\MaterialEditorWidget.cpp" />
+    <ClCompile Include="Source\Editor\UI\Asset\Physics\PhysicalMaterialEditorWidget.cpp" />
     <ClCompile Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget.cpp" />
     <ClCompile Include="Source\Editor\UI\Asset\Mesh\StaticMeshEditorWidget.cpp" />
     <ClCompile Include="Source\Editor\UI\Asset\Particle\ParticleSystemEditorWidget.cpp" />
@@ -655,10 +658,19 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Physics\BodySetupCore.cpp" />
     <ClCompile Include="Source\Engine\Physics\ConstraintInstance.cpp" />
     <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp" />
-    <ClCompile Include="Source\Engine\Physics\PhysXPhysicsScene.cpp" />
-    <ClCompile Include="Source\Engine\Physics\PhysicalMaterial.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysicsAsset.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysicsGeometry.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCollision.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCore.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsScene.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneAdapter.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneBody.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneConstraint.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsScenePhysicsAsset.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneQuery.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.cpp" />
     <ClCompile Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.cpp" />
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp" />
     <ClCompile Include="Source\Engine\Platform\DirectoryWatcher.cpp" />
@@ -701,6 +713,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Render\RenderPass\AlphaBlendPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\BloomPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\DecalPass.cpp" />
+    <ClCompile Include="Source\Engine\Render\RenderPass\DepthOfFieldPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\EditorLinesPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\FXAAPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\FogPass.cpp" />
@@ -718,6 +731,8 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Render\RenderPass\RenderPassRegistry.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\SelectionMaskPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\ShadowMapPass.cpp" />
+    <ClCompile Include="Source\Engine\Render\RenderPass\TranslucencyAfterDOFPass.cpp" />
+    <ClCompile Include="Source\Engine\Render\RenderPass\TranslucencyBeforeDOFPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\UIPass.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderState\BlendStateManager.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderState\DepthStencilStateManager.cpp" />
@@ -775,6 +790,8 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Intermediate\Generated\LuaBindings.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterial.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.h" />
     <ClInclude Include="Source\Editor\EditorEngine.h" />
     <ClInclude Include="Source\Editor\EditorRenderPipeline.h" />
     <ClInclude Include="Source\Editor\PIE\PIETypes.h" />
@@ -802,6 +819,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Editor\UI\Asset\CameraShake\CameraShakeEditorWidget.h" />
     <ClInclude Include="Source\Editor\UI\Asset\Curve\FloatCurveEditorWidget.h" />
     <ClInclude Include="Source\Editor\UI\Asset\Material\MaterialEditorWidget.h" />
+    <ClInclude Include="Source\Editor\UI\Asset\Physics\PhysicalMaterialEditorWidget.h" />
     <ClInclude Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget.h" />
     <ClInclude Include="Source\Editor\UI\Asset\Mesh\StaticMeshEditorWidget.h" />
     <ClInclude Include="Source\Editor\UI\Asset\Particle\ParticleSystemEditorWidget.h" />
@@ -1069,11 +1087,15 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Physics\ConstraintInstance.h" />
     <ClInclude Include="Source\Engine\Physics\IPhysicsScene.h" />
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h" />
-    <ClInclude Include="Source\Engine\Physics\PhysXHelper.h" />
-    <ClInclude Include="Source\Engine\Physics\PhysXPhysicsScene.h" />
-    <ClInclude Include="Source\Engine\Physics\PhysicalMaterial.h" />
     <ClInclude Include="Source\Engine\Physics\PhysicsAsset.h" />
     <ClInclude Include="Source\Engine\Physics\PhysicsGeometry.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCollision.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCore.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXHelper.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXPhysicsScene.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\VehiclePhysicsInterface.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\VehicleWheel.h" />
@@ -1125,6 +1147,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Render\RenderPass\AlphaBlendPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\BloomPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\DecalPass.h" />
+    <ClInclude Include="Source\Engine\Render\RenderPass\DepthOfFieldPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\EditorLinesPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\FXAAPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\FogPass.h" />
@@ -1142,6 +1165,8 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Render\RenderPass\RenderPassRegistry.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\SelectionMaskPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\ShadowMapPass.h" />
+    <ClInclude Include="Source\Engine\Render\RenderPass\TranslucencyAfterDOFPass.h" />
+    <ClInclude Include="Source\Engine\Render\RenderPass\TranslucencyBeforeDOFPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\UIPass.h" />
     <ClInclude Include="Source\Engine\Render\RenderState\BlendStateManager.h" />
     <ClInclude Include="Source\Engine\Render\RenderState\DepthStencilStateManager.h" />

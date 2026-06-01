@@ -234,6 +234,66 @@ bool FViewport::CreateResources()
 	if (FAILED(hr)) return false;
 	CullingHeatmapSRV->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportCullingHeatmapSRV")), "ViewportCullingHeatmapSRV");
 
+	// Depth of Field uses full-resolution CoC and half-resolution blur targets.
+	DepthOfFieldBlurWidth = Width > 1 ? Width / 2 : 1;
+	DepthOfFieldBlurHeight = Height > 1 ? Height / 2 : 1;
+
+	D3D11_TEXTURE2D_DESC CoCDesc = {};
+	CoCDesc.Width = Width;
+	CoCDesc.Height = Height;
+	CoCDesc.MipLevels = 1;
+	CoCDesc.ArraySize = 1;
+	CoCDesc.Format = DXGI_FORMAT_R16_FLOAT;
+	CoCDesc.SampleDesc.Count = 1;
+	CoCDesc.Usage = D3D11_USAGE_DEFAULT;
+	CoCDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+	hr = Device->CreateTexture2D(&CoCDesc, nullptr, &DepthOfFieldCoCTexture);
+	if (FAILED(hr)) return false;
+	DepthOfFieldCoCTexture->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldCoCTexture")), "ViewportDepthOfFieldCoCTexture");
+
+	hr = Device->CreateRenderTargetView(DepthOfFieldCoCTexture, nullptr, &DepthOfFieldCoCRTV);
+	if (FAILED(hr)) return false;
+	DepthOfFieldCoCRTV->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldCoCRTV")), "ViewportDepthOfFieldCoCRTV");
+
+	hr = Device->CreateShaderResourceView(DepthOfFieldCoCTexture, nullptr, &DepthOfFieldCoCSRV);
+	if (FAILED(hr)) return false;
+	DepthOfFieldCoCSRV->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldCoCSRV")), "ViewportDepthOfFieldCoCSRV");
+
+	D3D11_TEXTURE2D_DESC DOFBlurDesc = {};
+	DOFBlurDesc.Width = DepthOfFieldBlurWidth;
+	DOFBlurDesc.Height = DepthOfFieldBlurHeight;
+	DOFBlurDesc.MipLevels = 1;
+	DOFBlurDesc.ArraySize = 1;
+	DOFBlurDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	DOFBlurDesc.SampleDesc.Count = 1;
+	DOFBlurDesc.Usage = D3D11_USAGE_DEFAULT;
+	DOFBlurDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+	hr = Device->CreateTexture2D(&DOFBlurDesc, nullptr, &DepthOfFieldBlurTextureA);
+	if (FAILED(hr)) return false;
+	DepthOfFieldBlurTextureA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurTextureA")), "ViewportDepthOfFieldBlurTextureA");
+
+	hr = Device->CreateRenderTargetView(DepthOfFieldBlurTextureA, nullptr, &DepthOfFieldBlurRTVA);
+	if (FAILED(hr)) return false;
+	DepthOfFieldBlurRTVA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurRTVA")), "ViewportDepthOfFieldBlurRTVA");
+
+	hr = Device->CreateShaderResourceView(DepthOfFieldBlurTextureA, nullptr, &DepthOfFieldBlurSRVA);
+	if (FAILED(hr)) return false;
+	DepthOfFieldBlurSRVA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurSRVA")), "ViewportDepthOfFieldBlurSRVA");
+
+	hr = Device->CreateTexture2D(&DOFBlurDesc, nullptr, &DepthOfFieldBlurTextureB);
+	if (FAILED(hr)) return false;
+	DepthOfFieldBlurTextureB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurTextureB")), "ViewportDepthOfFieldBlurTextureB");
+
+	hr = Device->CreateRenderTargetView(DepthOfFieldBlurTextureB, nullptr, &DepthOfFieldBlurRTVB);
+	if (FAILED(hr)) return false;
+	DepthOfFieldBlurRTVB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurRTVB")), "ViewportDepthOfFieldBlurRTVB");
+
+	hr = Device->CreateShaderResourceView(DepthOfFieldBlurTextureB, nullptr, &DepthOfFieldBlurSRVB);
+	if (FAILED(hr)) return false;
+	DepthOfFieldBlurSRVB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurSRVB")), "ViewportDepthOfFieldBlurSRVB");
+
 	// Bloom uses half resolution so a small blur radius spreads farther on screen
 	// without producing obvious sparse sample marks.
 	BloomWidth = Width > 1 ? Width / 2 : 1;
@@ -298,6 +358,16 @@ void FViewport::ReleaseResources()
 	if (BloomRTVA) { BloomRTVA->Release(); BloomRTVA = nullptr; }
 	if (BloomTextureA) { BloomTextureA->Release(); BloomTextureA = nullptr; }
 
+	if (DepthOfFieldBlurSRVB) { DepthOfFieldBlurSRVB->Release(); DepthOfFieldBlurSRVB = nullptr; }
+	if (DepthOfFieldBlurRTVB) { DepthOfFieldBlurRTVB->Release(); DepthOfFieldBlurRTVB = nullptr; }
+	if (DepthOfFieldBlurTextureB) { DepthOfFieldBlurTextureB->Release(); DepthOfFieldBlurTextureB = nullptr; }
+	if (DepthOfFieldBlurSRVA) { DepthOfFieldBlurSRVA->Release(); DepthOfFieldBlurSRVA = nullptr; }
+	if (DepthOfFieldBlurRTVA) { DepthOfFieldBlurRTVA->Release(); DepthOfFieldBlurRTVA = nullptr; }
+	if (DepthOfFieldBlurTextureA) { DepthOfFieldBlurTextureA->Release(); DepthOfFieldBlurTextureA = nullptr; }
+	if (DepthOfFieldCoCSRV) { DepthOfFieldCoCSRV->Release(); DepthOfFieldCoCSRV = nullptr; }
+	if (DepthOfFieldCoCRTV) { DepthOfFieldCoCRTV->Release(); DepthOfFieldCoCRTV = nullptr; }
+	if (DepthOfFieldCoCTexture) { DepthOfFieldCoCTexture->Release(); DepthOfFieldCoCTexture = nullptr; }
+
 	if (CullingHeatmapSRV) { CullingHeatmapSRV->Release(); CullingHeatmapSRV = nullptr; }
 	if (CullingHeatmapRTV) { CullingHeatmapRTV->Release(); CullingHeatmapRTV = nullptr; }
 	if (CullingHeatmapTexture) { CullingHeatmapTexture->Release(); CullingHeatmapTexture = nullptr; }
@@ -316,4 +386,6 @@ void FViewport::ReleaseResources()
 	if (SceneColorCopyTexture) { SceneColorCopyTexture->Release(); SceneColorCopyTexture = nullptr; }
 	BloomWidth = 0;
 	BloomHeight = 0;
+	DepthOfFieldBlurWidth = 0;
+	DepthOfFieldBlurHeight = 0;
 }

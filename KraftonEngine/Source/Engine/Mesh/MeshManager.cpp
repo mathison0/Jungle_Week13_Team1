@@ -270,6 +270,63 @@ static bool SaveStaticMeshBinary(UStaticMesh* StaticMesh, const FString& BinaryP
 	return Writer.IsValid();
 }
 
+static bool TryGetStaticMeshSourcePathFromPackage(const FString& PackagePath, FString& OutSourcePath)
+{
+	FAssetImportMetadata Metadata;
+	if (!FAssetPackage::ReadMetadata(PackagePath, EAssetPackageType::StaticMesh, Metadata) || !Metadata.IsSourceAvailable())
+	{
+		return false;
+	}
+
+	if (!IsSupportedStaticMeshSourcePath(Metadata.SourcePath))
+	{
+		UE_LOG("StaticMesh package repair failed: unsupported source path. Package=%s Source=%s", PackagePath.c_str(), Metadata.SourcePath.c_str());
+		return false;
+	}
+
+	uint64 CurrentTimestamp = 0;
+	uint64 CurrentFileSize = 0;
+	if (!TryGetSourceFileState(Metadata.SourcePath, CurrentTimestamp, CurrentFileSize))
+	{
+		UE_LOG("StaticMesh package repair failed: source file is missing. Package=%s Source=%s", PackagePath.c_str(), Metadata.SourcePath.c_str());
+		return false;
+	}
+
+	OutSourcePath = Metadata.SourcePath;
+	return true;
+}
+
+static UStaticMesh* ImportStaticMeshSourceToPackage(const FString& SourcePath, const FString& PackagePath, ID3D11Device* InDevice)
+{
+	std::unique_ptr<FStaticMesh> NewMeshAsset = std::make_unique<FStaticMesh>();
+	TArray<FStaticMaterial> ParsedMaterials;
+	if (!ImportStaticMeshByExtension(SourcePath, nullptr, *NewMeshAsset, ParsedMaterials))
+	{
+		UE_LOG("StaticMesh import failed: empty mesh will not be added to cache. Path=%s", SourcePath.c_str());
+		return nullptr;
+	}
+
+	const FString CacheKey = NormalizeProjectPath(PackagePath);
+	FMeshManager::StaticMeshCache.erase(CacheKey);
+
+	UStaticMesh* StaticMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
+	NewMeshAsset->PathFileName = NormalizeProjectPath(SourcePath);
+	StaticMesh->SetStaticMaterials(std::move(ParsedMaterials));
+	StaticMesh->SetStaticMeshAsset(NewMeshAsset.release());
+
+	// .uasset이 없거나 현재 직렬화 형식과 맞지 않으면 원본에서 다시 만들고 캐시에 넣는다.
+	SaveStaticMeshBinary(StaticMesh, CacheKey, SourcePath);
+
+	StaticMesh->InitResources(InDevice);
+	StaticMesh->SetAssetPathFileName(CacheKey);
+	FMeshManager::StaticMeshCache[CacheKey] = StaticMesh;
+
+	FMeshManager::ScanMeshAssets();
+	FMaterialManager::Get().ScanMaterialAssets();
+
+	return StaticMesh;
+}
+
 static bool LoadSkeletalMeshBinary(USkeletalMesh* SkeletalMesh, const FString& BinaryPath)
 {
 	FWindowsBinReader Reader(BinaryPath);
@@ -581,8 +638,7 @@ void FMeshManager::ScanMeshAssets()
 
 		if (Ext != MeshBinary::StaticMeshBinaryExtension) continue;	
 
-		// MeshCache 목록은 새 확장자만 보여준다.
-		// Static은 .statbin, Skeletal은 .sketbin으로 분리해서 수집한다.
+		// Mesh package 목록은 .uasset만 대상으로 하고, 파일 header의 타입으로 Static/Skeletal을 나눈다.
 		TArray<FAssetListItem>* TargetList = nullptr;
 
 		FString RelPath = FPaths::ToUtf8(Path.lexically_relative(ProjectRoot).generic_wstring());
@@ -655,7 +711,7 @@ UStaticMesh* FMeshManager::LoadStaticMesh(const FString& PathFileName, const FIm
 	const FString CacheKey = GetStaticMeshBinaryFilePath(PathFileName);
 
 	// import 옵션이 바뀌면 같은 원본도 다른 Mesh가 될 수 있다.
-	// 그래서 기존 캐시를 지우고 새 .statbin을 만든다.
+	// 그래서 기존 캐시를 지우고 새 .uasset package를 만든다.
 	StaticMeshCache.erase(CacheKey);
 
 	std::unique_ptr<FStaticMesh> NewMeshAsset = std::make_unique<FStaticMesh>();
@@ -671,7 +727,7 @@ UStaticMesh* FMeshManager::LoadStaticMesh(const FString& PathFileName, const FIm
 	StaticMesh->SetStaticMaterials(std::move(ParsedMaterials));
 	StaticMesh->SetStaticMeshAsset(NewMeshAsset.release());
 
-	// import가 끝난 StaticMesh는 .statbin으로 저장한다.
+	// import가 끝난 StaticMesh는 .uasset package로 저장한다.
 	// 다음 로드부터는 무거운 원본 파싱을 건너뛸 수 있다.
 	SaveStaticMeshBinary(StaticMesh, CacheKey, PathFileName);
 
@@ -722,8 +778,12 @@ UStaticMesh* FMeshManager::LoadStaticMesh(const FString& PathFileName, ID3D11Dev
 
 		if (bInputIsPackage)
 		{
-			// Binary 경로만 받으면 원본 위치를 확실히 알 수 없다.
-			// 이 경우에는 새 import를 시도하지 않고 실패로 끝낸다.
+			FString SourcePath;
+			if (TryGetStaticMeshSourcePathFromPackage(CacheKey, SourcePath))
+			{
+				UE_LOG("StaticMesh binary load failed: reimporting from package metadata. Source=%s Binary=%s", SourcePath.c_str(), CacheKey.c_str());
+				return ImportStaticMeshSourceToPackage(SourcePath, CacheKey, InDevice);
+			}
 			return nullptr;
 		}
 
@@ -735,31 +795,7 @@ UStaticMesh* FMeshManager::LoadStaticMesh(const FString& PathFileName, ID3D11Dev
 		return nullptr;
 	}
 
-	std::unique_ptr<FStaticMesh> NewMeshAsset = std::make_unique<FStaticMesh>();
-	TArray<FStaticMaterial> ParsedMaterials;
-	if (!ImportStaticMeshByExtension(PathFileName, nullptr, *NewMeshAsset, ParsedMaterials))
-	{
-		UE_LOG("StaticMesh import failed: empty mesh will not be added to cache. Path=%s", PathFileName.c_str());
-		return nullptr;
-	}
-
-	UStaticMesh* StaticMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
-	NewMeshAsset->PathFileName = NormalizeProjectPath(PathFileName);
-	StaticMesh->SetStaticMaterials(std::move(ParsedMaterials));
-	StaticMesh->SetStaticMeshAsset(NewMeshAsset.release());
-
-	// .statbin이 없을 때만 원본 파일을 import한다.
-	// import가 성공하면 바로 캐시 파일을 만들어 둔다.
-	SaveStaticMeshBinary(StaticMesh, CacheKey, PathFileName);
-
-	StaticMesh->InitResources(InDevice);
-	StaticMesh->SetAssetPathFileName(CacheKey);
-	StaticMeshCache[CacheKey] = StaticMesh;
-
-	ScanMeshAssets();
-	FMaterialManager::Get().ScanMaterialAssets();
-
-	return StaticMesh;
+	return ImportStaticMeshSourceToPackage(PathFileName, CacheKey, InDevice);
 }
 
 void FMeshManager::ScanFbxSourceFiles()
@@ -950,6 +986,12 @@ USkeletalMesh* FMeshManager::LoadSkeletalMesh(const FString& PathFileName, ID3D1
 
 		if (bInputIsPackage)
 		{
+			USkeletalMesh* ReimportedSkeletalMesh = nullptr;
+			if (ReimportSkeletalMesh(CacheKey, InDevice, ReimportedSkeletalMesh) && ReimportedSkeletalMesh)
+			{
+				UE_LOG("SkeletalMesh binary load failed: reimported from package metadata. Binary=%s", CacheKey.c_str());
+				return ReimportedSkeletalMesh;
+			}
 			return nullptr;
 		}
 

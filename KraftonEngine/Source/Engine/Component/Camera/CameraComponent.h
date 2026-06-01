@@ -1,6 +1,7 @@
 #pragma once
 #include "Object/Reflection/ObjectFactory.h"
 #include "Component/SceneComponent.h"
+#include "GameFramework/Camera/CameraTypes.h"
 #include "Math/MathUtils.h"
 #include "Math/Vector.h"
 
@@ -33,11 +34,16 @@ public:
 	void LookAt(const FVector& Target);
 	void SetCameraState(const FCameraState& NewState);
 	const FCameraState& GetCameraState() const { return CameraState; }
+	const FPostProcessSettings& GetPostProcessSettings() const { return PostProcessSettings; }
+	FPostProcessSettings& GetPostProcessSettingsMutable() { return PostProcessSettings; }
+	float GetPostProcessBlendWeight() const { return PostProcessBlendWeight; }
+	void SetPostProcessBlendWeight(float InWeight) { PostProcessBlendWeight = FMath::Clamp(InWeight, 0.0f, 1.0f); }
 
 	// 카메라 POV 통화 산출 — UE: UCameraComponent::GetCameraView.
 	// CameraManager / RenderPipeline 이 이걸 받아 매트릭스/프러스텀을 빌드한다.
 	// DeltaTime 은 향후 카메라 lag / interpolation 에 쓰이도록 시그니처 보존.
-	void GetCameraView(float DeltaTime, FMinimalViewInfo& OutPOV) const;
+	virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& OutPOV) const;
+	virtual void GetDepthOfFieldState(FCameraDepthOfFieldState& OutState) const;
 
 	void SetFOV(float InFOV) { CameraState.FOV = InFOV; }
 	void SetOrthoWidth(float InWidth) { CameraState.OrthoWidth = InWidth; }
@@ -58,4 +64,13 @@ private:
 	UPROPERTY(Edit, Save, Category="Camera", DisplayName="Orthographic", Member=CameraState.bIsOrthogonal, Type=Bool);
 	UPROPERTY(Edit, Save, Category="Camera", DisplayName="Ortho Width", Member=CameraState.OrthoWidth, Type=Float, Min=0.1f, Max=1000.0f, Speed=0.5f);
 	FCameraState CameraState;
+
+	UPROPERTY(Edit, Save, Category="PostProcess", DisplayName="Post Process Blend Weight", Type=Float, Min=0.0f, Max=1.0f, Speed=0.01f)
+	float PostProcessBlendWeight = 1.0f;
+
+	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Enable Depth of Field", Member=PostProcessSettings.DepthOfField.bEnableDepthOfField, Type=Bool);
+	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Scale", Member=PostProcessSettings.DepthOfField.DepthOfFieldScale, Type=Float, Min=0.0f, Max=10.0f, Speed=0.01f);
+	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Max Blur Size", Member=PostProcessSettings.DepthOfField.DepthOfFieldMaxBlurSize, Type=Float, Min=0.0f, Max=100.0f, Speed=0.1f);
+	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Visualize Focus Distance", Member=PostProcessSettings.DepthOfField.bVisualizeFocusDistance, Type=Bool);
+	FPostProcessSettings PostProcessSettings;
 };

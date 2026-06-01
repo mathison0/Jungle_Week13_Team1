@@ -10,14 +10,6 @@
 
 class FBodyInstance;
 
-// 이동 자유도
-enum class ELinearConstraintMotion : uint8
-{
-	Free = 0,		// 자유롭게 허용
-	Limited,		// 일정 범위까지 허용
-	Locked			// 완전히 막음
-};
-
 // 회전 자유도
 enum class EAngularConstraintMotion : uint8
 {
@@ -32,24 +24,13 @@ namespace physx
 }
 
 // ================================================================================
-// ConstraintInstance가 실제 PxD6Joint같은 PhysX Joint를 만들 때 
-// - 어떤 축을 막고
-// - 어디까지 움직이게 하고
-// - 얼마나 강하게 복구하고
-// - 끊어질 수 있는지
-// 
-// 를 정하는 데이터
+// FConstraintOption
+// - Ragdoll v1 joint이 두 Body 사이 회전을 어디까지 허용할지 정하는 데이터.
+// - Linear는 항상 Locked(본이 분리되지 않음)라 옵션으로 두지 않고 joint 생성 시 하드코딩한다.
+// - angular drive / projection 세부 옵션 / physical animation 설정은 이번 구현에서 제외한다.
 // ================================================================================
 struct FConstraintOption
 {
-	// Linear DOF : 두 Body 사이에서 위치 이동을 얼마나 허용할 것인가?
-	ELinearConstraintMotion XMotion = ELinearConstraintMotion::Locked;
-	ELinearConstraintMotion YMotion = ELinearConstraintMotion::Locked;
-	ELinearConstraintMotion ZMotion = ELinearConstraintMotion::Locked;
-
-	// Limit 일 때 사용하는 거리제한 값
-	float LinearLimit = 0.f;
-
 	// Angular DOF: 두 Body 사이 회전을 얼마나 허용할지 정하는 값
 	// ragdoll이 너무 비현실적으로 꺾이지 않게 조절하는 값
 	/*
@@ -66,21 +47,6 @@ struct FConstraintOption
 	float TwistLimitDegrees = 45.f;
 	float Swing1LimitDegrees = 30.f;
 	float Swing2LimitDegrees = 30.f;
-
-	/*
-	* projection: Joint가 크게 벌어질 때 Solver가 위치 보정하는 안정화 옵션
-	* Solver: 물리 엔진에서 이번 프레임 물리 결과를 맞추기 위한 계산 단계
-	*/
-	bool bEnableProjection = true;						// 보정을 할 것인가?
-	float ProjectionLinearTolerance = 1.0f;				// 두 Body의 Constraint가 이 거리보다 벌어지면 선형 Projection 수행
-	float ProjectionAngularToleranceDegrees = 10.0f;	// Constraint 회전 오차가 이 각도보다 커지면 각도 Projection 수행
-
-	// Drive: ragdoll 근육/physical animation에서 사용
-	// Angular Drive: Constraint가 목표 회전으로 돌아가려고 힘을 내는 기능
-	bool  bAngularDriveEnabled = false;		// 사용 여부
-	float AngularDriveStiffness = 0.0f;		// 스프링 강도(높을수록 강하게 돌아가려고 함)
-	float AngularDriveDamping = 0.0f;		// 감쇠 (높으면 천천히 안정적으로, 낮으면 목표를 지나쳐 흔들린다)
-	float AngularDriveForceLimit = 0.0f;	// Drive가 내는 Force/Torque 크기 제한
 };
 
 // ============================================================================
@@ -109,10 +75,13 @@ struct FConstraintInstance
 
     FString ConstraintName;
 
+    // PhysicsAsset Editor에서 선택하는 연결 대상 bone.
+    // 두 이름 모두 UPhysicsAsset::BodySetups에 등록되어 있어야 runtime PxD6Joint가 생성된다.
     FName ParentBoneName;
     FName ChildBoneName;
 
-	// Body Local 기준 Joint Frame
+    // Body local 기준 joint frame.
+    // Editor gizmo에서 joint 위치와 축을 편집할 때 각 body 로컬 공간으로 변환해 저장한다.
     FTransform ParentFrame;	// ParentBody 로컬 공간에 있는 Joint 기준 좌표계
     FTransform ChildFrame;	// ChildBody 로컬 공간에 있는 Joint 기준 좌표계
 

@@ -4,6 +4,7 @@
 #include "Editor/Settings/EditorSettings.h"
 #include "Editor/Viewport/Level/LevelEditorViewportClient.h"
 #include "Render/Types/MinimalViewInfo.h"
+#include "Render/Types/ViewTypes.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
 #include "Engine/Platform/WindowsWindow.h"
@@ -26,6 +27,7 @@
 #include "Editor/UI/Asset/Animation/AnimGraphEditorWidget.h"
 #include "Editor/UI/Asset/Particle/ParticleSystemEditorWidget.h"
 #include "Editor/UI/Asset/Material/MaterialEditorWidget.h"
+#include "Editor/UI/Asset/Physics/PhysicalMaterialEditorWidget.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -53,6 +55,19 @@ const FDebugPlaceActorOption GDebugPlaceActorOptions[] = {
 	{ "Character",     FLevelViewportLayout::EViewportPlaceActorType::Character },
 	{ "Lua Character", FLevelViewportLayout::EViewportPlaceActorType::LuaCharacter },
 };
+
+const char* GetDepthOfFieldBlurMethodLabel(EDepthOfFieldBlurMethod Method)
+{
+	switch (Method)
+	{
+	case EDepthOfFieldBlurMethod::Gaussian:
+		return "Gaussian";
+	case EDepthOfFieldBlurMethod::TiledRotatedPoissonDisk:
+		return "Tiled Rotated Poisson Disk";
+	default:
+		return "Unknown";
+	}
+}
 
 }
 
@@ -100,6 +115,7 @@ void FEditorMainPanel::Create(FWindowsWindow* InWindow, FRenderer& InRenderer, U
 	AssetEditorManager.RegisterEditor<FAnimGraphEditorWidget>();
 	AssetEditorManager.RegisterEditor<FParticleSystemEditorWidget>();
 	AssetEditorManager.RegisterEditor<FMaterialEditorWidget>();
+	AssetEditorManager.RegisterEditor<FPhysicalMaterialEditorWidget>();
 }
 
 void FEditorMainPanel::Release()
@@ -378,6 +394,43 @@ void FEditorMainPanel::RenderEditorDebugPanel()
 	{
 		ImGui::End();
 		return;
+	}
+
+	if (ImGui::CollapsingHeader("Depth of Field", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
+		if (!ActiveViewport)
+		{
+			ImGui::TextDisabled("No active level viewport.");
+		}
+		else
+		{
+			FViewportRenderOptions& RenderOptions = ActiveViewport->GetRenderOptions();
+			EDepthOfFieldBlurMethod CurrentMethod = RenderOptions.DepthOfFieldBlurMethod;
+			if (ImGui::BeginCombo("Blur Method", GetDepthOfFieldBlurMethodLabel(CurrentMethod)))
+			{
+				const EDepthOfFieldBlurMethod Methods[] = {
+					EDepthOfFieldBlurMethod::Gaussian,
+					EDepthOfFieldBlurMethod::TiledRotatedPoissonDisk
+				};
+
+				for (EDepthOfFieldBlurMethod Method : Methods)
+				{
+					const bool bSelected = (CurrentMethod == Method);
+					if (ImGui::Selectable(GetDepthOfFieldBlurMethodLabel(Method), bSelected))
+					{
+						RenderOptions.DepthOfFieldBlurMethod = Method;
+						CurrentMethod = Method;
+					}
+					if (bSelected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+
+				ImGui::EndCombo();
+			}
+		}
 	}
 
 	if (ImGui::CollapsingHeader("Place Actors (Grid)", ImGuiTreeNodeFlags_DefaultOpen))

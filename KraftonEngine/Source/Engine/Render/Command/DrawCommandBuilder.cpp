@@ -21,6 +21,29 @@
 // UpdateProxyLOD defined in RenderCollector.cpp (shared)
 extern void UpdateProxyLOD(FPrimitiveSceneProxy* Proxy, const FLODUpdateContext& LODCtx);
 
+namespace
+{
+	bool IsTranslucentSortPass(ERenderPass Pass)
+	{
+		return Pass == ERenderPass::AlphaBlend
+			|| Pass == ERenderPass::TranslucencyBeforeDOF
+			|| Pass == ERenderPass::TranslucencyAfterDOF;
+	}
+
+	ERenderPass ResolveMaterialRenderPass(const UMaterialInterface* Material)
+	{
+		const ERenderPass Pass = Material ? Material->GetRenderPass() : ERenderPass::Opaque;
+		if (Pass != ERenderPass::AlphaBlend)
+		{
+			return Pass;
+		}
+
+		return Material && Material->GetTranslucencyPass() == ETranslucencyPass::BeforeDOF
+			? ERenderPass::TranslucencyBeforeDOF
+			: ERenderPass::TranslucencyAfterDOF;
+	}
+}
+
 // ============================================================
 // Create / Release
 // ============================================================
@@ -399,12 +422,7 @@ void FDrawCommandBuilder::BuildMeshCommands(FScene& Scene, const FPrimitiveScene
 
 	for (const FMeshSectionDraw& Section : Proxy->GetSectionDraws())
 	{
-		ERenderPass SectionPass = ERenderPass::Opaque;
-
-		if (Section.Material)
-		{
-			SectionPass = Section.Material->GetRenderPass();
-		}
+		const ERenderPass SectionPass = ResolveMaterialRenderPass(Section.Material);
 
 		if (SectionPass == ERenderPass::Opaque)
 		{
@@ -442,11 +460,7 @@ void FDrawCommandBuilder::BuildParticleCommands(FScene& Scene, const FParticleSy
 		{
 			if (Section.IndexCount == 0) continue;
 
-			ERenderPass SectionPass = ERenderPass::Opaque;
-			if (Section.Material)
-			{
-				SectionPass = Section.Material->GetRenderPass();
-			}
+			const ERenderPass SectionPass = ResolveMaterialRenderPass(Section.Material);
 
 			if (SectionPass == ERenderPass::Opaque)
 			{
@@ -538,7 +552,7 @@ void FDrawCommandBuilder::BuildCommandForSection(FScene& Scene, const FPrimitive
 		: nullptr;
 	Cmd.Bindings.BoneHeatMapCB = BuildCtx.bWeightBoneHeatMap ? &BoneHeatMapCB : nullptr;
 
-	if (Pass == ERenderPass::AlphaBlend)
+	if (IsTranslucentSortPass(Pass))
 	{
 		Cmd.TranslucentSortPriority = Proxy.GetTranslucentSortPriority();
 
@@ -563,7 +577,7 @@ void FDrawCommandBuilder::BuildCommandForSection(FScene& Scene, const FPrimitive
 			Cmd.Bindings.SRVs[s] = Mat->GetSRV(static_cast<EMaterialTextureSlot>(s));
 
 		// 섹션별 Material의 RenderPass가 현재 Pass와 일치할 때만 렌더 상태 오버라이드
-		if (Pass == Mat->GetRenderPass())
+		if (Pass == ResolveMaterialRenderPass(Mat))
 			ApplyMaterialRenderState(Cmd.RenderState, Mat, BaseRenderState);
 	}
 
@@ -577,7 +591,7 @@ void FDrawCommandBuilder::BuildParticleCommandForSection(FScene& Scene, const FP
 	if (!Buffer.IB) return;
 
 	const bool bInstanced = Buffer.IsInstanced();
-	const bool bApplyFog = Pass == ERenderPass::AlphaBlend;
+	const bool bApplyFog = IsTranslucentSortPass(Pass);
 
 	FShader* SectionShader = (Section.Material && Section.Material->GetShader())
 		? Section.Material->GetShader()
@@ -597,7 +611,7 @@ void FDrawCommandBuilder::BuildParticleCommandForSection(FScene& Scene, const FP
 	Cmd.Buffer.FirstIndex = Section.FirstIndex;
 	Cmd.Buffer.IndexCount = Section.IndexCount;
 
-	if (Pass == ERenderPass::AlphaBlend)
+	if (IsTranslucentSortPass(Pass))
 	{
 		Cmd.TranslucentSortPriority = Proxy.GetTranslucentSortPriority();
 
@@ -622,7 +636,7 @@ void FDrawCommandBuilder::BuildParticleCommandForSection(FScene& Scene, const FP
 			Cmd.Bindings.SRVs[s] = Mat->GetSRV(static_cast<EMaterialTextureSlot>(s));
 
 		// 섹션별 Material의 RenderPass가 현재 Pass와 일치할 때만 렌더 상태 오버라이드
-		if (Pass == Mat->GetRenderPass())
+		if (Pass == ResolveMaterialRenderPass(Mat))
 			ApplyMaterialRenderState(Cmd.RenderState, Mat, BaseRenderState);
 	}
 
