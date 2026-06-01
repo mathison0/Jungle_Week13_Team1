@@ -70,6 +70,32 @@ struct FKConvexElem : public FKShapeElem
 
     UPROPERTY(Edit, Save, Category="Physics|Shape", DisplayName="Indices", Type=Array)
     TArray<uint32> IndexData;
+
+    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Cooked PhysX Data", Type=Array)
+    TArray<uint8> CookedPhysXData;
+
+    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Geometry Hash")
+    uint64 GeometryHash = 0;
+
+    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Cooking Version")
+    uint32 CookingVersion = 1;
+
+    UPROPERTY(Save, Category="Physics|Shape", DisplayName="PhysX Version")
+    uint32 PhysXVersion = 0;
+
+    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Cooking Params Hash")
+    uint32 CookingParamsHash = 0;
+
+    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Cooked Data Hash")
+    uint64 CookedDataHash = 0;
+
+    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Local Bounds Min", Type=Vec3)
+    FVector LocalBoundsMin = FVector(0.0f, 0.0f, 0.0f);
+
+    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Local Bounds Max", Type=Vec3)
+    FVector LocalBoundsMax = FVector(0.0f, 0.0f, 0.0f);
+
+    bool bCookedDataDirty = true;
 };
 
 USTRUCT()

@@ -84,5 +84,6 @@ namespace FPhysXShapeDescUtils
 		const FPhysXShapeCollisionDesc& Collision,
 		const FPhysXShapeMaterialDesc& Material,
 		FBodyInstance* BodyInstance,
+		float UniformScale,
 		TArray<FPhysXShapeDesc>& OutDescs);
 }

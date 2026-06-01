@@ -160,7 +160,9 @@ namespace
 		{
 		case EPropertyType::Bool:          Size = sizeof(bool); break;
 		case EPropertyType::ByteBool:      Size = sizeof(uint8); break;
+		case EPropertyType::Byte:          Size = sizeof(uint8); break;
 		case EPropertyType::Int:           Size = sizeof(int32); break;
+		case EPropertyType::UInt64:        Size = sizeof(uint64); break;
 		case EPropertyType::Float:         Size = sizeof(float); break;
 		case EPropertyType::Vec3:
 		case EPropertyType::Rotator:       Size = sizeof(float) * 3; break;

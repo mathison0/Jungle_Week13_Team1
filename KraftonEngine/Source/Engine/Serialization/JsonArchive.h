@@ -2,6 +2,7 @@
 
 #include "Serialization/Archive.h"
 #include "SimpleJSON/json.hpp"
+#include <cstdlib>
 #include <cstring>
 
 class FJsonArchive : public FArchive
@@ -123,6 +124,12 @@ public:
 		else Value = Current() ? Current()->ToBool() : false;
 	}
 
+	void SerializeUInt8(uint8& Value) override
+	{
+		if (bIsSaving) *Current() = static_cast<int>(Value);
+		else Value = Current() ? static_cast<uint8>(Current()->ToInt()) : 0;
+	}
+
 	void SerializeInt32(int32& Value) override
 	{
 		if (bIsSaving) *Current() = Value;
@@ -133,6 +140,18 @@ public:
 	{
 		if (bIsSaving) *Current() = static_cast<int>(Value);
 		else Value = Current() ? static_cast<uint32>(Current()->ToInt()) : 0;
+	}
+
+	void SerializeUInt64(uint64& Value) override
+	{
+		if (bIsSaving)
+		{
+			*Current() = std::to_string(Value);
+			return;
+		}
+
+		const FString Text = Current() ? Current()->ToString() : FString();
+		Value = Text.empty() ? 0 : static_cast<uint64>(std::strtoull(Text.c_str(), nullptr, 10));
 	}
 
 	void SerializeFloat(float& Value) override

@@ -25,7 +25,18 @@
 #include "Serialization/Archive.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+
+namespace
+{
+    bool IsScaleNearlyEqual(const FVector& A, const FVector& B, float Tolerance = 1.0e-4f)
+    {
+        return std::fabs(A.X - B.X) <= Tolerance
+            && std::fabs(A.Y - B.Y) <= Tolerance
+            && std::fabs(A.Z - B.Z) <= Tolerance;
+    }
+}
 
 USkeletalMeshComponent::~USkeletalMeshComponent()
 {
@@ -82,12 +93,72 @@ void USkeletalMeshComponent::EndPlay()
     Super::EndPlay();
 }
 
+void USkeletalMeshComponent::OnTransformDirty()
+{
+    Super::OnTransformDirty();
+    RecreatePhysicsAssetBodiesIfScaleChanged();
+}
+
 void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InMesh)
 {
     Super::SetSkeletalMesh(InMesh);
     // Mesh 가 바뀌면 이전 AnimInstance 가 가리키던 본 인덱스/카운트가 무의미해진다.
     // 새 SkeletalMesh 기준으로 AnimInstance 를 재인스턴스화한다.
     InitializeAnimation();
+}
+
+void USkeletalMeshComponent::CachePhysicsAssetRuntimeScale()
+{
+    CachedPhysicsAssetRuntimeScale = GetWorldScale();
+    bHasCachedPhysicsAssetRuntimeScale = true;
+}
+
+void USkeletalMeshComponent::InvalidatePhysicsAssetRuntimeScale()
+{
+    bHasCachedPhysicsAssetRuntimeScale = false;
+}
+
+void USkeletalMeshComponent::RecreatePhysicsAssetBodiesIfScaleChanged()
+{
+    if (bRecreatingPhysicsAssetForScaleChange || Bodies.empty() || !bHasCachedPhysicsAssetRuntimeScale)
+    {
+        return;
+    }
+
+    const FVector CurrentScale = GetWorldScale();
+    if (IsScaleNearlyEqual(CurrentScale, CachedPhysicsAssetRuntimeScale))
+    {
+        return;
+    }
+
+    if (!Owner)
+    {
+        InvalidatePhysicsAssetRuntimeScale();
+        return;
+    }
+
+    UWorld* World = Owner->GetWorld();
+    IPhysicsScene* PhysicsScene = World ? World->GetPhysicsScene() : nullptr;
+    if (!PhysicsScene)
+    {
+        InvalidatePhysicsAssetRuntimeScale();
+        return;
+    }
+
+    const bool bWasRagdollSimulating = bRagdollSimulating;
+    bRecreatingPhysicsAssetForScaleChange = true;
+
+    PhysicsScene->DestroyPhysicsAssetBodies(this);
+    PhysicsScene->InstantiatePhysicsAssetBodies(this);
+
+    if (!Bodies.empty())
+    {
+        PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(this, true);
+        PhysicsScene->SetPhysicsAssetBodiesSimulate(this, bWasRagdollSimulating);
+    }
+
+    bRagdollSimulating = bWasRagdollSimulating && !Bodies.empty();
+    bRecreatingPhysicsAssetForScaleChange = false;
 }
 
 void USkeletalMeshComponent::PlayAnimation(UAnimSequenceBase* NewAnimToPlay, bool bLooping)

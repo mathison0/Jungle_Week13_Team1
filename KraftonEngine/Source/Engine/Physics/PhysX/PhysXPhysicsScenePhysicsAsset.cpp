@@ -8,7 +8,27 @@
 #include "Physics/PhysicsAsset.h"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
+
+namespace
+{
+	float GetPhysicsAssetUniformScale(const FVector& WorldScale)
+	{
+		const float MaxAxisScale = std::max({ std::fabs(WorldScale.X), std::fabs(WorldScale.Y), std::fabs(WorldScale.Z) });
+		return std::max(MaxAxisScale, 1.0e-4f);
+	}
+
+	FConstraintSetup MakeRuntimeConstraintSetup(const FConstraintSetup& Setup, float UniformScale)
+	{
+		FConstraintSetup RuntimeSetup = Setup;
+		RuntimeSetup.ParentFrame.Location *= UniformScale;
+		RuntimeSetup.ChildFrame.Location *= UniformScale;
+		RuntimeSetup.ParentFrame.Scale = FVector::OneVector;
+		RuntimeSetup.ChildFrame.Scale = FVector::OneVector;
+		return RuntimeSetup;
+	}
+}
 
 bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* Comp)
 {
@@ -21,6 +41,8 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 	USkeletalMesh* SkeletalMesh = Comp->GetSkeletalMesh();
 	UPhysicsAsset* PhysicsAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
 	if (!PhysicsAsset || !PhysicsAsset->HasAnyBodySetup()) return false;
+
+	const float UniformScale = GetPhysicsAssetUniformScale(Comp->GetWorldScale());
 
 	TArray<std::unique_ptr<FBodyInstance>>& RuntimeBodies = Comp->GetBodies();
 	RuntimeBodies.reserve(PhysicsAsset->BodySetups.size());
@@ -43,7 +65,7 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 		// refactor/PhysX-Core의 adapter를 통해 bone-local AggGeom을 독립 dynamic body로 만든다.
 		// shape 생성 정책은 StaticMesh 경로와 같은 CreateShapeOnActor()를 공유한다.
-		std::unique_ptr<FBodyInstance> RuntimeBody = CreateBodyFromBodySetup(Comp, BodySetup, BoneWorldTransform, true);
+		std::unique_ptr<FBodyInstance> RuntimeBody = CreateBodyFromBodySetup(Comp, BodySetup, BoneWorldTransform, true, UniformScale);
 		if (!RuntimeBody) continue;
 
 		RuntimeBody->SetBodyIndex(BodySetupIndex);
@@ -54,7 +76,7 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 	// Editor에서 저장한 bone 이름으로 runtime body를 찾아 PxD6Joint를 생성한다.
 	// BodySetup이 없거나 bone 이름이 틀린 constraint는 건너뛴다.
-	for (const FConstraintInstance& ConstraintSetup : PhysicsAsset->ConstraintSetups)
+	for (const FConstraintSetup& ConstraintSetup : PhysicsAsset->ConstraintSetups)
 	{
 		FBodyInstance* ParentBody = nullptr;
 		FBodyInstance* ChildBody = nullptr;
@@ -70,9 +92,8 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 		if (!ParentBody || !ChildBody) continue;
 
-		if (std::unique_ptr<FConstraintInstance> Constraint = CreateConstraint(
-			ParentBody, ChildBody, ConstraintSetup.Option,
-			ConstraintSetup.ParentFrame, ConstraintSetup.ChildFrame, ConstraintSetup.ConstraintName))
+		const FConstraintSetup RuntimeConstraintSetup = MakeRuntimeConstraintSetup(ConstraintSetup, UniformScale);
+		if (std::unique_ptr<FConstraintInstance> Constraint = CreateConstraint(ParentBody, ChildBody, RuntimeConstraintSetup))
 		{
 			Comp->GetConstraints().push_back(std::move(Constraint));
 		}
@@ -81,8 +102,10 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 	if (!RuntimeBodies.empty())
 	{
 		SkeletalPhysicsComponents.push_back(Comp);
+		Comp->CachePhysicsAssetRuntimeScale();
 		return true;
 	}
+	Comp->InvalidatePhysicsAssetRuntimeScale();
 	return false;
 }
 
@@ -104,6 +127,7 @@ void FPhysXPhysicsScene::DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp)
 		if (Body) ReleaseBodyResource(Body.get());
 	}
 	Comp->GetBodies().clear();
+	Comp->InvalidatePhysicsAssetRuntimeScale();
 
 	SkeletalPhysicsComponents.erase(
 		std::remove(SkeletalPhysicsComponents.begin(), SkeletalPhysicsComponents.end(), Comp),
