@@ -90,10 +90,11 @@ class ReflectedHeader:
 
 TYPE_MAP = {
     "bool": "Bool",
-    "uint8": "ByteBool",
+    "uint8": "Byte",
     "int": "Int",
     "int32": "Int",
     "uint32": "Int",
+    "uint64": "UInt64",
     "float": "Float",
     "FVector": "Vec3",
     "FRotator": "Rotator",

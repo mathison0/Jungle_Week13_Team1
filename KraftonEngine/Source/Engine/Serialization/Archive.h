@@ -45,8 +45,10 @@ public:
 	virtual void Serialize(void* Data, size_t Num) = 0;
 
 	virtual void SerializeBool(bool& Value) { Serialize(&Value, sizeof(Value)); }
+	virtual void SerializeUInt8(uint8& Value) { Serialize(&Value, sizeof(Value)); }
 	virtual void SerializeInt32(int32& Value) { Serialize(&Value, sizeof(Value)); }
 	virtual void SerializeUInt32(uint32& Value) { Serialize(&Value, sizeof(Value)); }
+	virtual void SerializeUInt64(uint64& Value) { Serialize(&Value, sizeof(Value)); }
 	virtual void SerializeFloat(float& Value) { Serialize(&Value, sizeof(Value)); }
 	virtual void SerializeString(FString& Str);
 	virtual void SerializeName(FName& Name);
@@ -55,8 +57,10 @@ public:
 	virtual void SerializeRotator(FRotator& Value) { Serialize(&Value, sizeof(Value)); }
 
 	FArchive& operator<<(bool& Value) { SerializeBool(Value); return *this; }
+	FArchive& operator<<(uint8& Value) { SerializeUInt8(Value); return *this; }
 	FArchive& operator<<(int32& Value) { SerializeInt32(Value); return *this; }
 	FArchive& operator<<(uint32& Value) { SerializeUInt32(Value); return *this; }
+	FArchive& operator<<(uint64& Value) { SerializeUInt64(Value); return *this; }
 	FArchive& operator<<(float& Value) { SerializeFloat(Value); return *this; }
 	FArchive& operator<<(FString& Value) { SerializeString(Value); return *this; }
 	FArchive& operator<<(FName& Value) { SerializeName(Value); return *this; }
