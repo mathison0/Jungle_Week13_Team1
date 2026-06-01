@@ -545,6 +545,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Component\Movement\ProjectileMovementComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Movement\RotatingMovementComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.cpp" />
+    <ClCompile Include="Source\Engine\Component\Movement\PxVehicleMovementComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Particle\ParticleSystemComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Primitive\BillboardComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Primitive\CylindricalBillboardComponent.cpp" />
@@ -673,6 +674,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.cpp" />
     <ClCompile Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicle4W.cpp" />
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp" />
     <ClCompile Include="Source\Engine\Platform\DirectoryWatcher.cpp" />
     <ClCompile Include="Source\Engine\Platform\Paths.cpp" />
@@ -770,6 +772,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Viewport\ViewportClient.cpp" />
     <ClCompile Include="Source\Game\GameActorPlacements.cpp" />
     <ClCompile Include="Source\Game\Vehicle4WActor.cpp" />
+    <ClCompile Include="Source\Game\PxVehicle4WActor.cpp" />
     <ClCompile Include="Source\Game\Lua\GameLuaBindings.cpp" />
     <ClCompile Include="Source\ObjViewer\ObjViewerEngine.cpp" />
     <ClCompile Include="Source\ObjViewer\ObjViewerPanel.cpp" />
@@ -940,6 +943,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Component\Movement\ProjectileMovementComponent.h" />
     <ClInclude Include="Source\Engine\Component\Movement\RotatingMovementComponent.h" />
     <ClInclude Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.h" />
+    <ClInclude Include="Source\Engine\Component\Movement\PxVehicleMovementComponent.h" />
     <ClInclude Include="Source\Engine\Component\Particle\ParticleSystemComponent.h" />
     <ClInclude Include="Source\Engine\Component\Primitive\BillboardComponent.h" />
     <ClInclude Include="Source\Engine\Component\Primitive\CylindricalBillboardComponent.h" />
@@ -1100,6 +1104,8 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\VehiclePhysicsInterface.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicle4W.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicleConfig.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\VehicleWheel.h" />
     <ClInclude Include="Source\Engine\Platform\ConsoleHelper.h" />
     <ClInclude Include="Source\Engine\Platform\CrashDump.h" />
@@ -1224,6 +1230,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Viewport\ViewportClient.h" />
     <ClInclude Include="Source\Game\GameActorPlacements.h" />
     <ClInclude Include="Source\Game\Vehicle4WActor.h" />
+    <ClInclude Include="Source\Game\PxVehicle4WActor.h" />
     <ClInclude Include="Source\Game\Lua\GameLuaBindings.h" />
     <ClInclude Include="Source\ObjViewer\ObjViewerEngine.h" />
     <ClInclude Include="Source\ObjViewer\ObjViewerPanel.h" />

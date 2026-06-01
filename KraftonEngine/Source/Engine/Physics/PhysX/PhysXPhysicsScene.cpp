@@ -3,6 +3,7 @@
 #include "PhysXCollision.h"
 #include "PhysXSimulationCallback.h"
 #include "PhysXHelper.h"
+#include "Physics/PhysX/Vehicle/PhysXVehicle4W.h"
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
@@ -137,6 +138,9 @@ void FPhysXPhysicsScene::Shutdown()
 		ReleaseBodyResource(Host);
 	}
 	Bodies.clear();
+
+	// 차량은 컴포넌트가 소유·해제하므로 여기선 포인터만 끊는다(컴포넌트 EndPlay에서 Release 가정).
+	ActiveVehicle = nullptr;
 
 	if (DefaultPhysicalMaterial)
 	{
@@ -382,6 +386,12 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		{
 			Actor->setGlobalPose(NewPose);
 		}
+	}
+
+	// ── Vehicle: 입력 보간 + 서스펜션 raycast + 힘 적용 (반드시 simulate 직전) ──
+	if (ActiveVehicle)
+	{
+		ActiveVehicle->Simulate(DeltaTime);
 	}
 
 	// ── Simulate ──
