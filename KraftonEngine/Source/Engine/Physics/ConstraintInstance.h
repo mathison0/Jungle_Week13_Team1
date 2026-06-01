@@ -114,6 +114,7 @@ struct FConstraintSetup
 //   - Joint는 PxRigidActor를 참조하므로 Constraints를 먼저 release한다
 //   - 그 다음 Bodies를 release한다
 // ============================================================================
+USTRUCT()
 struct FConstraintInstance
 {
     GENERATED_BODY()

@@ -1597,10 +1597,10 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 
 	if (SkeletalMesh && PhysAsset && SelectedConstraintIndex >= 0 && SelectedConstraintIndex < static_cast<int32>(PhysAsset->ConstraintSetups.size()))
 	{
-		FConstraintInstance& Constraint = PhysAsset->ConstraintSetups[SelectedConstraintIndex];
+		FConstraintSetup& Constraint = PhysAsset->ConstraintSetups[SelectedConstraintIndex];
 		bool bEdited = false;
 
-		ImGui::Text("Name: %s", Constraint.ConstraintName.c_str());
+		ImGui::Text("Name: %s", Constraint.ConstraintName.ToString().c_str());
 		ImGui::Text("Parent: %s", Constraint.ParentBoneName.ToString().c_str());
 		ImGui::Text("Child: %s", Constraint.ChildBoneName.ToString().c_str());
 		ImGui::Dummy(ImVec2(0, 8));
@@ -1961,7 +1961,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 	const FName SelectedBoneName = SelectedBodySetup->GetBoneName();
 	for (int32 ConstraintIndex = 0; ConstraintIndex < static_cast<int32>(PhysAsset->ConstraintSetups.size()); ++ConstraintIndex)
 	{
-		const FConstraintInstance& Constraint = PhysAsset->ConstraintSetups[ConstraintIndex];
+		const FConstraintSetup& Constraint = PhysAsset->ConstraintSetups[ConstraintIndex];
 		if (Constraint.ChildBoneName != SelectedBoneName)
 		{
 			continue;
@@ -2040,7 +2040,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 	for (int32 ConstraintListIndex = 0; ConstraintListIndex < static_cast<int32>(VisibleConstraintIndices.size()); ++ConstraintListIndex)
 	{
 		const int32 ConstraintIndex = VisibleConstraintIndices[ConstraintListIndex];
-		const FConstraintInstance& Constraint = PhysAsset->ConstraintSetups[ConstraintIndex];
+		const FConstraintSetup& Constraint = PhysAsset->ConstraintSetups[ConstraintIndex];
 		const FString ParentName = Constraint.ParentBoneName.ToString();
 		const FString ChildName = Constraint.ChildBoneName.ToString();
 		auto ParentIt = NodeCenters.find(ParentName);

@@ -341,12 +341,13 @@ bool USkeletalMesh::AddPhysicsConstraintBetweenBodies(const FName& ParentBoneNam
 	const FVector JointLocation = GetMatrixLocation(Bones[ChildBoneIndex].GetReferenceGlobalPose());
 
 	FConstraintInstance Constraint;
-	Constraint.ConstraintName = ParentBoneName.ToString() + "_To_" + ChildBoneName.ToString() + "_Constraint";
-	Constraint.ParentBoneName = ParentBoneName;
-	Constraint.ChildBoneName = ChildBoneName;
-	Constraint.ParentFrame = MakeConstraintFrame(Bones[ParentBoneIndex].GetReferenceGlobalPose(), JointLocation);
-	Constraint.ChildFrame = MakeConstraintFrame(Bones[ChildBoneIndex].GetReferenceGlobalPose(), JointLocation);
-	Asset->ConstraintSetups.push_back(Constraint);
+	FConstraintSetup& Setup = Constraint.Setup;
+	Setup.ConstraintName = ParentBoneName.ToString() + "_To_" + ChildBoneName.ToString() + "_Constraint";
+	Setup.ParentBoneName = ParentBoneName;
+	Setup.ChildBoneName = ChildBoneName;
+	Setup.ParentFrame = MakeConstraintFrame(Bones[ParentBoneIndex].GetReferenceGlobalPose(), JointLocation);
+	Setup.ChildFrame = MakeConstraintFrame(Bones[ChildBoneIndex].GetReferenceGlobalPose(), JointLocation);
+	Asset->ConstraintSetups.push_back(Setup);
 	return true;
 }
 
@@ -358,7 +359,7 @@ bool USkeletalMesh::HasPhysicsConstraintBetweenBodies(const FName& BoneNameA, co
 		return false;
 	}
 
-	for (const FConstraintInstance& Constraint : Asset->ConstraintSetups)
+	for (const FConstraintSetup& Constraint : Asset->ConstraintSetups)
 	{
 		const bool bSameDirection = Constraint.ParentBoneName == BoneNameA && Constraint.ChildBoneName == BoneNameB;
 		const bool bOppositeDirection = Constraint.ParentBoneName == BoneNameB && Constraint.ChildBoneName == BoneNameA;
