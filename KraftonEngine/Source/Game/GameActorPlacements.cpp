@@ -2,6 +2,8 @@
 
 #include "Engine/Runtime/ActorPlacementRegistry.h"
 #include "Engine/Runtime/EngineInitHooks.h"
+#include "Game/Vehicle4WActor.h"
+#include "GameFramework/World.h"
 
 // ============================================================
 // 게임-특화 액터를 Editor 의 "Place Actor" 메뉴에 등록 — 현재는 비어 있음.
@@ -12,6 +14,24 @@
 // ============================================================
 void RegisterGameActorPlacements()
 {
+	FActorPlacementRegistry::Get().RegisterEntry("Vehicle 4W", [](UWorld* World, const FVector& Location) -> AActor*
+	{
+		if (!World)
+		{
+			return nullptr;
+		}
+
+		AVehicle4WActor* Vehicle = World->SpawnActor<AVehicle4WActor>();
+		if (!Vehicle)
+		{
+			return nullptr;
+		}
+
+		Vehicle->InitDefaultComponents();
+		Vehicle->SetActorLocation(Location);
+		World->InsertActorToOctree(Vehicle);
+		return Vehicle;
+	});
 }
 
 // 자기-등록 — Editor / Game 측이 함수명을 모르고도 FEngineInitHooks::RunAll() 로 호출됨.

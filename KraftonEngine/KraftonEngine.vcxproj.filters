@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Intermediate">
@@ -66,6 +66,9 @@
     </Filter>
     <Filter Include="Source\Editor\UI\Asset\Material">
       <UniqueIdentifier>{994177d8-b52e-61fd-e3e8-c510233e7128}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\UI\Asset\Physics">
+      <UniqueIdentifier>{d150d84f-33f2-4e12-9ca5-82881bb3f0d2}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Editor\UI\Asset\Mesh">
       <UniqueIdentifier>{5084842c-4071-bc7f-36a2-4a3bf67026e8}</UniqueIdentifier>
@@ -270,6 +273,12 @@
     </Filter>
     <Filter Include="Source\Engine\Physics">
       <UniqueIdentifier>{c1985821-1144-9a46-639a-f7de31f4a1fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Engine\Physics\PhysicsMaterial">
+      <UniqueIdentifier>{61602886-78b7-4c24-8988-8f7ee43c4beb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Engine\Physics\Vehicle">
+      <UniqueIdentifier>{92afbb1a-fe08-a460-851e-dbd22a2602cd}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Engine\Physics\PhysX">
       <UniqueIdentifier>{bcbcfcd8-0c46-4a6a-85f4-8ba3ca6e7382}</UniqueIdentifier>
@@ -1088,6 +1097,9 @@
     <ClCompile Include="Source\Editor\UI\Asset\Material\MaterialEditorWidget.cpp">
       <Filter>Source\Editor\UI\Asset\Material</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Editor\UI\Asset\Physics\PhysicalMaterialEditorWidget.cpp">
+      <Filter>Source\Editor\UI\Asset\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget.cpp">
       <Filter>Source\Editor\UI\Asset\Mesh</Filter>
     </ClCompile>
@@ -1398,6 +1410,9 @@
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Component\Movement\RotatingMovementComponent.cpp">
+      <Filter>Source\Engine\Component\Movement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.cpp">
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Component\Particle\ParticleSystemComponent.cpp">
@@ -1718,9 +1733,6 @@
     <ClCompile Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.cpp">
       <Filter>Source\Engine\Particles\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\BodyInstance.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
@@ -1733,11 +1745,23 @@
     <ClCompile Include="Source\Engine\Physics\ConstraintInstance.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysicsAsset.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysicsGeometry.cpp">
       <Filter>Source\Engine\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterial.cpp">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.cpp">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.cpp">
+      <Filter>Source\Engine\Physics\Vehicle</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCore.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
@@ -2060,6 +2084,9 @@
     <ClCompile Include="Source\Game\GameActorPlacements.cpp">
       <Filter>Source\Game</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Game\Vehicle4WActor.cpp">
+      <Filter>Source\Game</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Game\Lua\GameLuaBindings.cpp">
       <Filter>Source\Game\Lua</Filter>
     </ClCompile>
@@ -2197,6 +2224,9 @@
     </ClInclude>
     <ClInclude Include="Source\Editor\UI\Asset\Material\MaterialEditorWidget.h">
       <Filter>Source\Editor\UI\Asset\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\UI\Asset\Physics\PhysicalMaterialEditorWidget.h">
+      <Filter>Source\Editor\UI\Asset\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget.h">
       <Filter>Source\Editor\UI\Asset\Mesh</Filter>
@@ -2556,6 +2586,9 @@
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Component\Movement\RotatingMovementComponent.h">
+      <Filter>Source\Engine\Component\Movement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.h">
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Component\Particle\ParticleSystemComponent.h">
@@ -2978,9 +3011,6 @@
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleRuntimeTypes.h">
       <Filter>Source\Engine\Particles\Runtime</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\IPhysicsScene.h">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\BodyInstance.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
@@ -2993,14 +3023,32 @@
     <ClInclude Include="Source\Engine\Physics\ConstraintInstance.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\IPhysicsScene.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysicsAsset.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysicsGeometry.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h">
-      <Filter>Source\Engine\Physics</Filter>
+    <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterial.h">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.h">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.h">
+      <Filter>Source\Engine\Physics\Vehicle</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\Vehicle\VehiclePhysicsInterface.h">
+      <Filter>Source\Engine\Physics\Vehicle</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\Vehicle\VehicleWheel.h">
+      <Filter>Source\Engine\Physics\Vehicle</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCore.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
@@ -3008,8 +3056,8 @@
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCollision.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysXConverter.h">
-      <Filter>Source\Engine\Physics</Filter>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXHelper.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXPhysicsScene.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
@@ -3387,6 +3435,9 @@
       <Filter>Source\Engine\Viewport</Filter>
     </ClInclude>
     <ClInclude Include="Source\Game\GameActorPlacements.h">
+      <Filter>Source\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Game\Vehicle4WActor.h">
       <Filter>Source\Game</Filter>
     </ClInclude>
     <ClInclude Include="Source\Game\Lua\GameLuaBindings.h">
