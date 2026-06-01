@@ -35,6 +35,7 @@
 #include "Physics/BodySetup.h"
 #include "Physics/PhysicsAsset.h"
 #include "Physics/PhysicsGeometry.h"
+#include "Mesh/MeshManager.h"
 
 #include <imgui.h>
 #include <algorithm>
@@ -1525,7 +1526,22 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 		{
 			if (ImGui::Button("Generate Bodies", ImVec2(-1.0f, 0.0f)))
 			{
-				if (SkeletalMesh->GenerateDefaultPhysicsAsset(false))
+				PhysAsset = SkeletalMesh->EnsurePhysicsAsset();
+
+				FPhysicsAssetAutoGenerateSettings Settings;
+				Settings.bReplaceExisting = true;
+				Settings.bCreateConstraints = true;
+				Settings.bUseDominantBoneOnly = true;
+				Settings.bUseDefaultNameFilters = true;
+				Settings.MinBoneWeight = 0.25f;
+				Settings.LowerPercentile = 0.05f;
+				Settings.UpperPercentile = 0.95f;
+				Settings.ShapePadding = 1.10f;
+				Settings.MinShapeSize = 0.01f;
+				Settings.MinVertexCount = 12;
+
+				//if (SkeletalMesh->GenerateDefaultPhysicsAsset(false))
+				if (PhysAsset->AutoGeneratePrimitiveBodiesFromSkeletalMesh(*(SkeletalMesh->GetSkeletalMeshAsset()), Settings))
 				{
 					PhysAsset = SkeletalMesh->GetPhysicsAsset();
 					SelectedBodySetup = nullptr;
