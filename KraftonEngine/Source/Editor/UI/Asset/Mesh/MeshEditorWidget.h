@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Editor/UI/Asset/AssetEditorWidget.h"
 #include "Editor/Viewport/Asset/MeshEditorViewportClient.h"
 #include "Editor/UI/Dialog/FbxImportOptionsDialog.h"
@@ -10,8 +10,17 @@ struct ImVec2;
 class UAnimSequence;
 class UAnimMontage;
 class UAnimSingleNodeInstance;
+class USkeletalMesh;
+class UPhysicsAsset;
+class UBodySetup;
 
-enum class EMeshEditorTab : uint8 { Skeleton, Mesh, Animation };
+enum class EMeshEditorTab : uint8 { Skeleton, Mesh, Animation, PhysicalAsset };
+
+struct FPhysicsGraphNodePosition
+{
+	float X = 0.0f;
+	float Y = 0.0f;
+};
 
 struct FAnimationTabState
 {
@@ -90,6 +99,12 @@ private:
 	void MarkAnimationListDirty();
 	const TArray<FAssetListItem>& GetCachedAnimationFilesForCurrentSkeleton();
 
+	//Physical Asset Editor
+	void RenderPhysicalAssetLayout();
+	void RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asset, const TArray<UBodySetup*>& Bodies, int32 Index);
+	void RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset);
+	bool RenderConstraintCandidateMenu(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset, UBodySetup* SourceBody);
+
 private:
 	FMeshEditorViewportClient ViewportClient;
 
@@ -99,6 +114,10 @@ private:
 
 	// Skeleton tab state
 	int32 SelectedBoneIndex = -1;
+	UBodySetup* SelectedBodySetup = nullptr;
+	int32 SelectedConstraintIndex = -1;
+	TMap<FString, FPhysicsGraphNodePosition> PhysicsGraphNodePositions;
+	bool bPhysicsGraphCapturingMouse = false;
 	float HierarchyWidth    = 250.0f;
 	float DetailsWidth      = 300.0f;
 

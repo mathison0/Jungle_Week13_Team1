@@ -44,6 +44,67 @@ namespace
 	}
 }
 
+void FSolidColorGeometry::Create(ID3D11Device* InDevice)
+{
+	Release();
+	Device = InDevice;
+	if (!Device) return;
+	Device->AddRef();
+
+	VB.Create(Device, 2048, sizeof(FVertex));
+	IB.Create(Device, 4096);
+}
+
+void FSolidColorGeometry::Release()
+{
+	VB.Release();
+	IB.Release();
+	Vertices.clear();
+	Indices.clear();
+	if (Device)
+	{
+		Device->Release();
+		Device = nullptr;
+	}
+}
+
+void FSolidColorGeometry::Clear()
+{
+	Vertices.clear();
+	Indices.clear();
+}
+
+void FSolidColorGeometry::AddIndexedTriangles(const TArray<FVertex>& SourceVertices, const TArray<uint32>& SourceIndices)
+{
+	if (SourceVertices.empty() || SourceIndices.empty())
+	{
+		return;
+	}
+
+	const uint32 BaseVertex = static_cast<uint32>(Vertices.size());
+	Vertices.insert(Vertices.end(), SourceVertices.begin(), SourceVertices.end());
+	for (uint32 Index : SourceIndices)
+	{
+		Indices.push_back(BaseVertex + Index);
+	}
+}
+
+bool FSolidColorGeometry::UploadBuffers(ID3D11DeviceContext* Context)
+{
+	const uint32 VertexCount = static_cast<uint32>(Vertices.size());
+	const uint32 IndexCount = static_cast<uint32>(Indices.size());
+	if (VertexCount == 0 || IndexCount == 0 || !Device)
+	{
+		return false;
+	}
+
+	VB.EnsureCapacity(Device, VertexCount);
+	IB.EnsureCapacity(Device, IndexCount);
+	if (!VB.Update(Context, Vertices.data(), VertexCount)) return false;
+	if (!IB.Update(Context, Indices.data(), IndexCount)) return false;
+	return true;
+}
+
 // ============================================================
 // Create / Release
 // ============================================================
@@ -57,6 +118,7 @@ void FDrawCommandBuilder::Create(ID3D11Device* InDevice, ID3D11DeviceContext* In
 	EditorLines.Create(InDevice);
 	GridLines.Create(InDevice);
 	DebugBoneLines.Create(InDevice);
+	PhysicsAssetSolids.Create(InDevice);
 	FontGeometry.Create(InDevice);
 
 	FogCB.Create(InDevice, sizeof(FFogConstants), "FogCB");
@@ -76,6 +138,7 @@ void FDrawCommandBuilder::Release()
 	EditorLines.Release();
 	GridLines.Release();
 	DebugBoneLines.Release();
+	PhysicsAssetSolids.Release();
 	FontGeometry.Release();
 
 	for (auto& Pair : PerSceneObjectCBPool)
@@ -119,6 +182,7 @@ void FDrawCommandBuilder::BeginCollect(const FFrameContext& Frame)
 	EditorLines.Clear();
 	GridLines.Clear();
 	DebugBoneLines.Clear();
+	PhysicsAssetSolids.Clear();
 	FontGeometry.Clear();
 	FontGeometry.ClearScreen();
 
@@ -353,6 +417,13 @@ void FDrawCommandBuilder::BuildProxyCommands(const FFrameContext& Frame, FScene&
 			{
 				DebugBoneLines.AddLine(Line.Start, Line.End, BoneProxy->GetParentBoneColor());
 			}
+			for (const FWireLine& Line : BoneProxy->GetCachedPhysicsAssetLines())
+			{
+				DebugBoneLines.AddLine(Line.Start, Line.End, BoneProxy->GetPhysicsAssetColor());
+			}
+			PhysicsAssetSolids.AddIndexedTriangles(
+				BoneProxy->GetCachedPhysicsAssetSolidVertices(),
+				BoneProxy->GetCachedPhysicsAssetSolidIndices());
 		}
 		else if (Proxy->HasProxyFlag(EPrimitiveProxyFlags::WireShape))
 		{
@@ -711,6 +782,7 @@ void FDrawCommandBuilder::PrepareDynamicGeometry(const FFrameContext& Frame, con
 void FDrawCommandBuilder::BuildDynamicDrawCommands(const FFrameContext& Frame, const FScene* Scene)
 {
 	EViewMode ViewMode = Frame.RenderOptions.ViewMode;
+	BuildPhysicsAssetSolidCommands(ViewMode);
 	BuildEditorLineCommands(ViewMode);
 	BuildPostProcessCommands(Frame, Scene);
 	BuildFontCommands(ViewMode);
@@ -748,6 +820,30 @@ void FDrawCommandBuilder::BuildEditorLineCommands(EViewMode ViewMode)
 	BoneLinesRS.DepthStencil = EDepthStencilState::NoDepth;
 
 	EmitLineCommand(DebugBoneLines, EditorShader, BoneLinesRS);
+}
+
+void FDrawCommandBuilder::BuildPhysicsAssetSolidCommands(EViewMode ViewMode)
+{
+	if (PhysicsAssetSolids.GetTriangleCount() == 0 || !PhysicsAssetSolids.UploadBuffers(CachedContext))
+	{
+		return;
+	}
+
+	FShader* EditorShader = FShaderManager::Get().GetOrCreate(EShaderPath::Editor);
+	FDrawCommandRenderState RS = PassRenderStateTable->ToDrawCommandState(ERenderPass::TranslucencyAfterDOF, ViewMode);
+	RS.DepthStencil = EDepthStencilState::DepthReadOnly;
+	RS.Blend = EBlendState::AlphaBlend;
+	RS.Rasterizer = ERasterizerState::SolidNoCull;
+	RS.Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	FDrawCommand& Cmd = DrawCommandList.AddCommand();
+	Cmd.Pass = ERenderPass::TranslucencyAfterDOF;
+	Cmd.Shader = EditorShader;
+	Cmd.RenderState = RS;
+	Cmd.Buffer = { PhysicsAssetSolids.GetVBBuffer(), PhysicsAssetSolids.GetVBStride(), PhysicsAssetSolids.GetIBBuffer() };
+	Cmd.Buffer.IndexCount = PhysicsAssetSolids.GetIndexCount();
+	Cmd.TranslucentSortPriority = 100;
+	Cmd.BuildSortKey(1);
 }
 
 // ============================================================

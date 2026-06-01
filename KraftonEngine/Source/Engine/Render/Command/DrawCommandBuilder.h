@@ -25,6 +25,30 @@ struct FProxyCommandBuildContext
 	bool bWeightBoneHeatMap = false;
 };
 
+class FSolidColorGeometry
+{
+public:
+	void Create(ID3D11Device* InDevice);
+	void Release();
+	void Clear();
+
+	void AddIndexedTriangles(const TArray<FVertex>& SourceVertices, const TArray<uint32>& SourceIndices);
+
+	bool UploadBuffers(ID3D11DeviceContext* Context);
+	ID3D11Buffer* GetVBBuffer() const { return VB.GetBuffer(); }
+	uint32 GetVBStride() const { return VB.GetStride(); }
+	ID3D11Buffer* GetIBBuffer() const { return IB.GetBuffer(); }
+	uint32 GetIndexCount() const { return static_cast<uint32>(Indices.size()); }
+	uint32 GetTriangleCount() const { return static_cast<uint32>(Indices.size() / 3); }
+
+private:
+	TArray<FVertex> Vertices;
+	TArray<uint32> Indices;
+	FDynamicVertexBuffer VB;
+	FDynamicIndexBuffer IB;
+	ID3D11Device* Device = nullptr;
+};
+
 /*
 	FDrawCommandBuilder — Collect 페이즈에서 Proxy/Scene 데이터를 FDrawCommand로 변환합니다.
 	FRenderer에서 커맨드 빌드 책임을 분리하여, Renderer는 GPU 제출에만 집중합니다.
@@ -74,6 +98,7 @@ private:
 
 	// BuildDynamicDrawCommands 서브 메서드
 	void BuildEditorLineCommands(EViewMode ViewMode);
+	void BuildPhysicsAssetSolidCommands(EViewMode ViewMode);
 	void BuildPostProcessCommands(const FFrameContext& Frame, const FScene* Scene);
 	void BuildFontCommands(EViewMode ViewMode);
 
@@ -101,6 +126,7 @@ private:
 	FLineGeometry  EditorLines;
 	FLineGeometry  GridLines;
 	FLineGeometry  DebugBoneLines;
+	FSolidColorGeometry PhysicsAssetSolids;
 	FFontGeometry  FontGeometry;
 
 	// PerObject CB 풀

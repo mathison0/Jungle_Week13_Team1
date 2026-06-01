@@ -4,6 +4,7 @@
 
 #include "Source/Engine/Component/Debug/BoneDebugComponent.generated.h"
 class USkeletalMeshComponent;
+class UBodySetup;
 class FScene;
 
 enum class EBoneDebugDrawMode : uint8
@@ -31,8 +32,35 @@ public:
 	EBoneDebugDrawMode GetDrawMode() const { return DrawMode; }
 	void SetDrawMode(EBoneDebugDrawMode InDrawMode) { DrawMode = InDrawMode; MarkRenderStateDirty(); }
 
+	bool ShouldDrawPhysicsAsset() const { return bDrawPhysicsAsset; }
+	void SetDrawPhysicsAsset(bool bInDrawPhysicsAsset)
+	{
+		if (bDrawPhysicsAsset == bInDrawPhysicsAsset) return;
+		bDrawPhysicsAsset = bInDrawPhysicsAsset;
+		MarkRenderStateDirty();
+	}
+
+	bool ShouldDrawPhysicsAssetSolid() const { return bDrawPhysicsAssetSolid; }
+	void SetDrawPhysicsAssetSolid(bool bInDrawPhysicsAssetSolid)
+	{
+		if (bDrawPhysicsAssetSolid == bInDrawPhysicsAssetSolid) return;
+		bDrawPhysicsAssetSolid = bInDrawPhysicsAssetSolid;
+		MarkRenderStateDirty();
+	}
+
+	UBodySetup* GetSelectedPhysicsBodySetup() const { return SelectedPhysicsBodySetup; }
+	void SetSelectedPhysicsBodySetup(UBodySetup* InBodySetup)
+	{
+		if (SelectedPhysicsBodySetup == InBodySetup) return;
+		SelectedPhysicsBodySetup = InBodySetup;
+		MarkRenderStateDirty();
+	}
+
 private:
 	USkeletalMeshComponent* TargetMeshComponent = nullptr;
+	UBodySetup* SelectedPhysicsBodySetup = nullptr;
 	int32 SelectedBoneIndex = -1;
 	EBoneDebugDrawMode DrawMode = EBoneDebugDrawMode::SelectedOnly;
+	bool bDrawPhysicsAsset = false;
+	bool bDrawPhysicsAssetSolid = true;
 };

@@ -7,15 +7,50 @@
 #include "Editor/Slate/SWindow.h"
 #include "Core/Types/RayTypes.h"
 #include "Gizmo/BoneTransformGizmoTarget.h"
+#include "Gizmo/GizmoTransformTarget.h"
 #include "Component/Debug/BoneDebugComponent.h"
 
 #include <d3d11.h>
+#include <functional>
 
 class UGizmoComponent;
 class FWindowsWindow;
 class UWorld;
 class AActor;
 class USkeletalMesh;
+class USkeletalMeshComponent;
+class UBodySetup;
+
+class FPhysicsBodyTransformGizmoTarget : public IGizmoTransformTarget
+{
+public:
+	void SetBody(USkeletalMeshComponent* InMeshComp, UBodySetup* InBodySetup);
+	void Clear();
+
+	bool IsValid() const override;
+	UWorld* GetWorld() const override;
+
+	FVector GetWorldLocation() const override;
+	FRotator GetWorldRotation() const override;
+	FQuat GetWorldQuat() const override;
+	FVector GetWorldScale() const override;
+
+	void SetWorldLocation(const FVector& NewLocation) override;
+	void SetWorldRotation(const FRotator& NewRotation) override;
+	void SetWorldRotation(const FQuat& NewQuat) override;
+	void SetWorldScale(const FVector& NewScale) override;
+
+	void AddWorldOffset(const FVector& Delta) override;
+	void AddWorldRotation(const FQuat& Delta, bool bWorldSpace) override;
+	void AddScaleDelta(const FVector& Delta) override;
+
+private:
+	bool GetShapeWorldTransform(FTransform& OutTransform) const;
+	void SetShapeWorldTransform(const FTransform& WorldTransform);
+
+	USkeletalMeshComponent* MeshComponent = nullptr;
+	UBodySetup* BodySetup = nullptr;
+};
 
 class FMeshEditorViewportClient : public FViewportClient, public IEditorPreviewViewportClient
 {
@@ -53,10 +88,14 @@ public:
 	void Tick(float DeltaTime);
 
 	void SetSelectedBone(USkeletalMesh* Mesh, int32 BoneIndex);
+	void SetSelectedPhysicsBody(USkeletalMesh* Mesh, int32 BoneIndex, UBodySetup* BodySetup);
 	const FBone* GetSelectedBone() const;
+	void SetOnPhysicsBodyPicked(std::function<void(int32, UBodySetup*)> InCallback) { OnPhysicsBodyPicked = std::move(InCallback); }
 
 	EBoneDebugDrawMode GetBoneDebugDrawMode() const;
 	void SetBoneDebugDrawMode(EBoneDebugDrawMode InDrawMode);
+	void SetPhysicsAssetDebugDrawEnabled(bool bEnabled);
+	void SetPhysicsAssetSolidDebugDrawEnabled(bool bEnabled);
 
 	void ApplyTransformSettingsToGizmo();
 
@@ -70,19 +109,23 @@ private:
 	void SyncGizmo();
 
 	void HandleDragStart(const FRay& Ray);
+	bool TryPickPhysicsAssetBody(const FRay& Ray);
 
 private:
 	USkeletalMesh* SelectedMesh = nullptr;
 	int32 SelectedBoneIndex = -1;
+	UBodySetup* SelectedPhysicsBodySetup = nullptr;
 
 	FViewport* Viewport = nullptr;
 	FWindowsWindow* Window = nullptr;
 	FViewportRenderOptions RenderOptions;
 
 	FBoneTransformGizmoTarget BoneTarget;
+	FPhysicsBodyTransformGizmoTarget PhysicsBodyTarget;
 	UGizmoComponent* Gizmo = nullptr;
 	USkeletalMeshComponent* PreviewMeshComponent = nullptr;
 	UBoneDebugComponent* BoneDebugComponent = nullptr;
+	std::function<void(int32, UBodySetup*)> OnPhysicsBodyPicked;
 
 	UWorld* PreviewWorld = nullptr;
 	AActor* PreviewActor = nullptr;
