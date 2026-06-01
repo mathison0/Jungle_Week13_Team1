@@ -1,30 +1,43 @@
-﻿#pragma once
 #pragma once
 
-#include "VehiclePhysicsInterface.h"
-#include "Math/Transform.h"
-
-// 휠 인덱스 상수 (PhysX 표준 순서)
-// 0=FL, 1=FR, 2=RL, 3=RR
-static constexpr physx::PxU32 NUM_WHEELS = 4;
+#include "Physics/Vehicle/VehiclePhysicsInterface.h"
 
 class FPhysXVehicle4WPhysics : public IVehiclePhysics
 {
 public:
 	FPhysXVehicle4WPhysics();
-	virtual ~FPhysXVehicle4WPhysics() override;
+	~FPhysXVehicle4WPhysics() override;
 
-	// ── IVehiclePhysics 오버라이드 ──────────────────────────────────────────
-	virtual void CreateVehicle(physx::PxPhysics* physics,
-		physx::PxScene* scene,
-		physx::PxCooking* cooking) override;
-	virtual void DestroyVehicle() override;
-	virtual void SetThrottle(float value) override;
-	virtual void SetBrake(float value) override;
-	virtual void SetSteer(float value) override;
-	virtual void TickVehicle(float deltaTime) override;
+	void Initialize(UWorld* World, UPrimitiveComponent* ChassisComponent, const FVehiclePhysicsConfig& Config) override;
+	void DestroyVehicle() override;
 
-	virtual FTransform GetChassisTransform()          const override;
-	virtual FTransform GetWheelTransform(int wheelIndex) const override;
+	void SetThrottle(float Value) override;
+	void SetBrake(float Value) override;
+	void SetSteer(float Value) override;
+	void SetHandbrake(float Value) override;
+	void SetWheelCollider(int32 WheelIndex, UPrimitiveComponent* WheelCollider) override;
 
+	void TickVehicle(float DeltaTime) override;
+
+	int32 GetWheelCount() const override { return VehicleWheelCount4W; }
+	const FVehicleWheelState& GetWheelState(int32 WheelIndex) const override;
+
+private:
+	FVector TransformLocalToWorld(const FVector& Local) const;
+	FVector RotateAroundUp(const FVector& Vector, float AngleRadians) const;
+	void SimulateWheel(int32 WheelIndex, float DeltaTime);
+	void ResetRuntimeState();
+
+private:
+	UWorld* World = nullptr;
+	UPrimitiveComponent* ChassisComponent = nullptr;
+	FVehiclePhysicsConfig Config;
+	UPrimitiveComponent* WheelColliders[VehicleWheelCount4W] = {};
+	FVehicleWheelState WheelStates[VehicleWheelCount4W];
+	float PreviousCompression[VehicleWheelCount4W] = {};
+
+	float ThrottleInput = 0.0f;
+	float BrakeInput = 0.0f;
+	float SteerInput = 0.0f;
+	float HandbrakeInput = 0.0f;
 };
