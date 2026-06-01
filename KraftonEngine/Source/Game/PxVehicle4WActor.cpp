@@ -39,7 +39,7 @@ void APxVehicle4WActor::InitDefaultComponents()
 	ChassisComponent->SetMass(1200.0f);
 	ChassisComponent->SetCenterOfMass(FVector(0.0f, 0.0f, -0.32f));
 
-	// 3인칭 카메라 체인 — Capsule → SpringArm → Camera. lag 적용해 부드럽게 따라옴.
+	// 3인칭 카메라 체인 — Box → SpringArm → Camera
 	SpringArm = AddComponent<USpringArmComponent>();
 	SpringArm->AttachToComponent(ChassisComponent);
 	SpringArm->TargetArmLength = 10.0f;
@@ -47,18 +47,15 @@ void APxVehicle4WActor::InitDefaultComponents()
 	SpringArm->bEnableCameraLag = false;
 	SpringArm->bEnableCameraRotationLag = false;
 
-	// mouse look 이 capsule rotation 안 건드리고 카메라만 회전 — UE ThirdPerson 패턴.
+	// mouse look 이 Box rotation 안 건드리고 카메라만 회전 — UE ThirdPerson 패턴.
 	// ACharacter::Tick 이 APawn::ControlRotation 누적 → SpringArm 이 이걸 inherit.
-	SpringArm->bUsePawnControlRotation = false;
+	SpringArm->bUsePawnControlRotation = true;
 	SpringArm->bInheritPitch = true;
 	SpringArm->bInheritYaw = true;
 	SpringArm->bInheritRoll = false;
 
 	Camera = AddComponent<UCameraComponent>();
 	Camera->AttachToComponent(SpringArm);
-
-	// 메시 로드(첫 로드 시 임포트+쿠킹+_StaticMesh.uasset 저장). 바퀴는 한 에셋을 4개가 공유.
-	auto* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
 
 	for (int32 WheelIndex = 0; WheelIndex < 4; ++WheelIndex)
 	{
@@ -133,9 +130,15 @@ void APxVehicle4WActor::RebindComponents()
 	if (VehicleMovementComponent)
 	{
 		VehicleMovementComponent->SetUpdatedComponent(ChassisComponent);
+		// 바퀴 바인딩은 무브먼트 컴포넌트가 직렬화(WheelVisuals)로 이미 복원해 들고 온다.
+		// 씬 로드 후엔 컴포넌트 FName 이 저장되지 않아 위 이름 매칭이 실패하는데, 그때 못 찾은
+		// 슬롯을 null 로 덮어쓰면 복원된 바인딩이 끊긴다 → 이름으로 찾은 바퀴만 다시 꽂는다.
 		for (int32 WheelIndex = 0; WheelIndex < 4; ++WheelIndex)
 		{
-			VehicleMovementComponent->SetWheelVisualComponent(WheelIndex, WheelMeshes[WheelIndex]);
+			if (WheelMeshes[WheelIndex])
+			{
+				VehicleMovementComponent->SetWheelVisualComponent(WheelIndex, WheelMeshes[WheelIndex]);
+			}
 		}
 	}
 }

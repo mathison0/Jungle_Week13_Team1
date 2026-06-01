@@ -46,7 +46,12 @@ private:
 	UPrimitiveComponent* GetChassisComponent() const;
 
 	std::unique_ptr<FPhysXVehicle4W> Vehicle;
-	USceneComponent* WheelVisuals[4] = {};
+
+	// 바퀴 시각 컴포넌트. [0]=FL [1]=FR [2]=RL [3]=RR. 액터가 SetWheelVisualComponent 로 꽂아준다.
+	// 오브젝트 참조로 직렬화(Save)해야 씬 저장/로드 후에도 바인딩이 살아남는다 — 비-리플렉션
+	// 멤버나 FName 매칭(FName 은 씬에 저장 안 됨)에 의존하면 로드 시 끊겨 바퀴가 안 돈다.
+	UPROPERTY(Save, Category="Vehicle|Visual")
+	TArray<USceneComponent*> WheelVisuals;
 
 	// --- 입력 ---
 	UPROPERTY(Edit, Save, Category="Vehicle|Input", DisplayName="Use Keyboard Input")

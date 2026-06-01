@@ -29,6 +29,9 @@ UPxVehicleMovementComponent::UPxVehicleMovementComponent()
 	// 입력은 물리 시뮬레이션 전에 준비돼야 하므로 PrePhysics 그룹.
 	PrimaryComponentTick.SetTickGroup(TG_PrePhysics);
 	PrimaryComponentTick.SetEndTickGroup(TG_PrePhysics);
+
+	// 4륜 고정 슬롯. 액터가 인덱스로 꽂고, 직렬화/로드 시에도 4칸으로 라운드트립.
+	WheelVisuals.resize(4);
 }
 
 UPxVehicleMovementComponent::~UPxVehicleMovementComponent() = default;
@@ -65,7 +68,7 @@ void UPxVehicleMovementComponent::TickComponent(float DeltaTime, ELevelTick Tick
 
 void UPxVehicleMovementComponent::SetWheelVisualComponent(int32 WheelIndex, USceneComponent* Visual)
 {
-	if (WheelIndex >= 0 && WheelIndex < 4)
+	if (WheelIndex >= 0 && WheelIndex < static_cast<int32>(WheelVisuals.size()))
 	{
 		WheelVisuals[WheelIndex] = Visual;
 	}
@@ -134,7 +137,8 @@ void UPxVehicleMovementComponent::UpdateWheelVisuals()
 	}
 
 	const FQuat BaseQuat = WheelMeshRotationOffset.ToQuaternion();
-	for (int32 i = 0; i < 4; ++i)
+	const int32 WheelCount = static_cast<int32>(WheelVisuals.size());
+	for (int32 i = 0; i < 4 && i < WheelCount; ++i)
 	{
 		if (!WheelVisuals[i])
 		{
