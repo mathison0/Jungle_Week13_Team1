@@ -6,6 +6,30 @@
 
 #include "Source/Engine/Physics/PhysicsAsset.generated.h"
 
+struct FSkeletalMesh;
+
+struct FPhysicsAssetAutoGenerateSettings
+{
+    bool bReplaceExisting = true;
+    bool bCreateConstraints = true;
+    bool bUseDominantBoneOnly = true;
+    bool bUseDefaultNameFilters = true;
+
+    float MinBoneWeight = 0.25f;
+    float LowerPercentile = 0.05f;
+    float UpperPercentile = 0.95f;
+    float ShapePadding = 1.10f;
+    float MinShapeSize = 0.01f;
+    int32 MinVertexCount = 8;
+};
+
+struct FPhysicsAssetAutoGenerateStats
+{
+    int32 BodyCount = 0;
+    int32 ConstraintCount = 0;
+    int32 SkippedBoneCount = 0;
+};
+
 UCLASS()
 class UPhysicsAsset : public UObject
 {
@@ -29,4 +53,9 @@ public:
     bool HasAnyConstraintSetup() const;
     int32 FindBodySetupIndexByBoneName(const FName& BoneName) const;
     UBodySetup* FindBodySetupByBoneName(const FName& BoneName) const;
+
+    bool AutoGeneratePrimitiveBodiesFromSkeletalMesh(
+        const FSkeletalMesh& Mesh,
+        const FPhysicsAssetAutoGenerateSettings& Settings = FPhysicsAssetAutoGenerateSettings(),
+        FPhysicsAssetAutoGenerateStats* OutStats = nullptr);
 };
