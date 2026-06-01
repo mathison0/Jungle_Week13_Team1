@@ -73,7 +73,8 @@ namespace
 		const FQuat ComponentWorldRotationInv = ExtractRotationNoScale(ComponentWorldMatrix).Inverse();
 		return FTransform(
 			ComponentWorldInverse.TransformPositionWithW(BodyWorldLocation),
-			(BodyWorldRotation.GetNormalized() * ComponentWorldRotationInv).GetNormalized(),
+			// Row-vector matrices compose local * world, so quaternion removal applies the component inverse first.
+			(ComponentWorldRotationInv * BodyWorldRotation.GetNormalized()).GetNormalized(),
 			FVector::OneVector);
 	}
 }
