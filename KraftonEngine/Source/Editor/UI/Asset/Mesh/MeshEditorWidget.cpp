@@ -692,6 +692,7 @@ void FMeshEditorWidget::Close()
 	bPhysicsAssetSimulationRunning = false;
 }
 
+// ViewportClient의 Tick에서 애니메이션 업데이트와 물리 시뮬레이션을 처리한다. 애니메이션 탭이 활성화된 경우에만 애니메이션을 업데이트한다.
 void FMeshEditorWidget::Tick(float DeltaTime)
 {
 	if (ViewportClient.IsRenderable())
@@ -699,6 +700,7 @@ void FMeshEditorWidget::Tick(float DeltaTime)
 		ViewportClient.Tick(DeltaTime);
 	}
 
+	// Ragdoll 시뮬레이션이 돌고 있으면 매 프레임 물리 시뮬레이션을 진행한다. 시뮬레이션이 끝났는지는 컴포넌트가 여전히 Ragdoll 시뮬레이션 중인지 여부로 판단한다.
 	if (bPhysicsAssetSimulationRunning)
 	{
 		USkeletalMeshComponent* Comp = ViewportClient.GetPreviewMeshComponent();
@@ -718,6 +720,7 @@ void FMeshEditorWidget::Tick(float DeltaTime)
 		return;
 	}
 
+	// 애니메이션 탭이 활성화된 경우에만 애니메이션을 업데이트한다. 다른 탭에서는 애니메이션이 업데이트되지 않으므로, 애니메이션이 적용된 포즈로 프리뷰 메시가 렌더링되지 않는다.
 	if (ActiveTab == EMeshEditorTab::Animation)
 	{
 		USkeletalMeshComponent* Comp = ViewportClient.GetPreviewMeshComponent();
@@ -744,6 +747,7 @@ void FMeshEditorWidget::Tick(float DeltaTime)
 	}
 }
 
+// Ragdoll 시뮬레이션을 시작한다. 이미 시뮬레이션이 돌고 있으면 아무 작업도 하지 않는다.
 void FMeshEditorWidget::StartPhysicsAssetSimulation()
 {
 	USkeletalMeshComponent* Comp = ViewportClient.GetPreviewMeshComponent();
@@ -773,6 +777,7 @@ void FMeshEditorWidget::StartPhysicsAssetSimulation()
 	bPhysicsAssetSimulationRunning = Comp->IsRagdollSimulating();
 }
 
+//Ragdoll 시뮬레이션을 멈추고, 필요하면 포즈를 리셋한다.
 void FMeshEditorWidget::StopPhysicsAssetSimulation(bool bResetPose)
 {
 	USkeletalMeshComponent* Comp = ViewportClient.GetPreviewMeshComponent();
@@ -1870,6 +1875,7 @@ void FMeshEditorWidget::RenderPhysicsSimulationControls(USkeletalMesh* SkeletalM
 	ImGui::PopStyleColor(3);
 }
 
+//PhysicsAsset 탭의 본 계층 구조 + 시뮬레이션 컨트롤 + 기타 편집 UI 렌더링. 선택된 본/바디/제약 조건에 따라 세부 패널도 함께 렌더링.
 void FMeshEditorWidget::RenderPhysicalAssetLayout()
 {
 	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(EditedObject);
@@ -1919,11 +1925,15 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 	ImGui::BeginChild("BoneHierarchy", ImVec2(HierarchyWidth, std::max(120.0f, LeftPanelHeight - GraphHeight - ImGui::GetStyle().ItemSpacing.y)), true);
 	ImGui::Text("Physics Asset");
 	ImGui::Separator();
+
+	//Auto generate bodies 버튼 + 시뮬레이션 컨트롤
 	if (SkeletalMesh)
 	{
 		ImGui::Text("Bodies: %d", PhysAsset ? static_cast<int32>(PhysAsset->BodySetups.size()) : 0);
 		ImGui::Text("Constraints: %d", PhysAsset ? static_cast<int32>(PhysAsset->ConstraintSetups.size()) : 0);
 		RenderPhysicsSimulationControls(SkeletalMesh, PhysAsset);
+
+		// Auto generate bodies 버튼
 		if (ImGui::Button("Generate Bodies", ImVec2(-1.0f, 0.0f)))
 		{
 			StopPhysicsAssetSimulation(true);
@@ -1952,6 +1962,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 				MarkDirty();
 			}
 		}
+		//Save Physics Asset 버튼
 		if (PhysAsset)
 		{
 			const char* SaveLabel = IsDirty() ? "Save Physics Asset*" : "Save Physics Asset";
@@ -1976,6 +1987,8 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 			}
 		}
 	}
+
+	//좌측 패널 : 본 계층 구조 트리. 각 본 옆에 해당 본에 바디가 있으면 바디 아이콘 표시. 본/바디 선택 가능. 선택된 본/바디는 우측 세부 패널과 좌측 하단 제약 조건 그래프에 정보 전달. 물리 자산이 있을 때는 제약 조건도 함께 렌더링 (제약 조건 선택 시 세부 패널에 정보 전달). 물리 시뮬레이션이 실행 중일 때는 트리에 시뮬레이션 상태 반영 (예: 아이콘 색상 변경).
 	ImGui::Dummy(ImVec2(0.0f, 6.0f));
 	ImGui::Text("Bone Hierarchy");
 	ImGui::Separator();
@@ -1995,6 +2008,8 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 		}
 	}
 	ImGui::EndChild();
+
+	//좌측 하단 : 선택된 본/바디에 대한 제약 조건 그래프. 본과 바디가 모두 선택되지 않았거나 물리 자산이 없으면 빈 패널.
 	ImGui::BeginChild("BodyConstraintGraph", ImVec2(HierarchyWidth, GraphHeight), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoMove);
 	RenderPhysicsAssetGraph(SkeletalMesh, PhysAsset);
 	ImGui::EndChild();
@@ -2031,11 +2046,12 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 
 	ImGui::SameLine();
 
-	// Right: bone details
+	// Right: bone details(본 트리에서 본을 선택했을 때 해당 본의 정보 + 편집 UI, 바디를 선택했을 때는 바디 정보 + 편집 UI, 제약 조건을 선택했을 때는 제약 조건 정보 + 편집 UI). 본/바디/제약 조건이 모두 선택되지 않았을 때는 빈 패널.
 	ImGui::BeginChild("BoneDetails", ImVec2(DetailsWidth, 0), true);
 	ImGui::Text(SelectedConstraintIndex >= 0 ? "Constraint Details" : (SelectedBodySetup ? "Body Details" : "Bone Details"));
 	ImGui::Separator();
 
+	//Constraint Details
 	if (SkeletalMesh && PhysAsset && SelectedConstraintIndex >= 0 && SelectedConstraintIndex < static_cast<int32>(PhysAsset->ConstraintSetups.size()))
 	{
 		FConstraintSetup& Constraint = PhysAsset->ConstraintSetups[SelectedConstraintIndex];
@@ -2059,6 +2075,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 			MarkDirty();
 		}
 	}
+	//Body Details
 	else if (SkeletalMesh && SelectedBoneIndex != -1 && SelectedBodySetup)
 	{
 		FSkeletalMesh* Asset = SkeletalMesh->GetSkeletalMeshAsset();
@@ -2079,6 +2096,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 			MarkDirty();
 		}
 	}
+	//Bone Details
 	else if (SkeletalMesh && SelectedBoneIndex != -1)
 	{
 		FSkeletalMesh* Asset = SkeletalMesh->GetSkeletalMeshAsset();
@@ -2140,6 +2158,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 	ImGui::EndChild();
 }
 
+//Bone + Body 트리 렌더링. 본과 해당 본에 연결된 바디가 모두 트리 구조로 표현됨. 본 또는 바디를 클릭하면 선택 상태가 업데이트되고 세부 패널이 해당 선택에 맞게 갱신됨. 본을 우클릭하면 해당 본에 새 물리 바디를 추가할 수 있는 컨텍스트 메뉴가 나타남.
 void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asset, const TArray<UBodySetup*>& Bodies, int32 Index)
 {
 	const FBone& Bone = Asset->Bones[Index];
@@ -2714,6 +2733,7 @@ void FMeshEditorWidget::RenderBoneTree(const FSkeletalMesh* Asset, int32 Index)
 		Flags |= ImGuiTreeNodeFlags_Selected;
 	}
 
+	//자식이 존재하는 지 검사
 	bool bHasChildren = false;
 	for (int32 i = Index + 1; i < static_cast<int32>(Asset->Bones.size()); ++i)
 	{
