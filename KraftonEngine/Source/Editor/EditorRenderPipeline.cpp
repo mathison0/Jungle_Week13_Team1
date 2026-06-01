@@ -402,3 +402,89 @@ void FEditorRenderPipeline::RenderPreviewViewport(IEditorPreviewViewportClient* 
 
 	Renderer.Render(Frame, World, Scene);
 }
+
+void FEditorRenderPipeline::RenderSelectedCameraPreview(FViewport* VP, UWorld* World, UCameraComponent* Camera, const FViewportRenderOptions& SourceRenderOptions, FRenderer& Renderer)
+{
+	if (!VP || !World || !Camera)
+	{
+		return;
+	}
+
+	ID3D11DeviceContext* Ctx = Renderer.GetFD3DDevice().GetDeviceContext();
+	if (!Ctx)
+	{
+		return;
+	}
+
+	VP->ApplyPendingResize();
+
+	const float ClearColor[4] = { 0.02f, 0.02f, 0.025f, 1.0f };
+	VP->BeginRender(Ctx, ClearColor);
+
+	FMinimalViewInfo POV;
+	Camera->GetCameraView(0.0f, POV);
+	if (VP->GetHeight() > 0)
+	{
+		POV.AspectRatio = static_cast<float>(VP->GetWidth()) / static_cast<float>(VP->GetHeight());
+	}
+
+	Frame.ClearViewportResources();
+	Frame.SetViewportInfo(VP);
+	Frame.CameraFade = FCameraFadeState();
+	Frame.CameraVignette = FCameraVignetteState();
+	Frame.CameraLetterbox = FCameraLetterboxState();
+	if (UCineCameraComponent* CineCamera = Cast<UCineCameraComponent>(Camera))
+	{
+		const FCineLetterboxSettings& LetterboxSettings = CineCamera->GetLetterboxSettings();
+		Frame.CameraLetterbox.bEnabled = LetterboxSettings.bEnabled;
+		if (Frame.CameraLetterbox.bEnabled)
+		{
+			Frame.CameraLetterbox.Amount = LetterboxSettings.Amount;
+			Frame.CameraLetterbox.Thickness = LetterboxSettings.Thickness;
+			Frame.CameraLetterbox.Color = LetterboxSettings.Color;
+		}
+	}
+
+	Frame.CameraDepthOfField = FCameraDepthOfFieldState();
+	Camera->GetDepthOfFieldState(Frame.CameraDepthOfField);
+
+	FMinimalViewInfo RenderPOV = POV;
+	ApplyLetterboxAspect(RenderPOV, Frame.CameraLetterbox, Frame.ViewportWidth, Frame.ViewportHeight);
+	Frame.SetCameraInfo(RenderPOV);
+
+	Frame.bIsLightView = false;
+	Frame.WorldType = World->GetWorldType();
+
+	FViewportRenderOptions PreviewOptions = SourceRenderOptions;
+	PreviewOptions.ViewMode = EViewMode::Lit_Phong;
+	PreviewOptions.ViewportType = ELevelViewportType::Perspective;
+	PreviewOptions.bShowSelectedCameraPreview = false;
+	PreviewOptions.ShowFlags.bGrid = false;
+	PreviewOptions.ShowFlags.bWorldAxis = false;
+	PreviewOptions.ShowFlags.bGizmo = false;
+	PreviewOptions.ShowFlags.bBillboardText = false;
+	PreviewOptions.ShowFlags.bBoundingVolume = false;
+	PreviewOptions.ShowFlags.bDebugDraw = false;
+	PreviewOptions.ShowFlags.bOctree = false;
+	PreviewOptions.ShowFlags.bShowShadowFrustum = false;
+	PreviewOptions.ShowFlags.bViewLightCulling = false;
+	PreviewOptions.ShowFlags.bVisualize25DCulling = false;
+	Frame.SetRenderOptions(PreviewOptions);
+
+	Frame.OcclusionCulling = nullptr;
+	Frame.LODContext = World->PrepareLODContext();
+	Frame.LODContext.CameraPos = RenderPOV.Location;
+	Frame.CursorViewportX = UINT32_MAX;
+	Frame.CursorViewportY = UINT32_MAX;
+
+	FScene& Scene = World->GetScene();
+	Scene.ClearFrameData();
+
+	FCollectOutput Output;
+	FDrawCommandBuilder& Builder = Renderer.GetBuilder();
+	Builder.BeginCollect(Frame);
+	Collector.Collect(World, Frame, Output);
+	Builder.BuildCommands(Frame, &Scene, Output);
+
+	Renderer.Render(Frame, World, Scene);
+}

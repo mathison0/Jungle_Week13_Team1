@@ -111,6 +111,7 @@ struct FViewportRenderOptions
 	float Gamma = 2.4f;
 
 	// Depth of Field debug/quality setting
+	bool bShowSelectedCameraPreview = false;
 	EDepthOfFieldBlurMethod DepthOfFieldBlurMethod = EDepthOfFieldBlurMethod::TiledRotatedPoissonDisk;
 	float DepthOfFieldAcceptableCoCPixels = 0.5f;
 	float DepthOfFieldFocusTransitionPixels = 1.0f;

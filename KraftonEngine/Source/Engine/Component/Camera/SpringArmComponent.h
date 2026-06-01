@@ -28,6 +28,7 @@ public:
 
 	void BeginPlay() override;
 	void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction) override;
+	void RefreshSpringArm(float DeltaTime, bool bAllowLag);
 	// ─── 튜닝 파라미터 ─────────────────────────────────────────────
 	// arm 길이 — 부착점에서 카메라까지의 거리 (Local -X 방향).
 	UPROPERTY(Edit, Save, Category="SpringArm", DisplayName="Target Arm Length", Min=0.0f, Max=100000.0f, Speed=1.0f)

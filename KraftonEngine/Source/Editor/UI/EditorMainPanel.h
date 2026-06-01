@@ -15,12 +15,23 @@
 #include "Editor/UI/Util/EditorMaterialThumbnailManager.h"
 #include "Editor/UI/Util/EditorMeshThumbnailManager.h"
 #include "Math/Vector.h"
+#include "Viewport/Viewport.h"
+
+#include <memory>
 
 class AActor;
 class FRenderer;
 class UEditorEngine;
 class FWindowsWindow;
 class IEditorPreviewViewportClient;
+class UCameraComponent;
+
+struct FSelectedCameraPreviewCameraEntry
+{
+	UCameraComponent* Camera = nullptr;
+	FString Label;
+	bool bIsCineCamera = false;
+};
 
 class FEditorMainPanel
 {
@@ -61,9 +72,17 @@ private:
 	void HandleGlobalShortcuts();
 	void ToggleConsoleDrawer(bool bFocusInput);
 	void ProcessPendingDebugActions();
+	AActor* GetSelectedCameraPreviewActor() const;
+	void CollectSelectedCameraPreviewCameras(TArray<FSelectedCameraPreviewCameraEntry>& OutCameras) const;
+	void SyncSelectedCameraPreviewSelection(AActor* OwnerActor, const TArray<FSelectedCameraPreviewCameraEntry>& Cameras);
+	void RenderSelectedCameraPreviewCameraControls();
+	void RenderSelectedCameraPreviewWindow();
+	FViewport* GetOrCreateSelectedCameraPreviewViewport(uint32 Width, uint32 Height);
+	bool RenderSelectedCameraPreviewViewport(uint32 Width, uint32 Height);
 
 	FWindowsWindow* Window = nullptr;
 	UEditorEngine* EditorEngine = nullptr;
+	FRenderer* Renderer = nullptr;
 	FEditorConsoleWidget ConsoleWidget;
 	FEditorControlWidget ControlWidget;
 	FEditorPropertyWidget PropertyWidget;
@@ -103,5 +122,9 @@ private:
 	float DebugJitterZ = 0.0f;
 	TArray<AActor*> DebugLastSpawnedActors;
 	bool bPendingClearLastBatch = false;
+	AActor* SelectedCameraPreviewActor = nullptr;
+	UCameraComponent* SelectedCameraPreviewCamera = nullptr;
+	int32 SelectedCameraPreviewCameraIndex = 0;
+	std::unique_ptr<FViewport> SelectedCameraPreviewViewport;
 	FEditorSettings::FUIVisibility SavedUIVisibility{};
 };

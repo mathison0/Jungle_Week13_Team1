@@ -3,9 +3,11 @@
 #include "Object/Object.h"
 #include "Mesh/Skeletal/SkeletalMeshAsset.h"
 #include "Animation/Skeleton/SkeletonTypes.h"
+#include "Object/Ptr/SoftObjectPtr.h"
 #include "Physics/PhysicsAsset.h"
 
 class USkeleton;
+class FReferenceCollector;
 
 
 #include "Source/Engine/Mesh/Skeletal/SkeletalMesh.generated.h"
@@ -49,8 +51,14 @@ public:
     UBodySetup* AddDefaultPhysicsBodyForBone(int32 BoneIndex);
     bool AddPhysicsConstraintBetweenBodies(const FName& ParentBoneName, const FName& ChildBoneName);
     bool HasPhysicsConstraintBetweenBodies(const FName& BoneNameA, const FName& BoneNameB) const;
+    void SetPhysicsAsset(UPhysicsAsset* InPhysicsAsset);
+    const FString& GetPhysicsAssetPath() const { return PhysicsAssetPath.ToString(); }
+
+    void AddReferencedObjects(FReferenceCollector& Collector) override;
+    void PostEditProperty(const char* PropertyName) override;
 
 private:
+    void LoadPhysicsAssetFromPath();
     void CacheSectionMaterialIndices();
     void SyncSkeletonBindingToAsset();
     void SyncSkeletonBindingFromAsset();
@@ -63,6 +71,7 @@ private:
 
     FSkeletonBinding SkeletonBinding;
     USkeleton*       Skeleton = nullptr;
-    UPROPERTY(Edit, Save, Instanced, Category="Physics", DisplayName="Physics Asset", Type=ObjectRef, AllowedClass=UPhysicsAsset)
-    UPhysicsAsset*   PhysicsAsset = nullptr;
+    UPROPERTY(Edit, Save, Category="Physics", DisplayName="Physics Asset", AssetType="UPhysicsAsset", AllowedClass=UPhysicsAsset)
+    FSoftObjectPtr PhysicsAssetPath = "None";
+    UPhysicsAsset* PhysicsAsset = nullptr;
 };

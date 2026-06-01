@@ -54,3 +54,8 @@ void UCineCameraComponent::GetDepthOfFieldState(FCameraDepthOfFieldState& OutSta
 		return;
 	}
 }
+
+const char* UCineCameraComponent::GetEditorVisualizationMaterialPath() const
+{
+	return "Content/Material/Editor/EditorCineCamera_Black.mat";
+}

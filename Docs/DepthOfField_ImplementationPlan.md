@@ -12,9 +12,9 @@ Overall progress:
 
 ```text
 Documentation / UE parity review: Done
-Implementation progress: 0 / 8 batches accepted, 8 batches in Review, 0 batches in Progress
-Current work: Batch 8 - Near/Far DOF layer separation is ready for review
-Next review point: Visual comparison of separated Far background blur and premultiplied Near foreground blur, especially character/weapon silhouettes against focused or far backgrounds
+Implementation progress: 0 / 9 batches accepted, 8 batches in Review, 1 batch In Progress
+Current work: Batch 9E - Selected Camera Preview validation and polish is ready to start
+Next review point: Verify selected CameraComponent/CineCameraComponent preview updates live, applies camera DOF, and still leaves the main editor viewport camera DOF-free
 ```
 
 Status values:
@@ -38,6 +38,7 @@ Batch status:
 | 6 | Initial DOF shader and composite | Review | Added CoC, half-res blur, and composite shaders. Needs in-editor visual tuning/review. |
 | 7 | Editor/debug polish | Review | Camera DOF UI cleanup, focus visualization, debug focus plane, blur method dropdown, acceptable CoC, and focus transition controls are implemented. Show flag and material editor visibility polish remain. |
 | 8 | Near/Far DOF layer separation | Review | Split half-res DOF into Far and Near layers. Far is composited behind the sharp scene; Near is premultiplied and alpha-composited over it. |
+| 9 | Selected Camera Preview | In Progress | Batch 9D is in Review: the preview window now owns a separate `FViewport`, renders the selected CameraComponent/CineCameraComponent through the editor render pipeline, and displays the SRV in ImGui. Next sub-batch is validation/polish. |
 
 Sync rule:
 
@@ -72,6 +73,15 @@ Sync rule:
 | 2026-06-01 | Added renderer-level `Acceptable CoC` and `Focus Transition` debug controls. CoC generation now subtracts acceptable CoC in pixels before clamping, blur radius uses the effective CoC size, and composite blend uses a transition smoothstep instead of treating `MaxBlurSize` as blend sensitivity. |
 | 2026-06-01 | Started Batch 8: converting the single blurred DOF buffer into separated Far and Near layers. The target structure is full-res signed CoC, half-res Far ping-pong, half-res Near premultiplied ping-pong, then scene -> Far -> Near composite. |
 | 2026-06-01 | Completed Batch 8 implementation: viewport/frame resources now expose separate Far/Near half-res ping-pong targets, downsample writes both layers with MRT, blur runs per layer, and composite applies Far behind the scene then Near as premultiplied foreground. Verified DOF HLSL with `fxc` and built `Debug|x64` successfully; remaining warnings are existing FBX float-conversion and PhysX PDB link warnings. |
+| 2026-06-01 | Added Batch 9 pending plan for `Selected Camera Preview`: an Editor Debug controlled ImGui preview window that renders the selected Actor's CameraComponent/CineCameraComponent through a separate preview viewport so DOF can be inspected without changing the main editor viewport camera rules. |
+| 2026-06-01 | Started Batch 9A: adding the `Selected Camera Preview` Editor Debug toggle and persisted render-option hook before implementing camera discovery or preview rendering. |
+| 2026-06-01 | Completed Batch 9A implementation: added `bShowSelectedCameraPreview` to viewport render options, saved/loaded it through editor settings, and exposed `Selected Camera Preview` in the Editor Debug Depth of Field section. Built `Debug|x64` successfully; remaining warnings are existing FBX float-conversion and PhysX PDB link warnings. |
+| 2026-06-01 | Started Batch 9B: collecting selected Actor camera components, preferring `UCineCameraComponent` before plain `UCameraComponent`, and preserving the selected preview camera across frames when possible. |
+| 2026-06-01 | Completed Batch 9B implementation: `EditorMainPanel` now resolves the selected component owner or primary selected Actor, collects Cine cameras before plain cameras, preserves the chosen preview camera when possible, and shows the discovered camera/selector in the Editor Debug DOF section while the preview toggle is enabled. Built `Debug|x64` successfully; remaining warnings are existing PhysX PDB link warnings. |
+| 2026-06-01 | Started Batch 9C: moving selected-camera status/selection from the Editor Debug panel into a separate `Selected Camera Preview` ImGui window shell. |
+| 2026-06-01 | Completed Batch 9C implementation: the Editor Debug panel now only owns the `Selected Camera Preview` toggle, and the selected Actor/camera selector plus placeholder preview area render in a separate ImGui window. Built `Debug|x64` successfully; remaining warnings are existing PhysX PDB link warnings. |
+| 2026-06-01 | Started Batch 9D: adding a preview-owned render target/viewport and a selected-camera frame build path so the ImGui window can display a live camera render. |
+| 2026-06-01 | Completed Batch 9D implementation: `EditorMainPanel` now owns a separate preview `FViewport`, `UEditorEngine` exposes a narrow selected-camera preview render entry point, and `FEditorRenderPipeline` renders the selected CameraComponent/CineCameraComponent POV with its DOF state into the preview target while disabling editor overlay flags. Built `Debug|x64` successfully with 0 warnings and 0 errors. |
 
 ## Current Render Pass Order
 
@@ -727,6 +737,61 @@ Review point:
 
 The first debugging UI should expose enough values to test focus distance, blur strength, and Before/After DOF separation.
 
+## Phase 7: Selected Camera Preview
+
+Objective:
+
+Make DOF tuning possible from the real selected camera view without entering PIE and without applying camera post-process to the normal editor viewport camera.
+
+User-facing behavior:
+
+- Add an Editor Debug toggle named `Selected Camera Preview`.
+- When enabled, show a separate ImGui window.
+- If the selected Actor owns one or more camera components, render the selected camera's view into that window.
+- If multiple camera components exist, show a camera combo at the top of the preview window.
+- Prefer `UCineCameraComponent` entries before plain `UCameraComponent` entries.
+- If the selected object is a component, resolve its owner Actor and use that Actor's camera components.
+- If no camera is available, show an inactive preview message and skip rendering.
+
+Rendering behavior:
+
+- Use a preview-owned `FViewport` or equivalent render target resources.
+- Do not reuse the main level viewport render target or frame context.
+- Build a separate frame from the selected `UCameraComponent::GetCameraView`.
+- Resolve DOF/PostProcess from the selected camera for the preview frame.
+- Keep the main editor viewport camera path unchanged: normal editor viewport cameras still force DOF off.
+- Do not render editor gizmos, selection outlines, editor lines, or overlay UI in the first preview pass.
+- Keep the preview resolution modest by default, such as 480x270 or 512x288, and resize only from the ImGui preview area.
+
+Suggested Batch 9 breakdown:
+
+1. Batch 9A: settings and UI toggle.
+   - Add `Selected Camera Preview` to the Editor Debug panel.
+   - Persist the toggle in editor settings if it fits the existing settings flow.
+   - Do not render anything yet when the toggle is off.
+2. Batch 9B: camera discovery.
+   - From the primary selected Actor or selected component owner, collect camera components.
+   - Sort `UCineCameraComponent` before `UCameraComponent`.
+   - Add a stable selected-camera index or weak pointer reset when selection changes.
+3. Batch 9C: ImGui preview window shell.
+   - Add the preview window.
+   - Add no-camera text, selected Actor/camera labels, and a combo when more than one camera exists.
+   - Keep this UI independent from Show Flags because it is an editor tool window, not a scene render feature.
+4. Batch 9D: preview render target and frame build.
+   - Create a small preview-owned `FViewport`.
+   - Render the selected camera POV into that viewport.
+   - Feed the selected camera's DOF state into the preview frame.
+   - Skip editor-only overlays for the first pass.
+5. Batch 9E: validation and polish.
+   - Verify the main editor viewport still has DOF disabled.
+   - Verify selected CameraComponent and CineCameraComponent previews both update when properties change.
+   - Verify multiple cameras on one Actor can be selected from the combo.
+   - Build `Debug|x64`.
+
+Review point:
+
+The feature is acceptable when selecting an Actor with camera components gives a live DOF-capable camera preview in a separate ImGui window, while the main editor viewport remains a normal editing camera.
+
 ## Suggested Implementation Order
 
 1. Batch 1A: render pass enum and pass registration skeleton.
@@ -741,5 +806,10 @@ The first debugging UI should expose enough values to test focus distance, blur 
 10. Batch 6: first usable DOF shader and composite.
 11. Batch 7: editor/debug polish.
 12. Batch 8: Near/Far DOF layer separation.
+13. Batch 9A: selected camera preview settings and Editor Debug toggle.
+14. Batch 9B: selected Actor camera discovery and camera combo state.
+15. Batch 9C: selected camera preview ImGui window shell.
+16. Batch 9D: selected camera preview render target and frame build.
+17. Batch 9E: validation and polish.
 
 Each batch should compile independently whenever possible. If a batch cannot compile independently, the reason must be recorded in `Implementation Log`.

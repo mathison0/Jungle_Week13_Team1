@@ -443,6 +443,9 @@ void FEditorContentBrowserWidget::RefreshContent()
 					Icon = FEditorTextureManager::Get().GetOrLoadIcon(
 						FPaths::ToUtf8(FPaths::Combine(FPaths::AssetDir(), L"Editor/Icons/", L"S_PhysicalMaterial_64x.png")));
 					break;
+				case EAssetPackageType::PhysicsAsset:
+					Element = std::make_shared<PhysicsAssetElement>();
+					break;
 				default:
 					Element = std::make_shared<ContentBrowserElement>();
 					break;

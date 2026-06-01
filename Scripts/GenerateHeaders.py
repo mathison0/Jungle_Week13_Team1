@@ -114,6 +114,8 @@ ASSET_ALLOWED_CLASS_MAP = {
     "UAnimSequence": "UAnimSequence",
     "Skeleton": "USkeleton",
     "USkeleton": "USkeleton",
+    "PhysicsAsset": "UPhysicsAsset",
+    "UPhysicsAsset": "UPhysicsAsset",
 }
 
 ASSET_OBJECT_CLASSES = {
@@ -124,6 +126,7 @@ ASSET_OBJECT_CLASSES = {
     "UAnimSequence",
     "UAnimSequenceBase",
     "USkeleton",
+    "UPhysicsAsset",
 }
 
 

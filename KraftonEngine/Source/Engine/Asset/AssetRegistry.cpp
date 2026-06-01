@@ -9,6 +9,7 @@
 #include "Platform/Paths.h"
 #include "Particles/ParticleSystemManager.h"
 #include "Physics/PhysicsMaterial/PhysicalMaterialManager.h"
+#include "Physics/PhysicsAssetManager.h"
 
 #include <cstring>
 #include <filesystem>
@@ -54,6 +55,11 @@ namespace FAssetRegistry
 		{
 			FPhysicalMaterialManager::Get().RefreshAvailablePhysicalMaterials();
 			return FPhysicalMaterialManager::Get().GetAvailablePhysicalMaterialFiles();
+		}
+		if (std::strcmp(AssetTypeName, "UPhysicsAsset") == 0)
+		{
+			FPhysicsAssetManager::Get().RefreshAvailablePhysicsAssets();
+			return FPhysicsAssetManager::Get().GetAvailablePhysicsAssetFiles();
 		}
 		if (std::strcmp(AssetTypeName, "LuaAnimScript") == 0)
 		{

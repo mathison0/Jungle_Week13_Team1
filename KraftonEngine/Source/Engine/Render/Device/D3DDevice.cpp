@@ -26,6 +26,11 @@ void FD3DDevice::BeginFrame()
 	DeviceContext->ClearRenderTargetView(FrameBufferRTV, ClearColor);
 	DeviceContext->ClearDepthStencilView(DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 0.0f, 0);
 
+	BindFrameBuffer();
+}
+
+void FD3DDevice::BindFrameBuffer()
+{
 	DeviceContext->RSSetViewports(1, &ViewportInfo);
 	DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, DepthStencilView);
 }

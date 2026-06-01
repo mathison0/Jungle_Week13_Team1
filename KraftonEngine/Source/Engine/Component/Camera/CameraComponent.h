@@ -6,6 +6,7 @@
 #include "Math/Vector.h"
 
 struct FMinimalViewInfo;
+class UStaticMeshComponent;
 
 struct FCameraState
 {
@@ -29,6 +30,10 @@ public:
 
 	void BeginPlay() override;
 	void EndPlay() override;
+	void CreateRenderState() override;
+	void UpdateWorldMatrix() const override;
+	void PreGetEditableProperties() override;
+	UStaticMeshComponent* EnsureEditorVisualizationMesh();
 
 
 	void LookAt(const FVector& Target);
@@ -44,6 +49,7 @@ public:
 	// DeltaTime 은 향후 카메라 lag / interpolation 에 쓰이도록 시그니처 보존.
 	virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& OutPOV) const;
 	virtual void GetDepthOfFieldState(FCameraDepthOfFieldState& OutState) const;
+	virtual const char* GetEditorVisualizationMaterialPath() const;
 
 	void SetFOV(float InFOV) { CameraState.FOV = InFOV; }
 	void SetOrthoWidth(float InWidth) { CameraState.OrthoWidth = InWidth; }

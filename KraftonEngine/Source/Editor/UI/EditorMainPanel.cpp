@@ -2,12 +2,16 @@
 
 #include "Editor/EditorEngine.h"
 #include "Editor/Settings/EditorSettings.h"
+#include "Editor/Selection/SelectionManager.h"
 #include "Editor/Viewport/Level/LevelEditorViewportClient.h"
 #include "Render/Types/MinimalViewInfo.h"
 #include "Render/Types/ViewTypes.h"
+#include "Component/Camera/CameraComponent.h"
+#include "Component/Camera/CineCameraComponent.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
 #include "Engine/Platform/WindowsWindow.h"
+#include "Viewport/Viewport.h"
 
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
@@ -71,6 +75,17 @@ const char* GetDepthOfFieldBlurMethodLabel(EDepthOfFieldBlurMethod Method)
 
 }
 
+FString BuildSelectedCameraPreviewCameraLabel(const UCameraComponent* Camera, bool bIsCineCamera, int32 Index)
+{
+	FString Name = Camera ? Camera->GetName() : FString("(invalid)");
+	if (Name.empty() && Camera && Camera->GetClass())
+	{
+		Name = Camera->GetClass()->GetName();
+	}
+
+	return std::to_string(Index + 1) + ". " + Name + (bIsCineCamera ? " (Cine)" : " (Camera)");
+}
+
 void FEditorMainPanel::Create(FWindowsWindow* InWindow, FRenderer& InRenderer, UEditorEngine* InEditorEngine)
 {
 	IMGUI_CHECKVERSION();
@@ -83,6 +98,7 @@ void FEditorMainPanel::Create(FWindowsWindow* InWindow, FRenderer& InRenderer, U
 
 	Window = InWindow;
 	EditorEngine = InEditorEngine;
+	Renderer = &InRenderer;
 
 	// 한글 지원 폰트 로드 (시스템 맑은 고딕)
 	IO.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/malgun.ttf", 16.0f, nullptr, IO.Fonts->GetGlyphRangesKorean());
@@ -120,6 +136,8 @@ void FEditorMainPanel::Create(FWindowsWindow* InWindow, FRenderer& InRenderer, U
 
 void FEditorMainPanel::Release()
 {
+	SelectedCameraPreviewViewport.reset();
+	Renderer = nullptr;
 	AssetEditorManager.CloseAll();
 	ConsoleWidget.Shutdown();
 	ImGui_ImplDX11_Shutdown();
@@ -214,6 +232,7 @@ void FEditorMainPanel::Render(float DeltaTime)
 	if (!bHideEditorWindows)
 	{
 		RenderEditorDebugPanel();
+		RenderSelectedCameraPreviewWindow();
 	}
 
 	RenderShortcutOverlay();
@@ -406,6 +425,9 @@ void FEditorMainPanel::RenderEditorDebugPanel()
 		else
 		{
 			FViewportRenderOptions& RenderOptions = ActiveViewport->GetRenderOptions();
+			ImGui::Checkbox("Selected Camera Preview", &RenderOptions.bShowSelectedCameraPreview);
+			ImGui::Separator();
+
 			EDepthOfFieldBlurMethod CurrentMethod = RenderOptions.DepthOfFieldBlurMethod;
 			if (ImGui::BeginCombo("Blur Method", GetDepthOfFieldBlurMethodLabel(CurrentMethod)))
 			{
@@ -820,6 +842,275 @@ void FEditorMainPanel::Update()
 			ImmAssociateContext(hWnd, NULL);
 		}
 	}
+}
+
+AActor* FEditorMainPanel::GetSelectedCameraPreviewActor() const
+{
+	if (!EditorEngine)
+	{
+		return nullptr;
+	}
+
+	const FSelectionManager& Selection = EditorEngine->GetSelectionManager();
+	if (USceneComponent* SelectedComponent = Selection.GetSelectedComponent())
+	{
+		if (AActor* Owner = SelectedComponent->GetOwner())
+		{
+			return IsValid(Owner) ? Owner : nullptr;
+		}
+	}
+
+	AActor* PrimaryActor = Selection.GetPrimarySelection();
+	return IsValid(PrimaryActor) ? PrimaryActor : nullptr;
+}
+
+void FEditorMainPanel::CollectSelectedCameraPreviewCameras(TArray<FSelectedCameraPreviewCameraEntry>& OutCameras) const
+{
+	OutCameras.clear();
+
+	AActor* OwnerActor = GetSelectedCameraPreviewActor();
+	if (!OwnerActor)
+	{
+		return;
+	}
+
+	auto AddCameraEntry = [&OutCameras](UCameraComponent* Camera, bool bIsCineCamera)
+	{
+		if (!IsValid(Camera))
+		{
+			return;
+		}
+
+		FSelectedCameraPreviewCameraEntry Entry;
+		Entry.Camera = Camera;
+		Entry.bIsCineCamera = bIsCineCamera;
+		Entry.Label = BuildSelectedCameraPreviewCameraLabel(Camera, bIsCineCamera, static_cast<int32>(OutCameras.size()));
+		OutCameras.push_back(Entry);
+	};
+
+	for (UActorComponent* Component : OwnerActor->GetComponents())
+	{
+		if (UCineCameraComponent* CineCamera = Cast<UCineCameraComponent>(Component))
+		{
+			AddCameraEntry(CineCamera, true);
+		}
+	}
+
+	for (UActorComponent* Component : OwnerActor->GetComponents())
+	{
+		if (Cast<UCineCameraComponent>(Component))
+		{
+			continue;
+		}
+
+		if (UCameraComponent* Camera = Cast<UCameraComponent>(Component))
+		{
+			AddCameraEntry(Camera, false);
+		}
+	}
+}
+
+void FEditorMainPanel::SyncSelectedCameraPreviewSelection(AActor* OwnerActor, const TArray<FSelectedCameraPreviewCameraEntry>& Cameras)
+{
+	if (SelectedCameraPreviewActor != OwnerActor)
+	{
+		SelectedCameraPreviewActor = OwnerActor;
+		SelectedCameraPreviewCamera = nullptr;
+		SelectedCameraPreviewCameraIndex = 0;
+	}
+
+	if (Cameras.empty())
+	{
+		SelectedCameraPreviewCamera = nullptr;
+		SelectedCameraPreviewCameraIndex = 0;
+		return;
+	}
+
+	for (int32 Index = 0; Index < static_cast<int32>(Cameras.size()); ++Index)
+	{
+		if (Cameras[Index].Camera == SelectedCameraPreviewCamera)
+		{
+			SelectedCameraPreviewCameraIndex = Index;
+			return;
+		}
+	}
+
+	if (SelectedCameraPreviewCameraIndex < 0 || SelectedCameraPreviewCameraIndex >= static_cast<int32>(Cameras.size()))
+	{
+		SelectedCameraPreviewCameraIndex = 0;
+	}
+	SelectedCameraPreviewCamera = Cameras[SelectedCameraPreviewCameraIndex].Camera;
+}
+
+void FEditorMainPanel::RenderSelectedCameraPreviewCameraControls()
+{
+	TArray<FSelectedCameraPreviewCameraEntry> Cameras;
+	AActor* OwnerActor = GetSelectedCameraPreviewActor();
+	CollectSelectedCameraPreviewCameras(Cameras);
+	SyncSelectedCameraPreviewSelection(OwnerActor, Cameras);
+
+	if (!OwnerActor)
+	{
+		ImGui::TextDisabled("No selected Actor or component.");
+		return;
+	}
+
+	ImGui::Text("Selected Actor: %s", OwnerActor->GetName().c_str());
+	if (Cameras.empty())
+	{
+		ImGui::TextDisabled("No CameraComponent on selected Actor.");
+		return;
+	}
+
+	const char* CurrentLabel = Cameras[SelectedCameraPreviewCameraIndex].Label.c_str();
+	if (Cameras.size() == 1)
+	{
+		ImGui::Text("Camera: %s", CurrentLabel);
+		return;
+	}
+
+	if (ImGui::BeginCombo("Camera", CurrentLabel))
+	{
+		for (int32 Index = 0; Index < static_cast<int32>(Cameras.size()); ++Index)
+		{
+			const bool bSelected = Index == SelectedCameraPreviewCameraIndex;
+			if (ImGui::Selectable(Cameras[Index].Label.c_str(), bSelected))
+			{
+				SelectedCameraPreviewCameraIndex = Index;
+				SelectedCameraPreviewCamera = Cameras[Index].Camera;
+			}
+			if (bSelected)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+}
+
+FViewport* FEditorMainPanel::GetOrCreateSelectedCameraPreviewViewport(uint32 Width, uint32 Height)
+{
+	if (!Renderer || Width == 0 || Height == 0)
+	{
+		return nullptr;
+	}
+
+	ID3D11Device* Device = Renderer->GetFD3DDevice().GetDevice();
+	if (!Device)
+	{
+		return nullptr;
+	}
+
+	if (!SelectedCameraPreviewViewport)
+	{
+		SelectedCameraPreviewViewport = std::make_unique<FViewport>();
+		if (!SelectedCameraPreviewViewport->Initialize(Device, Width, Height))
+		{
+			SelectedCameraPreviewViewport.reset();
+			return nullptr;
+		}
+		return SelectedCameraPreviewViewport.get();
+	}
+
+	SelectedCameraPreviewViewport->RequestResize(Width, Height);
+	return SelectedCameraPreviewViewport.get();
+}
+
+bool FEditorMainPanel::RenderSelectedCameraPreviewViewport(uint32 Width, uint32 Height)
+{
+	if (!EditorEngine || !SelectedCameraPreviewCamera)
+	{
+		return false;
+	}
+
+	FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
+	if (!ActiveViewport)
+	{
+		return false;
+	}
+
+	FViewport* PreviewViewport = GetOrCreateSelectedCameraPreviewViewport(Width, Height);
+	if (!PreviewViewport)
+	{
+		return false;
+	}
+
+	const bool bRendered = EditorEngine->RenderSelectedCameraPreviewViewport(
+		PreviewViewport,
+		SelectedCameraPreviewCamera,
+		ActiveViewport->GetRenderOptions());
+	Renderer->BindFrameBuffer();
+	return bRendered && PreviewViewport->GetSRV() != nullptr;
+}
+
+void FEditorMainPanel::RenderSelectedCameraPreviewWindow()
+{
+	if (!EditorEngine)
+	{
+		return;
+	}
+
+	FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
+	if (!ActiveViewport)
+	{
+		return;
+	}
+
+	FViewportRenderOptions& RenderOptions = ActiveViewport->GetRenderOptions();
+	if (!RenderOptions.bShowSelectedCameraPreview)
+	{
+		return;
+	}
+
+	bool bOpen = RenderOptions.bShowSelectedCameraPreview;
+	ImGui::SetNextWindowSize(ImVec2(520.0f, 360.0f), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Selected Camera Preview", &bOpen))
+	{
+		RenderOptions.bShowSelectedCameraPreview = bOpen;
+		ImGui::End();
+		return;
+	}
+
+	RenderOptions.bShowSelectedCameraPreview = bOpen;
+	RenderSelectedCameraPreviewCameraControls();
+
+	ImGui::Separator();
+
+	ImVec2 PreviewSize = ImGui::GetContentRegionAvail();
+	if (PreviewSize.x < 1.0f)
+	{
+		PreviewSize.x = 1.0f;
+	}
+	if (PreviewSize.y < 1.0f)
+	{
+		PreviewSize.y = 1.0f;
+	}
+
+	const ImVec2 PreviewMin = ImGui::GetCursorScreenPos();
+	const uint32 PreviewWidth = static_cast<uint32>((std::max)(1.0f, PreviewSize.x));
+	const uint32 PreviewHeight = static_cast<uint32>((std::max)(1.0f, PreviewSize.y));
+	const bool bRenderedPreview = RenderSelectedCameraPreviewViewport(PreviewWidth, PreviewHeight);
+	if (bRenderedPreview && SelectedCameraPreviewViewport && SelectedCameraPreviewViewport->GetSRV())
+	{
+		ImGui::Image((ImTextureID)SelectedCameraPreviewViewport->GetSRV(), PreviewSize);
+	}
+	else
+	{
+		const ImVec2 PreviewMax = ImVec2(PreviewMin.x + PreviewSize.x, PreviewMin.y + PreviewSize.y);
+		ImDrawList* DrawList = ImGui::GetWindowDrawList();
+		DrawList->AddRectFilled(PreviewMin, PreviewMax, IM_COL32(18, 18, 18, 255));
+		DrawList->AddRect(PreviewMin, PreviewMax, IM_COL32(85, 85, 85, 255));
+
+		const char* PlaceholderText = SelectedCameraPreviewCamera ? "Preview render target unavailable" : "Select an Actor with CameraComponent";
+		const ImVec2 TextSize = ImGui::CalcTextSize(PlaceholderText);
+		const ImVec2 TextPos = ImVec2(
+			PreviewMin.x + (PreviewSize.x - TextSize.x) * 0.5f,
+			PreviewMin.y + (PreviewSize.y - TextSize.y) * 0.5f);
+		DrawList->AddText(TextPos, IM_COL32(150, 150, 150, 255), PlaceholderText);
+		ImGui::Dummy(PreviewSize);
+	}
+
+	ImGui::End();
 }
 
 void FEditorMainPanel::ToggleConsoleDrawer(bool bFocusInput)
