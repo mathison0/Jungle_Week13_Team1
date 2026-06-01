@@ -1,0 +1,23 @@
+{
+  "BlendState" : "",
+  "DepthStencilState" : "",
+  "EmissiveColor" : [1.000000, 1.000000, 1.000000, 1.000000],
+  "EmissiveIntensity" : 0.000000,
+  "Origin" : "ObjImport",
+  "Parameters" : {
+    "HasNormalMap" : 1.000000,
+    "SectionColor" : [1.000000, 1.000000, 1.000000, 1.000000],
+    "_pad" : [0.000000, 0.000000, 0.000000]
+  },
+  "PathFileName" : "Content/Material/Auto/MI_OffroadCar_Suspension.001.mat",
+  "RasterizerState" : "",
+  "RenderPass" : "Opaque",
+  "ShaderPath" : "Shaders/Geometry/UberLit.hlsl",
+  "ShadowMode" : "Opaque",
+  "Textures" : {
+    "DiffuseTexture" : "Content/Data/OffRoad/MI_OffroadCar_Suspension_BaseColor_3.png",
+    "NormalTexture" : "Content/Data/OffRoad/T_SportsCar_BotN.PNG"
+  },
+  "TranslucencyPass" : "AfterDOF",
+  "bEnableBloom" : false
+}

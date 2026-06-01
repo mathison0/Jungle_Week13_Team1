@@ -1,10 +1,12 @@
-#pragma once
+﻿#pragma once
 
-#include "GameFramework/AActor.h"
+#include "GameFramework/Pawn/Pawn.h"
 
 #include "Source/Game/PxVehicle4WActor.generated.h"
 
 class UBoxComponent;
+class UCameraComponent;
+class USpringArmComponent;
 class UStaticMeshComponent;
 class UPxVehicleMovementComponent;
 
@@ -16,7 +18,7 @@ class UPxVehicleMovementComponent;
 // 기존 AVehicle4WActor(sweep)와 별개로 존재한다.
 // ======================================================
 UCLASS()
-class APxVehicle4WActor : public AActor
+class APxVehicle4WActor : public APawn
 {
 public:
 	GENERATED_BODY()
@@ -26,13 +28,18 @@ public:
 	void InitDefaultComponents();
 	void PostDuplicate() override;
 
-	UBoxComponent* GetChassisComponent() const { return ChassisComponent; }
-	UPxVehicleMovementComponent* GetVehicleMovementComponent() const { return VehicleMovementComponent; }
+	UBoxComponent* GetChassisComponent()						const { return ChassisComponent; }
+	UPxVehicleMovementComponent* GetVehicleMovementComponent()	const { return VehicleMovementComponent; }
+	USpringArmComponent* GetSpringArm()							const { return SpringArm; }
+	UCameraComponent* GetCamera()								const { return Camera; }
 
 private:
 	void RebindComponents();
 
 	UBoxComponent* ChassisComponent = nullptr;
+	UStaticMeshComponent* BodyMesh = nullptr;
 	UStaticMeshComponent* WheelMeshes[4] = {};
 	UPxVehicleMovementComponent* VehicleMovementComponent = nullptr;
+	USpringArmComponent* SpringArm = nullptr;
+	UCameraComponent* Camera = nullptr;
 };

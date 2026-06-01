@@ -1,4 +1,4 @@
-#include "Game/PxVehicle4WActor.h"
+﻿#include "Game/PxVehicle4WActor.h"
 
 #include "Component/Movement/PxVehicleMovementComponent.h"
 #include "Component/Shape/BoxComponent.h"
@@ -7,12 +7,11 @@
 #include "Engine/Runtime/Engine.h"
 #include "Mesh/MeshManager.h"
 #include "Object/FName.h"
+#include "Component/Camera/SpringArmComponent.h"
+#include "Math/Rotator.h"
 
 namespace
 {
-	// 시각 전용 바퀴 메시(실린더). 충돌은 없고, 회전/조향은 컴포넌트가 PxVehicle 결과로 맞춘다.
-	const char* const GWheelMeshPath = "Content/Data/BasicShape/Cylinder.obj";
-
 	const char* GWheelNames[4] =
 	{
 		"WheelMesh_FL", "WheelMesh_FR", "WheelMesh_RL", "WheelMesh_RR"
@@ -38,12 +37,28 @@ void APxVehicle4WActor::InitDefaultComponents()
 	ChassisComponent->SetCollisionObjectType(ECollisionChannel::WorldDynamic);
 	ChassisComponent->SetSimulatePhysics(true);
 	ChassisComponent->SetMass(1200.0f);
-	ChassisComponent->SetCenterOfMass(FVector(0.0f, 0.0f, -0.25f));
+	ChassisComponent->SetCenterOfMass(FVector(0.0f, 0.0f, -0.32f));
 
-	// 바퀴: 시각 전용 StaticMesh. NoCollision이라 물리 씬에 등록되지 않아(섀시에 충돌도형이
-	// 붙지 않음) PxVehicle raycast 서스펜션과 충돌하지 않는다.
+	// 3인칭 카메라 체인 — Capsule → SpringArm → Camera. lag 적용해 부드럽게 따라옴.
+	SpringArm = AddComponent<USpringArmComponent>();
+	SpringArm->AttachToComponent(ChassisComponent);
+	SpringArm->TargetArmLength = 10.0f;
+	SpringArm->SocketOffset = FVector(0.0f, 0.0f, 3.0f);
+	SpringArm->bEnableCameraLag = false;
+	SpringArm->bEnableCameraRotationLag = false;
+
+	// mouse look 이 capsule rotation 안 건드리고 카메라만 회전 — UE ThirdPerson 패턴.
+	// ACharacter::Tick 이 APawn::ControlRotation 누적 → SpringArm 이 이걸 inherit.
+	SpringArm->bUsePawnControlRotation = false;
+	SpringArm->bInheritPitch = true;
+	SpringArm->bInheritYaw = true;
+	SpringArm->bInheritRoll = false;
+
+	Camera = AddComponent<UCameraComponent>();
+	Camera->AttachToComponent(SpringArm);
+
+	// 메시 로드(첫 로드 시 임포트+쿠킹+_StaticMesh.uasset 저장). 바퀴는 한 에셋을 4개가 공유.
 	auto* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-	UStaticMesh* WheelMesh = FMeshManager::LoadStaticMesh(GWheelMeshPath, Device);
 
 	for (int32 WheelIndex = 0; WheelIndex < 4; ++WheelIndex)
 	{
@@ -51,10 +66,17 @@ void APxVehicle4WActor::InitDefaultComponents()
 		Wheel->SetFName(FName(GWheelNames[WheelIndex]));
 		Wheel->AttachToComponent(ChassisComponent);
 		Wheel->SetRelativeLocation(GWheelLocations[WheelIndex]);
-		Wheel->SetStaticMesh(WheelMesh);
 		Wheel->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		WheelMeshes[WheelIndex] = Wheel;
 	}
+
+	// 차체 시각 메시: 섀시에 붙는 NoCollision StaticMesh. 물리엔 영향 없음.
+	// 메시 native 스케일/회전이 박스(2.8×1.5×0.7m)와 안 맞으면 RelativeScale/Rotation으로 보정.
+	BodyMesh = AddComponent<UStaticMeshComponent>();
+	BodyMesh->SetFName(FName("BodyMesh"));
+	BodyMesh->AttachToComponent(ChassisComponent);
+	BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	BodyMesh->SetRelativeLocation(FVector(0.f, 0.f, -1.f));
 
 	VehicleMovementComponent = AddComponent<UPxVehicleMovementComponent>();
 	VehicleMovementComponent->SetUpdatedComponent(ChassisComponent);
@@ -78,15 +100,32 @@ void APxVehicle4WActor::RebindComponents()
 	{
 		WheelMeshes[WheelIndex] = nullptr;
 	}
+	BodyMesh = nullptr;
 
-	int32 FoundWheelIndex = 0;
+	// 바퀴/차체를 "이름"으로 정확한 슬롯에 매칭한다. GetComponents() 순회 순서에 의존하면
+	// PIE 복제(Duplicate) 후 순서가 바뀌어 바퀴가 한 칸씩 밀리는 문제가 생긴다.
+	const FName BodyName("BodyMesh");
 	for (UActorComponent* Component : GetComponents())
 	{
-		if (UStaticMeshComponent* Mesh = Cast<UStaticMeshComponent>(Component))
+		UStaticMeshComponent* Mesh = Cast<UStaticMeshComponent>(Component);
+		if (!Mesh)
 		{
-			if (FoundWheelIndex < 4)
+			continue;
+		}
+
+		const FName MeshName = Mesh->GetFName();
+		if (MeshName == BodyName)
+		{
+			BodyMesh = Mesh;
+			continue;
+		}
+
+		for (int32 WheelIndex = 0; WheelIndex < 4; ++WheelIndex)
+		{
+			if (MeshName == FName(GWheelNames[WheelIndex]))
 			{
-				WheelMeshes[FoundWheelIndex++] = Mesh;
+				WheelMeshes[WheelIndex] = Mesh;
+				break;
 			}
 		}
 	}

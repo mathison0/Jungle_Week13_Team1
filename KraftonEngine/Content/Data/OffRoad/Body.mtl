@@ -1,0 +1,45 @@
+# Blender 5.1.0 MTL File: 'None'
+# www.blender.org
+
+newmtl MI_OffroadCar_Lights.001
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.300499 0.309321 0.330208
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl MI_OffroadCar_Main.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ni 1.500000
+illum 2
+map_Kd MI_OffroadCar_Main_BaseColor_0.png
+map_Ke MI_OffroadCar_Main_EmissiveColor_0.png
+map_d MI_OffroadCar_Main_BaseColor_0.png
+map_Bump -bm 1.000000 T_SportsCar_BotN.PNG
+
+newmtl MI_OffroadCar_Seats.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ni 1.500000
+illum 2
+map_Kd MI_OffroadCar_Seats_BaseColor_2.png
+map_Ke MI_OffroadCar_Seats_EmissiveColor_2.png
+map_d MI_OffroadCar_Seats_BaseColor_2.png
+map_Bump -bm 1.000000 T_SportsCar_BotN.PNG
+
+newmtl MI_OffroadCar_Suspension.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ni 1.500000
+illum 2
+map_Kd MI_OffroadCar_Suspension_BaseColor_3.png
+map_Ke MI_OffroadCar_Suspension_EmissiveColor_3.png
+map_d MI_OffroadCar_Suspension_BaseColor_3.png
+map_Bump -bm 1.000000 T_SportsCar_BotN.PNG
