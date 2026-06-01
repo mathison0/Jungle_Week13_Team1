@@ -589,7 +589,18 @@ def build_array_inner_property(
         )
 
     if element_property_type == "Struct":
-        struct_type = prop.struct_type if prop.struct_type and prop.struct_type != "nullptr" else f"{element_cpp_type}::StaticStruct()"
+        # 배열 원소가 struct 면 StructType 은 "원소 타입"에서 도출한다. prop.struct_type 은
+        # 배열 프로퍼티 자신의 Type= 표현(배열엔 무의미 → "nullptr" 문자열)이라 그대로 쓰면
+        # StructType=nullptr 가 되어 FStructProperty::SerializeValue 가 즉시 return → 원소가
+        # 직렬화되지 않는다(랙돌 조인트가 끊겼던 원인). 그래서 element_cpp_type 의 StaticStruct() 를 쓴다.
+        # 단, TYPE_MAP 타입(float 등)이 Struct 로 오분류돼 들어오면 StaticStruct() 가 없어 컴파일이
+        # 깨지므로 그 경우만 nullptr 로 둔다 — 컴파일 안전망이며 정상 입력에선 이 분기에 도달하지 않는다.
+        if prop.struct_type and prop.struct_type != "nullptr":
+            struct_type = prop.struct_type
+        elif element_cpp_type not in TYPE_MAP:
+            struct_type = f"{element_cpp_type}::StaticStruct()"
+        else:
+            struct_type = "nullptr"
         return (
             f"\tnew FStructProperty(\n"
             f"\t\t{cpp_string_literal(inner_name)},\n"
