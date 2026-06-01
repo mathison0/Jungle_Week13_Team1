@@ -11,6 +11,7 @@
 #include "Component/Debug/BoneDebugComponent.h"
 
 #include <d3d11.h>
+#include <functional>
 
 class UGizmoComponent;
 class FWindowsWindow;
@@ -89,10 +90,12 @@ public:
 	void SetSelectedBone(USkeletalMesh* Mesh, int32 BoneIndex);
 	void SetSelectedPhysicsBody(USkeletalMesh* Mesh, int32 BoneIndex, UBodySetup* BodySetup);
 	const FBone* GetSelectedBone() const;
+	void SetOnPhysicsBodyPicked(std::function<void(int32, UBodySetup*)> InCallback) { OnPhysicsBodyPicked = std::move(InCallback); }
 
 	EBoneDebugDrawMode GetBoneDebugDrawMode() const;
 	void SetBoneDebugDrawMode(EBoneDebugDrawMode InDrawMode);
 	void SetPhysicsAssetDebugDrawEnabled(bool bEnabled);
+	void SetPhysicsAssetSolidDebugDrawEnabled(bool bEnabled);
 
 	void ApplyTransformSettingsToGizmo();
 
@@ -106,10 +109,12 @@ private:
 	void SyncGizmo();
 
 	void HandleDragStart(const FRay& Ray);
+	bool TryPickPhysicsAssetBody(const FRay& Ray);
 
 private:
 	USkeletalMesh* SelectedMesh = nullptr;
 	int32 SelectedBoneIndex = -1;
+	UBodySetup* SelectedPhysicsBodySetup = nullptr;
 
 	FViewport* Viewport = nullptr;
 	FWindowsWindow* Window = nullptr;
@@ -120,6 +125,7 @@ private:
 	UGizmoComponent* Gizmo = nullptr;
 	USkeletalMeshComponent* PreviewMeshComponent = nullptr;
 	UBoneDebugComponent* BoneDebugComponent = nullptr;
+	std::function<void(int32, UBodySetup*)> OnPhysicsBodyPicked;
 
 	UWorld* PreviewWorld = nullptr;
 	AActor* PreviewActor = nullptr;

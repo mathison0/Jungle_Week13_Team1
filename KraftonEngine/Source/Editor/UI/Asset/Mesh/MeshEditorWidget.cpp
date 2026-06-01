@@ -289,6 +289,11 @@ void FMeshEditorWidget::Open(UObject* Object)
 	ViewportClient.CreatePreviewGizmo();
 	ViewportClient.CreateBoneDebugComponent();
 	ViewportClient.ResetCameraToPreviousBounds();
+	ViewportClient.SetOnPhysicsBodyPicked([this](int32 BoneIndex, UBodySetup* BodySetup)
+		{
+			SelectedBoneIndex = BoneIndex;
+			SelectedBodySetup = BodySetup;
+		});
 
 	WorldContext.World->SetEditorPOVProvider(&ViewportClient);
 
@@ -323,6 +328,7 @@ void FMeshEditorWidget::Close()
 	FSlateApplication::Get().UnregisterViewport(&ViewportClient);
 
 	ViewportClient.Release();
+	ViewportClient.SetOnPhysicsBodyPicked(nullptr);
 	SelectedBodySetup = nullptr;
 }
 
@@ -432,6 +438,8 @@ void FMeshEditorWidget::Render(float DeltaTime)
 	RenderTabBar();
 	ImGui::Separator();
 	ViewportClient.SetPhysicsAssetDebugDrawEnabled(ActiveTab == EMeshEditorTab::PhysicalAsset);
+	ViewportClient.SetPhysicsAssetSolidDebugDrawEnabled(
+		ActiveTab == EMeshEditorTab::PhysicalAsset && ViewportClient.GetRenderOptions().bShowPhysicsAssetSolid);
 
 	const float AvailableHeight = ImGui::GetContentRegionAvail().y;
 
@@ -614,6 +622,11 @@ void FMeshEditorWidget::RenderViewportPanel(ImVec2 Size)
 						EShaderErrorMode::Notification,
 						true);
 				}
+			}
+
+			if (ActiveTab == EMeshEditorTab::PhysicalAsset)
+			{
+				ImGui::Checkbox("Physics Body Solid", &RenderOptions.bShowPhysicsAssetSolid);
 			}
 		};
 

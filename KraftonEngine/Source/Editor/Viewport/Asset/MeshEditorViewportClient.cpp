@@ -16,9 +16,11 @@
 #include "Slate/SlateApplication.h"
 #include "Physics/BodySetup.h"
 #include "Physics/PhysicsGeometry.h"
+#include "Physics/PhysicsAsset.h"
 
 #include <imgui.h>
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 
 namespace
@@ -84,6 +86,33 @@ namespace
 			std::max(MinPhysicsBodyGizmoScale, Scale.X),
 			std::max(MinPhysicsBodyGizmoScale, Scale.Y),
 			std::max(MinPhysicsBodyGizmoScale, Scale.Z));
+	}
+
+	bool IntersectShapeLocalAABB(const FRay& WorldRay, const FMatrix& ShapeWorldMatrix, const FVector& LocalExtent, float& OutDistance)
+	{
+		const FMatrix Inverse = ShapeWorldMatrix.GetInverse();
+		FRay LocalRay;
+		LocalRay.Origin = Inverse.TransformPositionWithW(WorldRay.Origin);
+		LocalRay.Direction = Inverse.TransformVector(WorldRay.Direction);
+		LocalRay.Direction.Normalize();
+
+		float LocalTMin = 0.0f;
+		float LocalTMax = 0.0f;
+		if (!FRayUtils::IntersectRayAABB(LocalRay, LocalExtent * -1.0f, LocalExtent, LocalTMin, LocalTMax))
+		{
+			return false;
+		}
+
+		const float HitT = LocalTMin >= 0.0f ? LocalTMin : LocalTMax;
+		if (HitT < 0.0f)
+		{
+			return false;
+		}
+
+		const FVector LocalHit = LocalRay.Origin + LocalRay.Direction * HitT;
+		const FVector WorldHit = ShapeWorldMatrix.TransformPositionWithW(LocalHit);
+		OutDistance = FVector::Distance(WorldRay.Origin, WorldHit);
+		return true;
 	}
 }
 
@@ -269,6 +298,7 @@ void FMeshEditorViewportClient::Release()
 
 	PreviewWorld = nullptr;
 	PreviewActor = nullptr;
+	OnPhysicsBodyPicked = nullptr;
 
 	UObjectManager::Get().DestroyObject(Gizmo);
 	Gizmo = nullptr;
@@ -402,6 +432,7 @@ void FMeshEditorViewportClient::SetSelectedBone(USkeletalMesh* Mesh, int32 BoneI
 {
 	SelectedMesh = Mesh;
 	SelectedBoneIndex = BoneIndex;
+	SelectedPhysicsBodySetup = nullptr;
 	RenderOptions.WeightBoneHeatMapBoneIndex = BoneIndex;
 	PhysicsBodyTarget.Clear();
 
@@ -419,6 +450,7 @@ void FMeshEditorViewportClient::SetSelectedBone(USkeletalMesh* Mesh, int32 BoneI
 	{
 		BoneDebugComponent->SetTargetMeshComponent(PreviewMeshComponent);
 		BoneDebugComponent->SetSelectedBoneIndex(BoneIndex);
+		BoneDebugComponent->SetSelectedPhysicsBodySetup(nullptr);
 	}
 }
 
@@ -426,6 +458,7 @@ void FMeshEditorViewportClient::SetSelectedPhysicsBody(USkeletalMesh* Mesh, int3
 {
 	SelectedMesh = Mesh;
 	SelectedBoneIndex = BoneIndex;
+	SelectedPhysicsBodySetup = BodySetup;
 	RenderOptions.WeightBoneHeatMapBoneIndex = BoneIndex;
 
 	PhysicsBodyTarget.SetBody(PreviewMeshComponent, BodySetup);
@@ -443,6 +476,7 @@ void FMeshEditorViewportClient::SetSelectedPhysicsBody(USkeletalMesh* Mesh, int3
 	{
 		BoneDebugComponent->SetTargetMeshComponent(PreviewMeshComponent);
 		BoneDebugComponent->SetSelectedBoneIndex(BoneIndex);
+		BoneDebugComponent->SetSelectedPhysicsBodySetup(BodySetup);
 	}
 }
 
@@ -476,6 +510,14 @@ void FMeshEditorViewportClient::SetPhysicsAssetDebugDrawEnabled(bool bEnabled)
 	if (BoneDebugComponent)
 	{
 		BoneDebugComponent->SetDrawPhysicsAsset(bEnabled);
+	}
+}
+
+void FMeshEditorViewportClient::SetPhysicsAssetSolidDebugDrawEnabled(bool bEnabled)
+{
+	if (BoneDebugComponent)
+	{
+		BoneDebugComponent->SetDrawPhysicsAssetSolid(bEnabled);
 	}
 }
 
@@ -737,5 +779,88 @@ void FMeshEditorViewportClient::HandleDragStart(const FRay& Ray)
 	if (FRayUtils::RaycastComponent(Gizmo, Ray, Hit))
 	{
 		Gizmo->SetPressedOnHandle(true);
+		return;
 	}
+
+	TryPickPhysicsAssetBody(Ray);
+}
+
+bool FMeshEditorViewportClient::TryPickPhysicsAssetBody(const FRay& Ray)
+{
+	if (!PreviewMeshComponent)
+	{
+		return false;
+	}
+
+	USkeletalMesh* Mesh = PreviewMeshComponent->GetSkeletalMesh();
+	UPhysicsAsset* PhysicsAsset = Mesh ? Mesh->GetPhysicsAsset() : nullptr;
+	if (!PhysicsAsset || !PhysicsAsset->HasAnyBodySetup())
+	{
+		return false;
+	}
+
+	UBodySetup* BestBody = nullptr;
+	int32 BestBoneIndex = -1;
+	float BestDistance = FLT_MAX;
+
+	for (UBodySetup* BodySetup : PhysicsAsset->BodySetups)
+	{
+		if (!BodySetup || !BodySetup->HasGeometry())
+		{
+			continue;
+		}
+
+		const int32 BoneIndex = PreviewMeshComponent->FindBoneIndex(BodySetup->GetBoneName().ToString());
+		if (BoneIndex < 0)
+		{
+			continue;
+		}
+
+		FTransform BoneWorldTransform;
+		if (!PreviewMeshComponent->GetBoneWorldTransformByIndex(BoneIndex, BoneWorldTransform))
+		{
+			continue;
+		}
+
+		const FMatrix BoneWorldMatrix = BoneWorldTransform.ToMatrix();
+		const FKAggregateGeom& AggGeom = BodySetup->GetAggGeom();
+
+		auto TestShape = [&](const FMatrix& LocalShapeMatrix, const FVector& LocalExtent)
+		{
+			float Distance = 0.0f;
+			const FMatrix ShapeWorldMatrix = LocalShapeMatrix * BoneWorldMatrix;
+			if (IntersectShapeLocalAABB(Ray, ShapeWorldMatrix, LocalExtent, Distance) && Distance < BestDistance)
+			{
+				BestDistance = Distance;
+				BestBody = BodySetup;
+				BestBoneIndex = BoneIndex;
+			}
+		};
+
+		for (const FKSphereElem& Sphere : AggGeom.SphereElems)
+		{
+			TestShape(Sphere.Transform.ToMatrix(), FVector(Sphere.Radius, Sphere.Radius, Sphere.Radius));
+		}
+		for (const FKBoxElem& Box : AggGeom.BoxElems)
+		{
+			TestShape(Box.Transform.ToMatrix(), Box.Extent);
+		}
+		for (const FKSphylElem& Sphyl : AggGeom.SphylElems)
+		{
+			const float HalfHeight = Sphyl.Length * 0.5f + Sphyl.Radius;
+			TestShape(Sphyl.Transform.ToMatrix(), FVector(Sphyl.Radius, Sphyl.Radius, HalfHeight));
+		}
+	}
+
+	if (!BestBody)
+	{
+		return false;
+	}
+
+	SetSelectedPhysicsBody(Mesh, BestBoneIndex, BestBody);
+	if (OnPhysicsBodyPicked)
+	{
+		OnPhysicsBodyPicked(BestBoneIndex, BestBody);
+	}
+	return true;
 }
