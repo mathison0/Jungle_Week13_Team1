@@ -75,10 +75,14 @@ struct FFrameContext
 
 	ID3D11RenderTargetView*   DepthOfFieldCoCRTV       = nullptr;
 	ID3D11ShaderResourceView* DepthOfFieldCoCSRV       = nullptr;
-	ID3D11RenderTargetView*   DepthOfFieldBlurRTVA     = nullptr;
-	ID3D11ShaderResourceView* DepthOfFieldBlurSRVA     = nullptr;
-	ID3D11RenderTargetView*   DepthOfFieldBlurRTVB     = nullptr;
-	ID3D11ShaderResourceView* DepthOfFieldBlurSRVB     = nullptr;
+	ID3D11RenderTargetView*   DepthOfFieldFarRTVA      = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldFarSRVA      = nullptr;
+	ID3D11RenderTargetView*   DepthOfFieldFarRTVB      = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldFarSRVB      = nullptr;
+	ID3D11RenderTargetView*   DepthOfFieldNearRTVA     = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldNearSRVA     = nullptr;
+	ID3D11RenderTargetView*   DepthOfFieldNearRTVB     = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldNearSRVB     = nullptr;
 
 	// Cursor position relative to viewport (for debug visualization)
 	uint32 CursorViewportX = UINT32_MAX;
@@ -155,9 +159,13 @@ struct FFrameContext
 		BloomSRVB               = nullptr;
 		DepthOfFieldCoCRTV      = nullptr;
 		DepthOfFieldCoCSRV      = nullptr;
-		DepthOfFieldBlurRTVA    = nullptr;
-		DepthOfFieldBlurSRVA    = nullptr;
-		DepthOfFieldBlurRTVB    = nullptr;
-		DepthOfFieldBlurSRVB    = nullptr;
+		DepthOfFieldFarRTVA     = nullptr;
+		DepthOfFieldFarSRVA     = nullptr;
+		DepthOfFieldFarRTVB     = nullptr;
+		DepthOfFieldFarSRVB     = nullptr;
+		DepthOfFieldNearRTVA    = nullptr;
+		DepthOfFieldNearSRVA    = nullptr;
+		DepthOfFieldNearRTVB    = nullptr;
+		DepthOfFieldNearSRVB    = nullptr;
 	}
 };

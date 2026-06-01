@@ -270,29 +270,53 @@ bool FViewport::CreateResources()
 	DOFBlurDesc.Usage = D3D11_USAGE_DEFAULT;
 	DOFBlurDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-	hr = Device->CreateTexture2D(&DOFBlurDesc, nullptr, &DepthOfFieldBlurTextureA);
+	hr = Device->CreateTexture2D(&DOFBlurDesc, nullptr, &DepthOfFieldFarTextureA);
 	if (FAILED(hr)) return false;
-	DepthOfFieldBlurTextureA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurTextureA")), "ViewportDepthOfFieldBlurTextureA");
+	DepthOfFieldFarTextureA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldFarTextureA")), "ViewportDepthOfFieldFarTextureA");
 
-	hr = Device->CreateRenderTargetView(DepthOfFieldBlurTextureA, nullptr, &DepthOfFieldBlurRTVA);
+	hr = Device->CreateRenderTargetView(DepthOfFieldFarTextureA, nullptr, &DepthOfFieldFarRTVA);
 	if (FAILED(hr)) return false;
-	DepthOfFieldBlurRTVA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurRTVA")), "ViewportDepthOfFieldBlurRTVA");
+	DepthOfFieldFarRTVA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldFarRTVA")), "ViewportDepthOfFieldFarRTVA");
 
-	hr = Device->CreateShaderResourceView(DepthOfFieldBlurTextureA, nullptr, &DepthOfFieldBlurSRVA);
+	hr = Device->CreateShaderResourceView(DepthOfFieldFarTextureA, nullptr, &DepthOfFieldFarSRVA);
 	if (FAILED(hr)) return false;
-	DepthOfFieldBlurSRVA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurSRVA")), "ViewportDepthOfFieldBlurSRVA");
+	DepthOfFieldFarSRVA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldFarSRVA")), "ViewportDepthOfFieldFarSRVA");
 
-	hr = Device->CreateTexture2D(&DOFBlurDesc, nullptr, &DepthOfFieldBlurTextureB);
+	hr = Device->CreateTexture2D(&DOFBlurDesc, nullptr, &DepthOfFieldFarTextureB);
 	if (FAILED(hr)) return false;
-	DepthOfFieldBlurTextureB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurTextureB")), "ViewportDepthOfFieldBlurTextureB");
+	DepthOfFieldFarTextureB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldFarTextureB")), "ViewportDepthOfFieldFarTextureB");
 
-	hr = Device->CreateRenderTargetView(DepthOfFieldBlurTextureB, nullptr, &DepthOfFieldBlurRTVB);
+	hr = Device->CreateRenderTargetView(DepthOfFieldFarTextureB, nullptr, &DepthOfFieldFarRTVB);
 	if (FAILED(hr)) return false;
-	DepthOfFieldBlurRTVB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurRTVB")), "ViewportDepthOfFieldBlurRTVB");
+	DepthOfFieldFarRTVB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldFarRTVB")), "ViewportDepthOfFieldFarRTVB");
 
-	hr = Device->CreateShaderResourceView(DepthOfFieldBlurTextureB, nullptr, &DepthOfFieldBlurSRVB);
+	hr = Device->CreateShaderResourceView(DepthOfFieldFarTextureB, nullptr, &DepthOfFieldFarSRVB);
 	if (FAILED(hr)) return false;
-	DepthOfFieldBlurSRVB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldBlurSRVB")), "ViewportDepthOfFieldBlurSRVB");
+	DepthOfFieldFarSRVB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldFarSRVB")), "ViewportDepthOfFieldFarSRVB");
+
+	hr = Device->CreateTexture2D(&DOFBlurDesc, nullptr, &DepthOfFieldNearTextureA);
+	if (FAILED(hr)) return false;
+	DepthOfFieldNearTextureA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldNearTextureA")), "ViewportDepthOfFieldNearTextureA");
+
+	hr = Device->CreateRenderTargetView(DepthOfFieldNearTextureA, nullptr, &DepthOfFieldNearRTVA);
+	if (FAILED(hr)) return false;
+	DepthOfFieldNearRTVA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldNearRTVA")), "ViewportDepthOfFieldNearRTVA");
+
+	hr = Device->CreateShaderResourceView(DepthOfFieldNearTextureA, nullptr, &DepthOfFieldNearSRVA);
+	if (FAILED(hr)) return false;
+	DepthOfFieldNearSRVA->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldNearSRVA")), "ViewportDepthOfFieldNearSRVA");
+
+	hr = Device->CreateTexture2D(&DOFBlurDesc, nullptr, &DepthOfFieldNearTextureB);
+	if (FAILED(hr)) return false;
+	DepthOfFieldNearTextureB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldNearTextureB")), "ViewportDepthOfFieldNearTextureB");
+
+	hr = Device->CreateRenderTargetView(DepthOfFieldNearTextureB, nullptr, &DepthOfFieldNearRTVB);
+	if (FAILED(hr)) return false;
+	DepthOfFieldNearRTVB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldNearRTVB")), "ViewportDepthOfFieldNearRTVB");
+
+	hr = Device->CreateShaderResourceView(DepthOfFieldNearTextureB, nullptr, &DepthOfFieldNearSRVB);
+	if (FAILED(hr)) return false;
+	DepthOfFieldNearSRVB->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("ViewportDepthOfFieldNearSRVB")), "ViewportDepthOfFieldNearSRVB");
 
 	// Bloom uses half resolution so a small blur radius spreads farther on screen
 	// without producing obvious sparse sample marks.
@@ -358,12 +382,18 @@ void FViewport::ReleaseResources()
 	if (BloomRTVA) { BloomRTVA->Release(); BloomRTVA = nullptr; }
 	if (BloomTextureA) { BloomTextureA->Release(); BloomTextureA = nullptr; }
 
-	if (DepthOfFieldBlurSRVB) { DepthOfFieldBlurSRVB->Release(); DepthOfFieldBlurSRVB = nullptr; }
-	if (DepthOfFieldBlurRTVB) { DepthOfFieldBlurRTVB->Release(); DepthOfFieldBlurRTVB = nullptr; }
-	if (DepthOfFieldBlurTextureB) { DepthOfFieldBlurTextureB->Release(); DepthOfFieldBlurTextureB = nullptr; }
-	if (DepthOfFieldBlurSRVA) { DepthOfFieldBlurSRVA->Release(); DepthOfFieldBlurSRVA = nullptr; }
-	if (DepthOfFieldBlurRTVA) { DepthOfFieldBlurRTVA->Release(); DepthOfFieldBlurRTVA = nullptr; }
-	if (DepthOfFieldBlurTextureA) { DepthOfFieldBlurTextureA->Release(); DepthOfFieldBlurTextureA = nullptr; }
+	if (DepthOfFieldNearSRVB) { DepthOfFieldNearSRVB->Release(); DepthOfFieldNearSRVB = nullptr; }
+	if (DepthOfFieldNearRTVB) { DepthOfFieldNearRTVB->Release(); DepthOfFieldNearRTVB = nullptr; }
+	if (DepthOfFieldNearTextureB) { DepthOfFieldNearTextureB->Release(); DepthOfFieldNearTextureB = nullptr; }
+	if (DepthOfFieldNearSRVA) { DepthOfFieldNearSRVA->Release(); DepthOfFieldNearSRVA = nullptr; }
+	if (DepthOfFieldNearRTVA) { DepthOfFieldNearRTVA->Release(); DepthOfFieldNearRTVA = nullptr; }
+	if (DepthOfFieldNearTextureA) { DepthOfFieldNearTextureA->Release(); DepthOfFieldNearTextureA = nullptr; }
+	if (DepthOfFieldFarSRVB) { DepthOfFieldFarSRVB->Release(); DepthOfFieldFarSRVB = nullptr; }
+	if (DepthOfFieldFarRTVB) { DepthOfFieldFarRTVB->Release(); DepthOfFieldFarRTVB = nullptr; }
+	if (DepthOfFieldFarTextureB) { DepthOfFieldFarTextureB->Release(); DepthOfFieldFarTextureB = nullptr; }
+	if (DepthOfFieldFarSRVA) { DepthOfFieldFarSRVA->Release(); DepthOfFieldFarSRVA = nullptr; }
+	if (DepthOfFieldFarRTVA) { DepthOfFieldFarRTVA->Release(); DepthOfFieldFarRTVA = nullptr; }
+	if (DepthOfFieldFarTextureA) { DepthOfFieldFarTextureA->Release(); DepthOfFieldFarTextureA = nullptr; }
 	if (DepthOfFieldCoCSRV) { DepthOfFieldCoCSRV->Release(); DepthOfFieldCoCSRV = nullptr; }
 	if (DepthOfFieldCoCRTV) { DepthOfFieldCoCRTV->Release(); DepthOfFieldCoCRTV = nullptr; }
 	if (DepthOfFieldCoCTexture) { DepthOfFieldCoCTexture->Release(); DepthOfFieldCoCTexture = nullptr; }

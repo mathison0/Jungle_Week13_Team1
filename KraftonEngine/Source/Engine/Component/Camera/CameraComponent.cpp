@@ -92,4 +92,15 @@ void UCameraComponent::GetDepthOfFieldState(FCameraDepthOfFieldState& OutState) 
 	OutState.DepthOfFieldScale = DOF.DepthOfFieldScale * PostProcessBlendWeight;
 	OutState.DepthOfFieldMaxBlurSize = DOF.DepthOfFieldMaxBlurSize;
 	OutState.bVisualizeFocusDistance = DOF.bVisualizeFocusDistance;
+	OutState.DepthOfFieldFstop = DOF.DepthOfFieldFstop > 0.1f ? DOF.DepthOfFieldFstop : 0.1f;
+	OutState.CurrentAperture = OutState.DepthOfFieldFstop;
+	OutState.CurrentFocusDistance = DOF.DepthOfFieldFocalDistance > 0.0f ? DOF.DepthOfFieldFocalDistance : 0.0f;
+
+	const float SensorHeight = OutState.SensorHeight > 0.001f ? OutState.SensorHeight : 20.25f;
+	const float HalfFOV = CameraState.FOV * 0.5f;
+	if (HalfFOV > 0.001f && HalfFOV < 1.5607f)
+	{
+		OutState.CurrentFocalLength = SensorHeight / (2.0f * tanf(HalfFOV));
+	}
+	OutState.CurrentHorizontalFOV = 2.0f * atanf(tanf(HalfFOV) * CameraState.AspectRatio);
 }

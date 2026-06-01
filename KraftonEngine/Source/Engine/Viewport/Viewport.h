@@ -66,10 +66,14 @@ public:
 	// Depth of Field temporary RTs
 	ID3D11RenderTargetView* GetDepthOfFieldCoCRTV() const { return DepthOfFieldCoCRTV; }
 	ID3D11ShaderResourceView* GetDepthOfFieldCoCSRV() const { return DepthOfFieldCoCSRV; }
-	ID3D11RenderTargetView* GetDepthOfFieldBlurRTVA() const { return DepthOfFieldBlurRTVA; }
-	ID3D11ShaderResourceView* GetDepthOfFieldBlurSRVA() const { return DepthOfFieldBlurSRVA; }
-	ID3D11RenderTargetView* GetDepthOfFieldBlurRTVB() const { return DepthOfFieldBlurRTVB; }
-	ID3D11ShaderResourceView* GetDepthOfFieldBlurSRVB() const { return DepthOfFieldBlurSRVB; }
+	ID3D11RenderTargetView* GetDepthOfFieldFarRTVA() const { return DepthOfFieldFarRTVA; }
+	ID3D11ShaderResourceView* GetDepthOfFieldFarSRVA() const { return DepthOfFieldFarSRVA; }
+	ID3D11RenderTargetView* GetDepthOfFieldFarRTVB() const { return DepthOfFieldFarRTVB; }
+	ID3D11ShaderResourceView* GetDepthOfFieldFarSRVB() const { return DepthOfFieldFarSRVB; }
+	ID3D11RenderTargetView* GetDepthOfFieldNearRTVA() const { return DepthOfFieldNearRTVA; }
+	ID3D11ShaderResourceView* GetDepthOfFieldNearSRVA() const { return DepthOfFieldNearSRVA; }
+	ID3D11RenderTargetView* GetDepthOfFieldNearRTVB() const { return DepthOfFieldNearRTVB; }
+	ID3D11ShaderResourceView* GetDepthOfFieldNearSRVB() const { return DepthOfFieldNearSRVB; }
 
 	const D3D11_VIEWPORT& GetViewportRect() const { return ViewportRect; }
 
@@ -119,18 +123,26 @@ private:
 	ID3D11RenderTargetView* BloomRTVB = nullptr;
 	ID3D11ShaderResourceView* BloomSRVB = nullptr;
 
-	// Depth of Field resources: full-res CoC and half-res blur ping-pong
+	// Depth of Field resources: full-res CoC and half-res Far/Near blur ping-pong
 	ID3D11Texture2D* DepthOfFieldCoCTexture = nullptr;
 	ID3D11RenderTargetView* DepthOfFieldCoCRTV = nullptr;
 	ID3D11ShaderResourceView* DepthOfFieldCoCSRV = nullptr;
 
-	ID3D11Texture2D* DepthOfFieldBlurTextureA = nullptr;
-	ID3D11RenderTargetView* DepthOfFieldBlurRTVA = nullptr;
-	ID3D11ShaderResourceView* DepthOfFieldBlurSRVA = nullptr;
+	ID3D11Texture2D* DepthOfFieldFarTextureA = nullptr;
+	ID3D11RenderTargetView* DepthOfFieldFarRTVA = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldFarSRVA = nullptr;
 
-	ID3D11Texture2D* DepthOfFieldBlurTextureB = nullptr;
-	ID3D11RenderTargetView* DepthOfFieldBlurRTVB = nullptr;
-	ID3D11ShaderResourceView* DepthOfFieldBlurSRVB = nullptr;
+	ID3D11Texture2D* DepthOfFieldFarTextureB = nullptr;
+	ID3D11RenderTargetView* DepthOfFieldFarRTVB = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldFarSRVB = nullptr;
+
+	ID3D11Texture2D* DepthOfFieldNearTextureA = nullptr;
+	ID3D11RenderTargetView* DepthOfFieldNearRTVA = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldNearSRVA = nullptr;
+
+	ID3D11Texture2D* DepthOfFieldNearTextureB = nullptr;
+	ID3D11RenderTargetView* DepthOfFieldNearRTVB = nullptr;
+	ID3D11ShaderResourceView* DepthOfFieldNearSRVB = nullptr;
 
 	D3D11_VIEWPORT ViewportRect = {};
 

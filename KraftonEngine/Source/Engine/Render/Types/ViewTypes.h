@@ -112,6 +112,8 @@ struct FViewportRenderOptions
 
 	// Depth of Field debug/quality setting
 	EDepthOfFieldBlurMethod DepthOfFieldBlurMethod = EDepthOfFieldBlurMethod::TiledRotatedPoissonDisk;
+	float DepthOfFieldAcceptableCoCPixels = 0.5f;
+	float DepthOfFieldFocusTransitionPixels = 1.0f;
 
 	// Light Culling 뷰모드 전용 설정
 	ELightCullingMode LightCullingMode = ELightCullingMode::Cluster;

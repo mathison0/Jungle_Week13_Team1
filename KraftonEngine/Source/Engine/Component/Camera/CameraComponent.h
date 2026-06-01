@@ -69,6 +69,8 @@ private:
 	float PostProcessBlendWeight = 1.0f;
 
 	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Enable Depth of Field", Member=PostProcessSettings.DepthOfField.bEnableDepthOfField, Type=Bool);
+	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Focal Distance", Member=PostProcessSettings.DepthOfField.DepthOfFieldFocalDistance, Type=Float, Min=0.0f, Max=100000.0f, Speed=0.1f);
+	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="F-stop", Member=PostProcessSettings.DepthOfField.DepthOfFieldFstop, Type=Float, Min=0.1f, Max=64.0f, Speed=0.05f);
 	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Scale", Member=PostProcessSettings.DepthOfField.DepthOfFieldScale, Type=Float, Min=0.0f, Max=10.0f, Speed=0.01f);
 	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Max Blur Size", Member=PostProcessSettings.DepthOfField.DepthOfFieldMaxBlurSize, Type=Float, Min=0.0f, Max=100.0f, Speed=0.1f);
 	UPROPERTY(Edit, Save, Category="PostProcess|Depth of Field", DisplayName="Visualize Focus Distance", Member=PostProcessSettings.DepthOfField.bVisualizeFocusDistance, Type=Bool);
