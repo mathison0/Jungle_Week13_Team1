@@ -498,17 +498,29 @@ static bool SaveSkeletalMeshBinary(USkeletalMesh* SkeletalMesh, const FString& B
 	return Writer.IsValid();
 }
 
-static bool AutoGeneratePhysicsAssetForImportedSkeletalMesh(USkeletalMesh* SkeletalMesh)
+static bool AutoGeneratePhysicsAssetForImportedSkeletalMesh(USkeletalMesh* SkeletalMesh, const FString& PackagePath)
 {
 	if (!SkeletalMesh)
 	{
+		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation skipped: reason=NullSkeletalMesh package=%s",
+			PackagePath.c_str());
 		return false;
 	}
 
 	FSkeletalMesh* MeshAsset = SkeletalMesh->GetSkeletalMeshAsset();
-	UPhysicsAsset* PhysicsAsset = MeshAsset ? SkeletalMesh->EnsurePhysicsAsset() : nullptr;
-	if (!MeshAsset || !PhysicsAsset)
+	if (!MeshAsset)
 	{
+		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation skipped: reason=MissingMeshAsset package=%s",
+			PackagePath.c_str());
+		return false;
+	}
+
+	UPhysicsAsset* PhysicsAsset = SkeletalMesh->EnsurePhysicsAsset();
+	if (!PhysicsAsset)
+	{
+		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation skipped: reason=MissingPhysicsAsset package=%s source=%s",
+			PackagePath.c_str(),
+			MeshAsset->PathFileName.c_str());
 		return false;
 	}
 
@@ -524,18 +536,26 @@ static bool AutoGeneratePhysicsAssetForImportedSkeletalMesh(USkeletalMesh* Skele
 	Settings.MinShapeSize = 0.01f;
 	Settings.MinVertexCount = 12;
 
+	UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation requested: package=%s source=%s bones=%d vertices=%d",
+		PackagePath.c_str(),
+		MeshAsset->PathFileName.c_str(),
+		static_cast<int32>(MeshAsset->Bones.size()),
+		static_cast<int32>(MeshAsset->Vertices.size()));
+
 	FPhysicsAssetAutoGenerateStats Stats;
 	const bool bGenerated = PhysicsAsset->AutoGeneratePrimitiveBodiesFromSkeletalMesh(*MeshAsset, Settings, &Stats);
 	if (bGenerated)
 	{
-		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generated: bodies=%d constraints=%d skipped=%d",
+		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generated before save: package=%s bodies=%d constraints=%d skipped=%d",
+			PackagePath.c_str(),
 			Stats.BodyCount,
 			Stats.ConstraintCount,
 			Stats.SkippedBoneCount);
 	}
 	else
 	{
-		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation produced no bodies: skipped=%d",
+		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation produced no bodies before save: package=%s skipped=%d",
+			PackagePath.c_str(),
 			Stats.SkippedBoneCount);
 	}
 
@@ -1113,7 +1133,7 @@ bool FMeshManager::ImportSkeletalMeshAsNew(const FString& SourceFbxPath, ID3D11D
 	SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 	SkeletalMesh->SetSkeletalMeshAsset(NewMesh.release());
 	SkeletalMesh->SetSkeleton(Skeleton);
-	AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh);
+	AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath);
 
 	if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, SourceFbxPath))
 	{
@@ -1224,7 +1244,7 @@ bool FMeshManager::ImportSkeletalMesh(const FSkeletalMeshImportRequest& Request,
 	SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 	SkeletalMesh->SetSkeletalMeshAsset(new FSkeletalMesh(std::move(ImportResult.Mesh)));
 	SkeletalMesh->SetSkeleton(TargetSkeleton);
-	AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh);
+	AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath);
 
 	if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, Request.SourceFbxPath))
 	{
@@ -1376,7 +1396,7 @@ bool FMeshManager::ImportFbxScene(
 			SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 			SkeletalMesh->SetSkeletalMeshAsset(new FSkeletalMesh(std::move(ImportResult.Mesh)));
 			SkeletalMesh->SetSkeleton(EffectiveSkeleton);
-			AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh);
+			AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath);
 
 			if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, Request.SourceFbxPath))
 			{

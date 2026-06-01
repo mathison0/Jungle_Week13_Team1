@@ -196,6 +196,21 @@ static EGeneratedBodyShape ChooseBodyShape(const FString& BoneName, bool bHasUsa
     return bHasUsableAxis ? EGeneratedBodyShape::Capsule : EGeneratedBodyShape::Box;
 }
 
+static const char* ToShapeLogName(EGeneratedBodyShape Shape)
+{
+    switch (Shape)
+    {
+    case EGeneratedBodyShape::Sphere:
+        return "Sphere";
+    case EGeneratedBodyShape::Box:
+        return "Box";
+    case EGeneratedBodyShape::Capsule:
+        return "Capsule";
+    default:
+        return "Unknown";
+    }
+}
+
 static int32 FindBestChildBone(
     const FSkeletalMesh& Mesh,
     const TArray<TArray<int32>>& ChildrenByBone,
@@ -287,12 +302,18 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
     const int32 BoneCount = static_cast<int32>(Mesh.Bones.size());
     if (BoneCount <= 0 || Mesh.Vertices.empty())
     {
+        UE_LOG("[PhysicsAssetAutoGen] Aborted: bones=%d vertices=%d",
+            BoneCount,
+            static_cast<int32>(Mesh.Vertices.size()));
         if (OutStats) *OutStats = Stats;
         return false;
     }
 
     if (Settings.bReplaceExisting)
     {
+        UE_LOG("[PhysicsAssetAutoGen] Replacing existing setup: bodies=%d constraints=%d",
+            static_cast<int32>(BodySetups.size()),
+            static_cast<int32>(ConstraintSetups.size()));
         for (UBodySetup* BodySetup : BodySetups)
         {
             if (BodySetup)
@@ -308,6 +329,22 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
     const float UpperPercentile = FMath::Clamp(Settings.UpperPercentile, LowerPercentile + 0.01f, 1.0f);
     const float MinShapeSize = std::max(Settings.MinShapeSize, 0.001f);
     const float ShapePadding = std::max(Settings.ShapePadding, 1.0f);
+    const int32 RequiredMinVertexCount = std::max(Settings.MinVertexCount, 1);
+
+    UE_LOG(
+        "[PhysicsAssetAutoGen] Start: bones=%d vertices=%d replace=%s constraints=%s dominantOnly=%s filters=%s minWeight=%.3f percentile=%.2f-%.2f padding=%.2f minSize=%.3f minVerts=%d",
+        BoneCount,
+        static_cast<int32>(Mesh.Vertices.size()),
+        Settings.bReplaceExisting ? "true" : "false",
+        Settings.bCreateConstraints ? "true" : "false",
+        Settings.bUseDominantBoneOnly ? "true" : "false",
+        Settings.bUseDefaultNameFilters ? "true" : "false",
+        Settings.MinBoneWeight,
+        LowerPercentile,
+        UpperPercentile,
+        ShapePadding,
+        MinShapeSize,
+        RequiredMinVertexCount);
 
     TArray<FMatrix> BoneGlobalInverse;
     BoneGlobalInverse.resize(BoneCount);
@@ -389,15 +426,24 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
 
         if (bHasBodyForBone[BoneIndex])
         {
+            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=ExistingBody",
+                Bone.Name.c_str());
             continue;
         }
         if (Settings.bUseDefaultNameFilters && ShouldSkipBoneName(Bone.Name))
         {
+            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=NameFilter samples=%d",
+                Bone.Name.c_str(),
+                static_cast<int32>(Samples.size()));
             ++Stats.SkippedBoneCount;
             continue;
         }
-        if (Samples.size() < static_cast<size_t>(std::max(Settings.MinVertexCount, 1)))
+        if (Samples.size() < static_cast<size_t>(RequiredMinVertexCount))
         {
+            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=InsufficientSamples samples=%d required=%d",
+                Bone.Name.c_str(),
+                static_cast<int32>(Samples.size()),
+                RequiredMinVertexCount);
             ++Stats.SkippedBoneCount;
             continue;
         }
@@ -410,6 +456,9 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
         const FVector Extent = MaxVector((LocalMax - LocalMin) * (0.5f * ShapePadding), MinShapeSize);
         if (!IsFiniteVector(Center) || !IsFiniteVector(Extent))
         {
+            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=InvalidBounds samples=%d",
+                Bone.Name.c_str(),
+                static_cast<int32>(Samples.size()));
             ++Stats.SkippedBoneCount;
             continue;
         }
@@ -449,6 +498,15 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
             Sphere.Radius = std::max(Percentile(Distances, UpperPercentile) * ShapePadding, MinShapeSize);
             Sphere.Transform.Location = Center;
             BodySetup->GetAggGeom().SphereElems.push_back(Sphere);
+
+            UE_LOG("[PhysicsAssetAutoGen] Body bone=%s shape=%s samples=%d center=(%.3f,%.3f,%.3f) radius=%.3f",
+                Bone.Name.c_str(),
+                ToShapeLogName(Shape),
+                static_cast<int32>(Samples.size()),
+                Sphere.Transform.Location.X,
+                Sphere.Transform.Location.Y,
+                Sphere.Transform.Location.Z,
+                Sphere.Radius);
         }
         else if (Shape == EGeneratedBodyShape::Capsule && bHasUsableAxis)
         {
@@ -503,6 +561,19 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
             Sphyl.Transform.Location = PerpCenter + CapsuleAxis * CenterProjection;
             Sphyl.Transform.Rotation = MakeQuatFromZAxis(CapsuleAxis);
             BodySetup->GetAggGeom().SphylElems.push_back(Sphyl);
+
+            UE_LOG("[PhysicsAssetAutoGen] Body bone=%s shape=%s samples=%d center=(%.3f,%.3f,%.3f) radius=%.3f length=%.3f axis=(%.3f,%.3f,%.3f)",
+                Bone.Name.c_str(),
+                ToShapeLogName(Shape),
+                static_cast<int32>(Samples.size()),
+                Sphyl.Transform.Location.X,
+                Sphyl.Transform.Location.Y,
+                Sphyl.Transform.Location.Z,
+                Sphyl.Radius,
+                Sphyl.Length,
+                CapsuleAxis.X,
+                CapsuleAxis.Y,
+                CapsuleAxis.Z);
         }
         else
         {
@@ -511,10 +582,23 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
             Box.Extent = Extent;
             Box.Transform.Location = Center;
             BodySetup->GetAggGeom().BoxElems.push_back(Box);
+
+            UE_LOG("[PhysicsAssetAutoGen] Body bone=%s shape=Box samples=%d center=(%.3f,%.3f,%.3f) extent=(%.3f,%.3f,%.3f)",
+                Bone.Name.c_str(),
+                static_cast<int32>(Samples.size()),
+                Box.Transform.Location.X,
+                Box.Transform.Location.Y,
+                Box.Transform.Location.Z,
+                Box.Extent.X,
+                Box.Extent.Y,
+                Box.Extent.Z);
         }
 
         if (!BodySetup->HasGeometry())
         {
+            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=NoGeometry shape=%s",
+                Bone.Name.c_str(),
+                ToShapeLogName(Shape));
             UObjectManager::Get().DestroyObject(BodySetup);
             ++Stats.SkippedBoneCount;
             continue;
@@ -565,6 +649,10 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
             Constraint.Option.Swing2LimitDegrees = 60.0f;
             ConstraintSetups.push_back(Constraint);
             ++Stats.ConstraintCount;
+
+            UE_LOG("[PhysicsAssetAutoGen] Constraint parent=%s child=%s",
+                Mesh.Bones[ParentBoneIndex].Name.c_str(),
+                Mesh.Bones[ChildBoneIndex].Name.c_str());
         }
     }
 
@@ -573,7 +661,7 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
         *OutStats = Stats;
     }
 
-    UE_LOG("[PhysicsAsset] Auto-generated primitive bodies=%d constraints=%d skipped=%d",
+    UE_LOG("[PhysicsAssetAutoGen] Completed: bodies=%d constraints=%d skipped=%d",
         Stats.BodyCount,
         Stats.ConstraintCount,
         Stats.SkippedBoneCount);
