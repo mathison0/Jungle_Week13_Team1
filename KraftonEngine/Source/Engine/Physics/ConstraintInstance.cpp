@@ -5,8 +5,9 @@
 
 using namespace physx;
 
-void FConstraintInstance::InitConstraint(FBodyInstance* InParentBody, FBodyInstance* InChildBody)
+void FConstraintInstance::InitConstraint(const FConstraintSetup& InSetup, FBodyInstance* InParentBody, FBodyInstance* InChildBody)
 {
+    Setup = InSetup;
     ParentBody = InParentBody;
     ChildBody = InChildBody;
 }

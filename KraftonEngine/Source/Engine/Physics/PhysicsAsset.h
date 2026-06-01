@@ -46,8 +46,8 @@ public:
 
     // 두 body를 연결하는 ragdoll joint 설정 목록.
     // ParentBoneName과 ChildBoneName은 위 BodySetups에 등록된 bone 이름을 가리켜야 한다.
-    UPROPERTY(Edit, Save, Category="Physics", DisplayName="Constraint Setups", Type=Array, Struct=FConstraintInstance)
-    TArray<FConstraintInstance> ConstraintSetups;
+    UPROPERTY(Edit, Save, Category="Physics", DisplayName="Constraint Setups", Type=Array, Struct=FConstraintSetup)
+    TArray<FConstraintSetup> ConstraintSetups;
 
     bool HasAnyBodySetup() const;
     bool HasAnyConstraintSetup() const;

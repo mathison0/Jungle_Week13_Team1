@@ -244,9 +244,9 @@ static int32 FindBestChildBone(
     return BestChild;
 }
 
-static bool HasConstraint(const TArray<FConstraintInstance>& Constraints, const FName& ParentBoneName, const FName& ChildBoneName)
+static bool HasConstraint(const TArray<FConstraintSetup>& Constraints, const FName& ParentBoneName, const FName& ChildBoneName)
 {
-    for (const FConstraintInstance& Constraint : Constraints)
+    for (const FConstraintSetup& Constraint : Constraints)
     {
         if (Constraint.ParentBoneName == ParentBoneName && Constraint.ChildBoneName == ChildBoneName)
         {
@@ -636,7 +636,7 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
                 continue;
             }
 
-            FConstraintInstance Constraint;
+            FConstraintSetup Constraint;
             Constraint.ConstraintName = Mesh.Bones[ParentBoneIndex].Name + " -> " + Mesh.Bones[ChildBoneIndex].Name;
             Constraint.ParentBoneName = ParentBoneName;
             Constraint.ChildBoneName = ChildBoneName;

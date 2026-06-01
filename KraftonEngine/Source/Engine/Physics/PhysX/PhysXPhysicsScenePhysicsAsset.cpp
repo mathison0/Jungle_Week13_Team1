@@ -54,7 +54,7 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 	// Editor에서 저장한 bone 이름으로 runtime body를 찾아 PxD6Joint를 생성한다.
 	// BodySetup이 없거나 bone 이름이 틀린 constraint는 건너뛴다.
-	for (const FConstraintInstance& ConstraintSetup : PhysicsAsset->ConstraintSetups)
+	for (const FConstraintSetup& ConstraintSetup : PhysicsAsset->ConstraintSetups)
 	{
 		FBodyInstance* ParentBody = nullptr;
 		FBodyInstance* ChildBody = nullptr;
@@ -70,9 +70,7 @@ bool FPhysXPhysicsScene::InstantiatePhysicsAssetBodies(USkeletalMeshComponent* C
 
 		if (!ParentBody || !ChildBody) continue;
 
-		if (std::unique_ptr<FConstraintInstance> Constraint = CreateConstraint(
-			ParentBody, ChildBody, ConstraintSetup.Option,
-			ConstraintSetup.ParentFrame, ConstraintSetup.ChildFrame, ConstraintSetup.ConstraintName))
+		if (std::unique_ptr<FConstraintInstance> Constraint = CreateConstraint(ParentBody, ChildBody, ConstraintSetup))
 		{
 			Comp->GetConstraints().push_back(std::move(Constraint));
 		}
