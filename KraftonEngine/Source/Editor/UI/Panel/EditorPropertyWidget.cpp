@@ -72,11 +72,30 @@ namespace
 		{
 			const char* Name = PropertyValue.GetName();
 			const char* DisplayName = PropertyValue.GetDisplayName();
+			const char* Category = PropertyValue.GetCategory();
 			if ((Name && std::strcmp(Name, "CameraState.FOV") == 0)
 				|| (Name && std::strcmp(Name, "FOV") == 0)
 				|| (DisplayName && std::strcmp(DisplayName, "FOV") == 0))
 			{
 				return true;
+			}
+
+			const bool bDepthOfFieldCategory = Category && std::strcmp(Category, "PostProcess|Depth of Field") == 0;
+			if (bDepthOfFieldCategory)
+			{
+				const bool bCineFocusDistance =
+					(Name && std::strcmp(Name, "PostProcessSettings.DepthOfField.DepthOfFieldFocalDistance") == 0)
+					|| (Name && std::strcmp(Name, "DepthOfFieldFocalDistance") == 0)
+					|| (DisplayName && std::strcmp(DisplayName, "Focal Distance") == 0);
+				const bool bCineAperture =
+					(Name && std::strcmp(Name, "PostProcessSettings.DepthOfField.DepthOfFieldFstop") == 0)
+					|| (Name && std::strcmp(Name, "DepthOfFieldFstop") == 0)
+					|| (DisplayName && std::strcmp(DisplayName, "F-stop") == 0);
+
+				if (bCineFocusDistance || bCineAperture)
+				{
+					return true;
+				}
 			}
 		}
 
@@ -1024,6 +1043,10 @@ void FEditorPropertyWidget::AddComponentToActor(AActor* Actor, UClass* Component
 		else if (Comp->IsA<UHeightFogComponent>())
 		{
 			Cast<UHeightFogComponent>(Comp)->EnsureEditorBillboard();
+		}
+		else if (Comp->IsA<UCameraComponent>())
+		{
+			Cast<UCameraComponent>(Comp)->EnsureEditorVisualizationMesh();
 		}
 	}
 

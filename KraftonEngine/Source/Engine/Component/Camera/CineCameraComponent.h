@@ -58,6 +58,7 @@ public:
 
 	void GetCameraView(float DeltaTime, FMinimalViewInfo& OutPOV) const override;
 	void GetDepthOfFieldState(FCameraDepthOfFieldState& OutState) const override;
+	const char* GetEditorVisualizationMaterialPath() const override;
 
 private:
 	UPROPERTY(Edit, Save, Category="Current Camera Settings", DisplayName="Current Focal Length", Type=Float, Min=1.0f, Max=1000.0f, Speed=0.1f)

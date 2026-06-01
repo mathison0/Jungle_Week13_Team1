@@ -12,6 +12,7 @@ public:
 
 	// 스왑체인 백버퍼 복귀 — RTV/DSV 클리어 + 뷰포트 세팅
 	void BeginFrame();
+	void BindFrameBuffer();
 	void Present();
 	void OnResizeViewport(int width, int height);
 

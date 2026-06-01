@@ -6,11 +6,13 @@
 #include <memory>
 
 class UEditorEngine;
+class UWorld;
 class FViewport;
 class UCameraComponent;
 class FLevelEditorViewportClient;
 class IEditorPreviewViewportClient;
 struct FMinimalViewInfo;
+struct FViewportRenderOptions;
 
 class FEditorRenderPipeline : public IRenderPipeline
 {
@@ -20,6 +22,7 @@ public:
 
 	void Execute(float DeltaTime, FRenderer& Renderer) override;
 	void OnSceneCleared() override;
+	void RenderSelectedCameraPreview(FViewport* VP, UWorld* World, UCameraComponent* Camera, const FViewportRenderOptions& SourceRenderOptions, FRenderer& Renderer);
 
 private:
 	// 단일 뷰포트 렌더 오케스트레이션

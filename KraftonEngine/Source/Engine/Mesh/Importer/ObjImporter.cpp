@@ -541,6 +541,8 @@ FVector FObjImporter::RemapPosition(const FVector& ObjPos, EForwardAxis Axis)
 	// OBJ 기본: Y-up 우수 좌표계
 	switch (Axis)
 	{
+	case EForwardAxis::Identity:
+		return ObjPos;
 	case EForwardAxis::X:    // OBJ +X → Engine Forward(+X)
 		return FVector(ObjPos.X, ObjPos.Z, ObjPos.Y);
 	case EForwardAxis::NegX: // OBJ -X → Engine Forward(+X)
