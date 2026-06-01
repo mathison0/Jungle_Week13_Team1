@@ -221,7 +221,7 @@ static int32 FindBestChildBone(
     int32 BestChild = -1;
     float BestDistanceSq = 0.0f;
 
-    const FMatrix BoneGlobalInverse = Mesh.Bones[BoneIndex].GetReferenceGlobalPose().GetInverse();
+    const FMatrix BoneBindInverse = Mesh.Bones[BoneIndex].GetInverseBindPose();
     for (const int32 ChildIndex : ChildrenByBone[BoneIndex])
     {
         if (ChildIndex < 0 || ChildIndex >= static_cast<int32>(Mesh.Bones.size()))
@@ -233,7 +233,7 @@ static int32 FindBestChildBone(
             continue;
         }
 
-        const FVector ChildLocal = Mesh.Bones[ChildIndex].GetReferenceGlobalPose().GetLocation() * BoneGlobalInverse;
+        const FVector ChildLocal = Mesh.Bones[ChildIndex].GetSkinBindGlobalPose().GetLocation() * BoneBindInverse;
         const float DistanceSq = ChildLocal.LengthSquared();
         if (DistanceSq > BestDistanceSq)
         {
@@ -360,11 +360,14 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
         MinShapeSize,
         RequiredMinVertexCount);
 
-    TArray<FMatrix> BoneGlobalInverse;
-    BoneGlobalInverse.resize(BoneCount);
+    // Imported vertices live in skin bind space. Reference pose can differ from
+    // cluster bind pose (commonly by an FBX axis conversion), so localize with
+    // the inverse bind matrix used by skinning.
+    TArray<FMatrix> BoneBindInverse;
+    BoneBindInverse.resize(BoneCount);
     for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
     {
-        BoneGlobalInverse[BoneIndex] = Mesh.Bones[BoneIndex].GetReferenceGlobalPose().GetInverse();
+        BoneBindInverse[BoneIndex] = Mesh.Bones[BoneIndex].GetInverseBindPose();
     }
 
     TArray<TArray<int32>> ChildrenByBone;
@@ -405,7 +408,7 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
 
             if (BestBoneIndex >= 0 && BestWeight >= Settings.MinBoneWeight)
             {
-                SamplesByBone[BestBoneIndex].push_back({ Vertex.Position * BoneGlobalInverse[BestBoneIndex] });
+                SamplesByBone[BestBoneIndex].push_back({ Vertex.Position * BoneBindInverse[BestBoneIndex] });
             }
         }
         else
@@ -416,7 +419,7 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
                 const float Weight = Vertex.BoneWeights[InfluenceIndex];
                 if (BoneIndex >= 0 && BoneIndex < BoneCount && Weight >= Settings.MinBoneWeight)
                 {
-                    SamplesByBone[BoneIndex].push_back({ Vertex.Position * BoneGlobalInverse[BoneIndex] });
+                    SamplesByBone[BoneIndex].push_back({ Vertex.Position * BoneBindInverse[BoneIndex] });
                 }
             }
         }
@@ -482,7 +485,7 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
         bool bHasUsableAxis = false;
         if (ChildIndex >= 0)
         {
-            CapsuleAxis = Mesh.Bones[ChildIndex].GetReferenceGlobalPose().GetLocation() * BoneGlobalInverse[BoneIndex];
+            CapsuleAxis = Mesh.Bones[ChildIndex].GetSkinBindGlobalPose().GetLocation() * BoneBindInverse[BoneIndex];
             bHasUsableAxis = !CapsuleAxis.IsNearlyZero(MinShapeSize);
             if (bHasUsableAxis)
             {
