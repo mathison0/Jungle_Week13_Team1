@@ -360,6 +360,7 @@ bool USkeletalMesh::HasPhysicsConstraintBetweenBodies(const FName& BoneNameA, co
 		}
 	}
 	return false;
+}
 void USkeletalMesh::SetPhysicsAsset(UPhysicsAsset* InPhysicsAsset)
 {
 	PhysicsAsset = InPhysicsAsset;
