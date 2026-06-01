@@ -2074,6 +2074,8 @@
       <Filter>Intermediate\Generated</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysicalMaterial.cpp" />
+    <ClCompile Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -2959,9 +2961,6 @@
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysXConverter.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysXPhysicsScene.h">
@@ -5032,8 +5031,11 @@
       <Filter>ThirdParty\sol2\include\sol\utility</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.h" />
-    <ClInclude Include="Source\Engine\Physics\Vehicle\SuspensionSystem.h" />
-    <ClInclude Include="Source\Engine\Physics\Vehicle\UVehicleWheel.h" />
+    <ClInclude Include="Source\Engine\Physics\Vehicle\VehicleWheel.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysicalMaterial.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysXHelper.h" />
+    <ClInclude Include="Source\Engine\Physics\Vehicle\VehiclePhysicsInterface.h" />
+    <ClInclude Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KraftonEngine.rc" />

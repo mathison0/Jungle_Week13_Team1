@@ -658,6 +658,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Physics\PhysicsGeometry.cpp" />
     <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysXPhysicsScene.cpp" />
+    <ClCompile Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.cpp" />
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp" />
     <ClCompile Include="Source\Engine\Platform\DirectoryWatcher.cpp" />
     <ClCompile Include="Source\Engine\Platform\Paths.cpp" />
@@ -1071,8 +1072,9 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h" />
     <ClInclude Include="Source\Engine\Physics\PhysXHelper.h" />
     <ClInclude Include="Source\Engine\Physics\PhysXPhysicsScene.h" />
-    <ClInclude Include="Source\Engine\Physics\Vehicle\SuspensionSystem.h" />
-    <ClInclude Include="Source\Engine\Physics\Vehicle\UVehicleWheel.h" />
+    <ClInclude Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.h" />
+    <ClInclude Include="Source\Engine\Physics\Vehicle\VehicleWheel.h" />
+    <ClInclude Include="Source\Engine\Physics\Vehicle\VehiclePhysicsInterface.h" />
     <ClInclude Include="Source\Engine\Platform\ConsoleHelper.h" />
     <ClInclude Include="Source\Engine\Platform\CrashDump.h" />
     <ClInclude Include="Source\Engine\Platform\DirectoryWatcher.h" />
