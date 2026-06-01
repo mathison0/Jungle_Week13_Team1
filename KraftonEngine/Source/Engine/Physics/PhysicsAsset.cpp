@@ -49,6 +49,9 @@ static bool ShouldSkipBoneName(const FString& BoneName)
         || ContainsToken(LowerName, "roll")
         || ContainsToken(LowerName, "nub")
         || ContainsToken(LowerName, "end")
+        || ContainsToken(LowerName, "finger")
+        || ContainsToken(LowerName, "thumb")
+        || ContainsToken(LowerName, "toe")
         || ContainsToken(LowerName, "hair")
         || ContainsToken(LowerName, "cloth")
         || ContainsToken(LowerName, "skirt")
@@ -56,6 +59,34 @@ static bool ShouldSkipBoneName(const FString& BoneName)
         || ContainsToken(LowerName, "ribbon")
         || ContainsToken(LowerName, "cape")
         || ContainsToken(LowerName, "weapon");
+}
+
+static bool IsTerminalDetailAnchorBoneName(const FString& BoneName)
+{
+    const FString LowerName = ToLowerAscii(BoneName);
+    return ContainsToken(LowerName, "hand")
+        || ContainsToken(LowerName, "foot");
+}
+
+static bool ShouldSkipTerminalDetailBone(const FSkeletalMesh& Mesh, int32 BoneIndex)
+{
+    const int32 BoneCount = static_cast<int32>(Mesh.Bones.size());
+    if (BoneIndex < 0 || BoneIndex >= BoneCount)
+    {
+        return false;
+    }
+
+    int32 ParentIndex = Mesh.Bones[BoneIndex].ParentIndex;
+    for (int32 Depth = 0; Depth < BoneCount && ParentIndex >= 0 && ParentIndex < BoneCount; ++Depth)
+    {
+        if (IsTerminalDetailAnchorBoneName(Mesh.Bones[ParentIndex].Name))
+        {
+            return true;
+        }
+        ParentIndex = Mesh.Bones[ParentIndex].ParentIndex;
+    }
+
+    return false;
 }
 
 static bool IsFiniteVector(const FVector& Value)
@@ -229,6 +260,10 @@ static int32 FindBestChildBone(
             continue;
         }
         if (Settings.bUseDefaultNameFilters && ShouldSkipBoneName(Mesh.Bones[ChildIndex].Name))
+        {
+            continue;
+        }
+        if (Settings.bUseDefaultNameFilters && ShouldSkipTerminalDetailBone(Mesh, ChildIndex))
         {
             continue;
         }
@@ -450,6 +485,14 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
         if (Settings.bUseDefaultNameFilters && ShouldSkipBoneName(Bone.Name))
         {
             UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=NameFilter samples=%d",
+                Bone.Name.c_str(),
+                static_cast<int32>(Samples.size()));
+            ++Stats.SkippedBoneCount;
+            continue;
+        }
+        if (Settings.bUseDefaultNameFilters && ShouldSkipTerminalDetailBone(Mesh, BoneIndex))
+        {
+            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=TerminalDetail samples=%d",
                 Bone.Name.c_str(),
                 static_cast<int32>(Samples.size()));
             ++Stats.SkippedBoneCount;
