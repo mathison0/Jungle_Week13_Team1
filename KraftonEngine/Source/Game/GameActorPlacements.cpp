@@ -3,6 +3,7 @@
 #include "Engine/Runtime/ActorPlacementRegistry.h"
 #include "Engine/Runtime/EngineInitHooks.h"
 #include "Game/Vehicle4WActor.h"
+#include "Game/PxVehicle4WActor.h"
 #include "GameFramework/World.h"
 
 // ============================================================
@@ -22,6 +23,25 @@ void RegisterGameActorPlacements()
 		}
 
 		AVehicle4WActor* Vehicle = World->SpawnActor<AVehicle4WActor>();
+		if (!Vehicle)
+		{
+			return nullptr;
+		}
+
+		Vehicle->InitDefaultComponents();
+		Vehicle->SetActorLocation(Location);
+		World->InsertActorToOctree(Vehicle);
+		return Vehicle;
+	});
+
+	FActorPlacementRegistry::Get().RegisterEntry("PhysX Vehicle 4W", [](UWorld* World, const FVector& Location) -> AActor*
+	{
+		if (!World)
+		{
+			return nullptr;
+		}
+
+		APxVehicle4WActor* Vehicle = World->SpawnActor<APxVehicle4WActor>();
 		if (!Vehicle)
 		{
 			return nullptr;
