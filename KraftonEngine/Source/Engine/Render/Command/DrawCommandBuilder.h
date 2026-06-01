@@ -99,6 +99,7 @@ private:
 	// BuildDynamicDrawCommands 서브 메서드
 	void BuildEditorLineCommands(EViewMode ViewMode);
 	void BuildPhysicsAssetSolidCommands(EViewMode ViewMode);
+	void BuildPhysicsConstraintSolidCommands(EViewMode ViewMode);
 	void BuildPostProcessCommands(const FFrameContext& Frame, const FScene* Scene);
 	void BuildFontCommands(EViewMode ViewMode);
 
@@ -127,6 +128,7 @@ private:
 	FLineGeometry  GridLines;
 	FLineGeometry  DebugBoneLines;
 	FSolidColorGeometry PhysicsAssetSolids;
+	FSolidColorGeometry PhysicsConstraintSolids;
 	FFontGeometry  FontGeometry;
 
 	// PerObject CB 풀

@@ -119,6 +119,7 @@ void FDrawCommandBuilder::Create(ID3D11Device* InDevice, ID3D11DeviceContext* In
 	GridLines.Create(InDevice);
 	DebugBoneLines.Create(InDevice);
 	PhysicsAssetSolids.Create(InDevice);
+	PhysicsConstraintSolids.Create(InDevice);
 	FontGeometry.Create(InDevice);
 
 	FogCB.Create(InDevice, sizeof(FFogConstants), "FogCB");
@@ -139,6 +140,7 @@ void FDrawCommandBuilder::Release()
 	GridLines.Release();
 	DebugBoneLines.Release();
 	PhysicsAssetSolids.Release();
+	PhysicsConstraintSolids.Release();
 	FontGeometry.Release();
 
 	for (auto& Pair : PerSceneObjectCBPool)
@@ -183,6 +185,7 @@ void FDrawCommandBuilder::BeginCollect(const FFrameContext& Frame)
 	GridLines.Clear();
 	DebugBoneLines.Clear();
 	PhysicsAssetSolids.Clear();
+	PhysicsConstraintSolids.Clear();
 	FontGeometry.Clear();
 	FontGeometry.ClearScreen();
 
@@ -424,6 +427,9 @@ void FDrawCommandBuilder::BuildProxyCommands(const FFrameContext& Frame, FScene&
 			PhysicsAssetSolids.AddIndexedTriangles(
 				BoneProxy->GetCachedPhysicsAssetSolidVertices(),
 				BoneProxy->GetCachedPhysicsAssetSolidIndices());
+			PhysicsConstraintSolids.AddIndexedTriangles(
+				BoneProxy->GetCachedPhysicsConstraintSolidVertices(),
+				BoneProxy->GetCachedPhysicsConstraintSolidIndices());
 		}
 		else if (Proxy->HasProxyFlag(EPrimitiveProxyFlags::WireShape))
 		{
@@ -783,6 +789,7 @@ void FDrawCommandBuilder::BuildDynamicDrawCommands(const FFrameContext& Frame, c
 {
 	EViewMode ViewMode = Frame.RenderOptions.ViewMode;
 	BuildPhysicsAssetSolidCommands(ViewMode);
+	BuildPhysicsConstraintSolidCommands(ViewMode);
 	BuildEditorLineCommands(ViewMode);
 	BuildPostProcessCommands(Frame, Scene);
 	BuildFontCommands(ViewMode);
@@ -844,6 +851,30 @@ void FDrawCommandBuilder::BuildPhysicsAssetSolidCommands(EViewMode ViewMode)
 	Cmd.Buffer.IndexCount = PhysicsAssetSolids.GetIndexCount();
 	Cmd.TranslucentSortPriority = 100;
 	Cmd.BuildSortKey(1);
+}
+
+void FDrawCommandBuilder::BuildPhysicsConstraintSolidCommands(EViewMode ViewMode)
+{
+	if (PhysicsConstraintSolids.GetTriangleCount() == 0 || !PhysicsConstraintSolids.UploadBuffers(CachedContext))
+	{
+		return;
+	}
+
+	FShader* EditorShader = FShaderManager::Get().GetOrCreate(EShaderPath::Editor);
+	FDrawCommandRenderState RS = PassRenderStateTable->ToDrawCommandState(ERenderPass::TranslucencyAfterDOF, ViewMode);
+	RS.DepthStencil = EDepthStencilState::NoDepth;
+	RS.Blend = EBlendState::AlphaBlend;
+	RS.Rasterizer = ERasterizerState::SolidNoCull;
+	RS.Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	FDrawCommand& Cmd = DrawCommandList.AddCommand();
+	Cmd.Pass = ERenderPass::TranslucencyAfterDOF;
+	Cmd.Shader = EditorShader;
+	Cmd.RenderState = RS;
+	Cmd.Buffer = { PhysicsConstraintSolids.GetVBBuffer(), PhysicsConstraintSolids.GetVBStride(), PhysicsConstraintSolids.GetIBBuffer() };
+	Cmd.Buffer.IndexCount = PhysicsConstraintSolids.GetIndexCount();
+	Cmd.TranslucentSortPriority = 110;
+	Cmd.BuildSortKey(2);
 }
 
 // ============================================================

@@ -521,6 +521,14 @@ void FMeshEditorViewportClient::SetPhysicsAssetSolidDebugDrawEnabled(bool bEnabl
 	}
 }
 
+void FMeshEditorViewportClient::SetSelectedPhysicsConstraintIndex(int32 ConstraintIndex)
+{
+	if (BoneDebugComponent)
+	{
+		BoneDebugComponent->SetSelectedPhysicsConstraintIndex(ConstraintIndex);
+	}
+}
+
 void FMeshEditorViewportClient::TickShortcuts()
 {
 	if (!FSlateApplication::Get().DoesClientOwnKeyboardInput(this)) return;
