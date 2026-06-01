@@ -46,6 +46,9 @@ public:
     UPhysicsAsset* GetPhysicsAsset() const { return PhysicsAsset; }
     UPhysicsAsset* EnsurePhysicsAsset();
     bool GenerateDefaultPhysicsAsset(bool bOverwriteExisting = false);
+    UBodySetup* AddDefaultPhysicsBodyForBone(int32 BoneIndex);
+    bool AddPhysicsConstraintBetweenBodies(const FName& ParentBoneName, const FName& ChildBoneName);
+    bool HasPhysicsConstraintBetweenBodies(const FName& BoneNameA, const FName& BoneNameB) const;
 
 private:
     void CacheSectionMaterialIndices();

@@ -11,6 +11,7 @@
 class FBodyInstance;
 
 // 회전 자유도
+UENUM()
 enum class EAngularConstraintMotion : uint8
 {
 	Free = 0,
@@ -73,19 +74,34 @@ struct FConstraintInstance
 {
     GENERATED_BODY()
 
+	UPROPERTY(Edit, Save, Category="Physics|Constraint", DisplayName="Constraint Name")
     FString ConstraintName;
 
     // PhysicsAsset Editor에서 선택하는 연결 대상 bone.
     // 두 이름 모두 UPhysicsAsset::BodySetups에 등록되어 있어야 runtime PxD6Joint가 생성된다.
+	UPROPERTY(Edit, Save, Category="Physics|Constraint", DisplayName="Parent Bone")
     FName ParentBoneName;
+	UPROPERTY(Edit, Save, Category="Physics|Constraint", DisplayName="Child Bone")
     FName ChildBoneName;
 
     // Body local 기준 joint frame.
     // Editor gizmo에서 joint 위치와 축을 편집할 때 각 body 로컬 공간으로 변환해 저장한다.
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Parent Frame", DisplayName="Parent Location", Member=ParentFrame.Location, Type=Vec3, Speed=0.1f);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Parent Frame", DisplayName="Parent Rotation", Member=ParentFrame.Rotation, Type=Vec4, Speed=0.01f);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Parent Frame", DisplayName="Parent Scale", Member=ParentFrame.Scale, Type=Vec3, Speed=0.1f);
     FTransform ParentFrame;	// ParentBody 로컬 공간에 있는 Joint 기준 좌표계
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Child Frame", DisplayName="Child Location", Member=ChildFrame.Location, Type=Vec3, Speed=0.1f);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Child Frame", DisplayName="Child Rotation", Member=ChildFrame.Rotation, Type=Vec4, Speed=0.01f);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Child Frame", DisplayName="Child Scale", Member=ChildFrame.Scale, Type=Vec3, Speed=0.1f);
     FTransform ChildFrame;	// ChildBody 로컬 공간에 있는 Joint 기준 좌표계
 
 	// Constraint Option
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Limits", DisplayName="Twist Motion", Member=Option.TwistMotion, Enum=EAngularConstraintMotion);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Limits", DisplayName="Swing 1 Motion", Member=Option.Swing1Motion, Enum=EAngularConstraintMotion);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Limits", DisplayName="Swing 2 Motion", Member=Option.Swing2Motion, Enum=EAngularConstraintMotion);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Limits", DisplayName="Twist Limit", Member=Option.TwistLimitDegrees, Type=Float, Min=0.1f, Speed=0.5f);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Limits", DisplayName="Swing 1 Limit", Member=Option.Swing1LimitDegrees, Type=Float, Min=0.1f, Speed=0.5f);
+	UPROPERTY(Edit, Save, Category="Physics|Constraint|Limits", DisplayName="Swing 2 Limit", Member=Option.Swing2LimitDegrees, Type=Float, Min=0.1f, Speed=0.5f);
 	FConstraintOption Option;
 
     // 런타임에 이름/컴포넌트 참조를 통해 찾아낸 실제 BodyInstance

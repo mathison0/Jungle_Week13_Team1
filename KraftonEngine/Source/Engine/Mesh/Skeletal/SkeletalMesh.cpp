@@ -71,6 +71,33 @@ namespace
 
 		return std::max(GeneratedMinRadius, Bounds.GetExtent().Length() * GeneratedLeafSphereScale);
 	}
+
+	int32 FindBoneIndexByName(const FSkeletalMesh* Asset, const FName& BoneName)
+	{
+		if (!Asset)
+		{
+			return -1;
+		}
+
+		const FString BoneNameString = BoneName.ToString();
+		for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Asset->Bones.size()); ++BoneIndex)
+		{
+			if (Asset->Bones[BoneIndex].Name == BoneNameString)
+			{
+				return BoneIndex;
+			}
+		}
+		return -1;
+	}
+
+	FTransform MakeConstraintFrame(const FMatrix& BodyGlobalPose, const FVector& JointGlobalLocation)
+	{
+		FTransform Frame;
+		Frame.Location = TransformPositionByInverse(BodyGlobalPose, JointGlobalLocation);
+		Frame.Rotation = FQuat::Identity;
+		Frame.Scale = FVector::OneVector;
+		return Frame;
+	}
 }
 
 void USkeletalMesh::Serialize(FArchive& Ar)
@@ -180,66 +207,167 @@ bool USkeletalMesh::GenerateDefaultPhysicsAsset(bool bOverwriteExisting)
 	}
 
 	const TArray<FBone>& Bones = SkeletalMeshAsset->Bones;
-	const float FallbackRadius = ComputeFallbackBodyRadius(SkeletalMeshAsset);
-
 	for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Bones.size()); ++BoneIndex)
 	{
-		const FBone& Bone = Bones[BoneIndex];
+		AddDefaultPhysicsBodyForBone(BoneIndex);
+	}
 
-		int32 FirstChildIndex = -1;
-		for (int32 CandidateIndex = 0; CandidateIndex < static_cast<int32>(Bones.size()); ++CandidateIndex)
-		{
-			if (Bones[CandidateIndex].ParentIndex == BoneIndex)
-			{
-				FirstChildIndex = CandidateIndex;
-				break;
-			}
-		}
-
-		UBodySetup* BodySetup = UObjectManager::Get().CreateObject<UBodySetup>(Asset);
-		if (!BodySetup)
+	for (int32 ChildBoneIndex = 0; ChildBoneIndex < static_cast<int32>(Bones.size()); ++ChildBoneIndex)
+	{
+		const int32 ParentBoneIndex = Bones[ChildBoneIndex].ParentIndex;
+		if (ParentBoneIndex < 0 || ParentBoneIndex >= static_cast<int32>(Bones.size()))
 		{
 			continue;
 		}
 
-		BodySetup->SetBoneName(FName(Bone.Name));
-		FKAggregateGeom& AggGeom = BodySetup->GetAggGeom();
-
-		if (FirstChildIndex >= 0)
-		{
-			const FVector BonePos = GetMatrixLocation(Bone.GetReferenceGlobalPose());
-			const FVector ChildPos = GetMatrixLocation(Bones[FirstChildIndex].GetReferenceGlobalPose());
-			const FVector ChildLocalPos = TransformPositionByInverse(Bone.GetReferenceGlobalPose(), ChildPos);
-			const float Distance = (ChildPos - BonePos).Length();
-
-			if (Distance >= MinGeneratedBodyLength)
-			{
-				FKSphylElem Capsule;
-				Capsule.Name = Bone.Name + "_Body";
-				Capsule.Radius = std::max(GeneratedMinRadius, Distance * GeneratedCapsuleRadiusScale);
-				Capsule.Length = std::max(0.0f, Distance * GeneratedCapsuleLengthScale);
-				Capsule.Transform.Location = ChildLocalPos * 0.5f;
-				Capsule.Transform.Rotation = MakeQuatFromZAxis(ChildLocalPos);
-				Capsule.Transform.Scale = FVector::OneVector;
-				AggGeom.SphylElems.push_back(Capsule);
-			}
-		}
-
-		if (AggGeom.IsEmpty())
-		{
-			FKSphereElem Sphere;
-			Sphere.Name = Bone.Name + "_Body";
-			Sphere.Radius = FallbackRadius;
-			Sphere.Transform.Location = FVector::ZeroVector;
-			Sphere.Transform.Rotation = FQuat::Identity;
-			Sphere.Transform.Scale = FVector::OneVector;
-			AggGeom.SphereElems.push_back(Sphere);
-		}
-
-		Asset->BodySetups.push_back(BodySetup);
+		AddPhysicsConstraintBetweenBodies(FName(Bones[ParentBoneIndex].Name), FName(Bones[ChildBoneIndex].Name));
 	}
 
 	return Asset->HasAnyBodySetup();
+}
+
+UBodySetup* USkeletalMesh::AddDefaultPhysicsBodyForBone(int32 BoneIndex)
+{
+	if (!SkeletalMeshAsset || BoneIndex < 0 || BoneIndex >= static_cast<int32>(SkeletalMeshAsset->Bones.size()))
+	{
+		return nullptr;
+	}
+
+	UPhysicsAsset* Asset = EnsurePhysicsAsset();
+	if (!Asset)
+	{
+		return nullptr;
+	}
+
+	const TArray<FBone>& Bones = SkeletalMeshAsset->Bones;
+	const FBone& Bone = Bones[BoneIndex];
+	const FName BoneName(Bone.Name);
+	if (Asset->FindBodySetupByBoneName(BoneName))
+	{
+		return nullptr;
+	}
+
+	int32 FirstChildIndex = -1;
+	for (int32 CandidateIndex = 0; CandidateIndex < static_cast<int32>(Bones.size()); ++CandidateIndex)
+	{
+		if (Bones[CandidateIndex].ParentIndex == BoneIndex)
+		{
+			FirstChildIndex = CandidateIndex;
+			break;
+		}
+	}
+
+	UBodySetup* BodySetup = UObjectManager::Get().CreateObject<UBodySetup>(Asset);
+	if (!BodySetup)
+	{
+		return nullptr;
+	}
+
+	BodySetup->SetBoneName(BoneName);
+	BodySetup->SetFName(FName(Bone.Name + "_BodySetup"));
+	FKAggregateGeom& AggGeom = BodySetup->GetAggGeom();
+
+	if (FirstChildIndex >= 0)
+	{
+		const FVector BonePos = GetMatrixLocation(Bone.GetReferenceGlobalPose());
+		const FVector ChildPos = GetMatrixLocation(Bones[FirstChildIndex].GetReferenceGlobalPose());
+		const FVector ChildLocalPos = TransformPositionByInverse(Bone.GetReferenceGlobalPose(), ChildPos);
+		const float Distance = (ChildPos - BonePos).Length();
+
+		if (Distance >= MinGeneratedBodyLength)
+		{
+			FKSphylElem Capsule;
+			Capsule.Name = Bone.Name + "_Body";
+			Capsule.Radius = std::max(GeneratedMinRadius, Distance * GeneratedCapsuleRadiusScale);
+			Capsule.Length = std::max(0.0f, Distance * GeneratedCapsuleLengthScale);
+			Capsule.Transform.Location = ChildLocalPos * 0.5f;
+			Capsule.Transform.Rotation = MakeQuatFromZAxis(ChildLocalPos);
+			Capsule.Transform.Scale = FVector::OneVector;
+			AggGeom.SphylElems.push_back(Capsule);
+		}
+	}
+
+	if (AggGeom.IsEmpty())
+	{
+		FKSphereElem Sphere;
+		Sphere.Name = Bone.Name + "_Body";
+		Sphere.Radius = ComputeFallbackBodyRadius(SkeletalMeshAsset);
+		Sphere.Transform.Location = FVector::ZeroVector;
+		Sphere.Transform.Rotation = FQuat::Identity;
+		Sphere.Transform.Scale = FVector::OneVector;
+		AggGeom.SphereElems.push_back(Sphere);
+	}
+
+	Asset->BodySetups.push_back(BodySetup);
+	return BodySetup;
+}
+
+bool USkeletalMesh::AddPhysicsConstraintBetweenBodies(const FName& ParentBoneName, const FName& ChildBoneName)
+{
+	if (!SkeletalMeshAsset || ParentBoneName == ChildBoneName)
+	{
+		return false;
+	}
+
+	UPhysicsAsset* Asset = EnsurePhysicsAsset();
+	if (!Asset)
+	{
+		return false;
+	}
+
+	if (!Asset->FindBodySetupByBoneName(ParentBoneName) || !Asset->FindBodySetupByBoneName(ChildBoneName))
+	{
+		return false;
+	}
+
+	const int32 ParentBoneIndex = FindBoneIndexByName(SkeletalMeshAsset, ParentBoneName);
+	const int32 ChildBoneIndex = FindBoneIndexByName(SkeletalMeshAsset, ChildBoneName);
+	if (ParentBoneIndex < 0 || ChildBoneIndex < 0)
+	{
+		return false;
+	}
+
+	const TArray<FBone>& Bones = SkeletalMeshAsset->Bones;
+	if (Bones[ChildBoneIndex].ParentIndex != ParentBoneIndex)
+	{
+		return false;
+	}
+
+	if (HasPhysicsConstraintBetweenBodies(ParentBoneName, ChildBoneName))
+	{
+		return false;
+	}
+
+	const FVector JointLocation = GetMatrixLocation(Bones[ChildBoneIndex].GetReferenceGlobalPose());
+
+	FConstraintInstance Constraint;
+	Constraint.ConstraintName = ParentBoneName.ToString() + "_To_" + ChildBoneName.ToString() + "_Constraint";
+	Constraint.ParentBoneName = ParentBoneName;
+	Constraint.ChildBoneName = ChildBoneName;
+	Constraint.ParentFrame = MakeConstraintFrame(Bones[ParentBoneIndex].GetReferenceGlobalPose(), JointLocation);
+	Constraint.ChildFrame = MakeConstraintFrame(Bones[ChildBoneIndex].GetReferenceGlobalPose(), JointLocation);
+	Asset->ConstraintSetups.push_back(Constraint);
+	return true;
+}
+
+bool USkeletalMesh::HasPhysicsConstraintBetweenBodies(const FName& BoneNameA, const FName& BoneNameB) const
+{
+	const UPhysicsAsset* Asset = PhysicsAsset;
+	if (!Asset)
+	{
+		return false;
+	}
+
+	for (const FConstraintInstance& Constraint : Asset->ConstraintSetups)
+	{
+		const bool bSameDirection = Constraint.ParentBoneName == BoneNameA && Constraint.ChildBoneName == BoneNameB;
+		const bool bOppositeDirection = Constraint.ParentBoneName == BoneNameB && Constraint.ChildBoneName == BoneNameA;
+		if (bSameDirection || bOppositeDirection)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void USkeletalMesh::SetSkeletalMaterials(TArray<FSkeletalMaterial>&& InMaterials)

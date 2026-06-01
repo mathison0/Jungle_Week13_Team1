@@ -16,6 +16,12 @@ class UBodySetup;
 
 enum class EMeshEditorTab : uint8 { Skeleton, Mesh, Animation, PhysicalAsset };
 
+struct FPhysicsGraphNodePosition
+{
+	float X = 0.0f;
+	float Y = 0.0f;
+};
+
 struct FAnimationTabState
 {
 	UAnimSequence* CurrentSequence    = nullptr;
@@ -96,6 +102,8 @@ private:
 	//Physical Asset Editor
 	void RenderPhysicalAssetLayout();
 	void RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asset, const TArray<UBodySetup*>& Bodies, int32 Index);
+	void RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset);
+	bool RenderConstraintCandidateMenu(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset, UBodySetup* SourceBody);
 
 private:
 	FMeshEditorViewportClient ViewportClient;
@@ -107,6 +115,9 @@ private:
 	// Skeleton tab state
 	int32 SelectedBoneIndex = -1;
 	UBodySetup* SelectedBodySetup = nullptr;
+	int32 SelectedConstraintIndex = -1;
+	TMap<FString, FPhysicsGraphNodePosition> PhysicsGraphNodePositions;
+	bool bPhysicsGraphCapturingMouse = false;
 	float HierarchyWidth    = 250.0f;
 	float DetailsWidth      = 300.0f;
 
