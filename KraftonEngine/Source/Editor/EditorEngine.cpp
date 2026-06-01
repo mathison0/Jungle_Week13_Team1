@@ -291,6 +291,23 @@ bool UEditorEngine::GetActiveViewportPOV(FMinimalViewInfo& OutPOV) const
 	return false;
 }
 
+bool UEditorEngine::RenderSelectedCameraPreviewViewport(FViewport* Viewport, UCameraComponent* Camera, const FViewportRenderOptions& SourceRenderOptions)
+{
+	if (!Viewport || !Camera || !GetWorld())
+	{
+		return false;
+	}
+
+	FEditorRenderPipeline* EditorPipeline = static_cast<FEditorRenderPipeline*>(GetRenderPipeline());
+	if (!EditorPipeline)
+	{
+		return false;
+	}
+
+	EditorPipeline->RenderSelectedCameraPreview(Viewport, GetWorld(), Camera, SourceRenderOptions, Renderer);
+	return true;
+}
+
 void UEditorEngine::RenderUI(float DeltaTime)
 {
 	MainPanel.Render(DeltaTime);

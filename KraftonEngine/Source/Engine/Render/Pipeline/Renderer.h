@@ -24,6 +24,7 @@ public:
 	void BeginFrame();
 	void Render(const FFrameContext& Frame, UWorld* World, FScene& Scene);
 	void EndFrame();
+	void BindFrameBuffer();
 	
 	void BlitToBackBuffer(ID3D11ShaderResourceView* SourceSRV);
 

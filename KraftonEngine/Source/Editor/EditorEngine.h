@@ -21,7 +21,9 @@ class FOverlayStatSystem;
 class AActor;
 class UGameViewportClient;
 class IEditorPreviewViewportClient;
+class FViewport;
 struct FPerspectiveCameraData;
+struct FViewportRenderOptions;
 
 UCLASS()
 class UEditorEngine : public UEngine
@@ -96,6 +98,7 @@ public:
 
 	bool IsMouseOverViewport() const { return ViewportLayout.IsMouseOverViewport(); }
 
+	bool RenderSelectedCameraPreviewViewport(FViewport* Viewport, UCameraComponent* Camera, const FViewportRenderOptions& SourceRenderOptions);
 	void RenderUI(float DeltaTime);
 
 	FOverlayStatSystem& GetOverlayStatSystem() { return OverlayStatSystem; }

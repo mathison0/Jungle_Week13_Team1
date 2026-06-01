@@ -50,6 +50,7 @@ namespace Key
 	constexpr const char* EdgeThreshold = "EdgeThreshold";
 	constexpr const char* EdgeThresholdMin = "EdgeThresholdMin";
 	constexpr const char* Gamma = "Gamma";
+	constexpr const char* bShowSelectedCameraPreview = "bShowSelectedCameraPreview";
 	constexpr const char* DepthOfFieldBlurMethod = "DepthOfFieldBlurMethod";
 	constexpr const char* DepthOfFieldAcceptableCoCPixels = "DepthOfFieldAcceptableCoCPixels";
 	constexpr const char* DepthOfFieldFocusTransitionPixels = "DepthOfFieldFocusTransitionPixels";
@@ -184,6 +185,7 @@ json::JSON SaveRenderOptions(const FViewportRenderOptions& Opts)
 	Obj[Key::EdgeThreshold] = Opts.EdgeThreshold;
 	Obj[Key::EdgeThresholdMin] = Opts.EdgeThresholdMin;
 	Obj[Key::Gamma] = Opts.Gamma;
+	Obj[Key::bShowSelectedCameraPreview] = Opts.bShowSelectedCameraPreview;
 	Obj[Key::DepthOfFieldBlurMethod] = static_cast<int32>(Opts.DepthOfFieldBlurMethod);
 	Obj[Key::DepthOfFieldAcceptableCoCPixels] = Opts.DepthOfFieldAcceptableCoCPixels;
 	Obj[Key::DepthOfFieldFocusTransitionPixels] = Opts.DepthOfFieldFocusTransitionPixels;
@@ -257,6 +259,8 @@ void LoadRenderOptions(json::JSON Obj, FViewportRenderOptions& Opts)
 		Opts.EdgeThresholdMin = static_cast<float>(Obj[Key::EdgeThresholdMin].ToFloat());
 	if (Obj.hasKey(Key::Gamma))
 		Opts.Gamma = static_cast<float>(Obj[Key::Gamma].ToFloat());
+	if (Obj.hasKey(Key::bShowSelectedCameraPreview))
+		Opts.bShowSelectedCameraPreview = Obj[Key::bShowSelectedCameraPreview].ToBool();
 	if (Obj.hasKey(Key::DepthOfFieldBlurMethod))
 	{
 		const int32 RawMode = Obj[Key::DepthOfFieldBlurMethod].ToInt();

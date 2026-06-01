@@ -3,6 +3,7 @@
 // 블렌더 스타일 Forward 축 선택
 enum class EForwardAxis : uint8
 {
+	Identity,   // Source coordinates are already in engine space.
 	X, NegX,   // +X, -X
 	Y, NegY,   // +Y, -Y
 	Z, NegZ    // +Z, -Z

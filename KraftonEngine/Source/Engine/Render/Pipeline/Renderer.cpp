@@ -78,6 +78,11 @@ void FRenderer::BeginFrame()
 	Device.BeginFrame();
 }
 
+void FRenderer::BindFrameBuffer()
+{
+	Device.BindFrameBuffer();
+}
+
 // ============================================================
 // Render — 정렬 + GPU 제출
 // BeginCollect + Collector + BuildDynamicCommands 이후에 호출.

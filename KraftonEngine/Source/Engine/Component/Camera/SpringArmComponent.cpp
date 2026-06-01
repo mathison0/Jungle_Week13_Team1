@@ -18,7 +18,11 @@ void USpringArmComponent::BeginPlay()
 void USpringArmComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	RefreshSpringArm(DeltaTime, true);
+}
 
+void USpringArmComponent::RefreshSpringArm(float DeltaTime, bool bAllowLag)
+{
 	// SpringArm 은 부모가 있어야 의미가 있음. 부모 없으면 spring 동작은 skip 하고
 	// SceneComponent 기본 transform 합성에 맡긴다.
 	if (!ParentComponent)
@@ -62,7 +66,7 @@ void USpringArmComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	}
 	else
 	{
-		if (bEnableCameraRotationLag && CameraRotationLagSpeed > 0.0f)
+		if (bAllowLag && bEnableCameraRotationLag && CameraRotationLagSpeed > 0.0f)
 		{
 			const float Alpha = std::min(DeltaTime * CameraRotationLagSpeed, 1.0f);
 			LaggedAttachRot = FQuat::Slerp(LaggedAttachRot, DesiredAttachRot, Alpha).GetNormalized();
@@ -72,7 +76,7 @@ void USpringArmComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 			LaggedAttachRot = DesiredAttachRot;
 		}
 
-		if (bEnableCameraLag && CameraLagSpeed > 0.0f)
+		if (bAllowLag && bEnableCameraLag && CameraLagSpeed > 0.0f)
 		{
 			const float Alpha = std::min(DeltaTime * CameraLagSpeed, 1.0f);
 			FVector NewLoc = LaggedAttachLoc + (DesiredAttachLoc - LaggedAttachLoc) * Alpha;
