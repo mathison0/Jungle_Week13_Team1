@@ -317,6 +317,19 @@ void UWorld::InitWorld()
 	}
 }
 
+IPhysicsScene* UWorld::EnsurePhysicsScene()
+{
+	if (!PhysicsScene)
+	{
+		if (FProjectSettings::Get().Physics.Backend == EPhysicsBackend::PhysX)
+			PhysicsScene = std::make_unique<FPhysXPhysicsScene>();
+		else
+			PhysicsScene = std::make_unique<FNativePhysicsScene>();
+		PhysicsScene->Initialize(this);
+	}
+	return PhysicsScene.get();
+}
+
 void UWorld::BeginPlay()
 {
 	bHasBegunPlay = true;

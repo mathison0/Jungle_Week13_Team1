@@ -101,6 +101,9 @@ private:
 
 	//Physical Asset Editor
 	void RenderPhysicalAssetLayout();
+	void RenderPhysicsSimulationControls(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset);
+	void StartPhysicsAssetSimulation();
+	void StopPhysicsAssetSimulation(bool bResetPose);
 	void RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asset, const TArray<UBodySetup*>& Bodies, int32 Index);
 	void RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset);
 	bool RenderConstraintCandidateMenu(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset, UBodySetup* SourceBody);
@@ -118,6 +121,7 @@ private:
 	int32 SelectedConstraintIndex = -1;
 	TMap<FString, FPhysicsGraphNodePosition> PhysicsGraphNodePositions;
 	bool bPhysicsGraphCapturingMouse = false;
+	bool bPhysicsAssetSimulationRunning = false;
 	float HierarchyWidth    = 250.0f;
 	float DetailsWidth      = 300.0f;
 
