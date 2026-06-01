@@ -1,0 +1,76 @@
+﻿#pragma once
+
+#include "Core/Types/CoreTypes.h"
+
+#include <PxPhysicsAPI.h>
+#include <vehicle/PxVehicleDrive4W.h>
+#include <vehicle/PxVehicleUtilControl.h>
+#include <vehicle/PxVehicleComponents.h>
+#include <vehicle/PxVehicleUpdate.h>
+
+struct FPxVehicleSetup;
+
+// ======================================================
+// FPhysXVehicle4W
+//
+// PxVehicleDrive4W 한 대를 "자기 완결형"으로 감싼다. 이미 등록된 섀시
+// PxRigidDynamic에 4륜 드라이브 데이터(엔진/기어/디퍼런셜/Ackermann)를 붙이고,
+// 자기를 굴리는 데 필요한 PhysX 자원(BatchQuery, 노면-타이어 마찰 페어, 결과
+// 버퍼)을 직접 소유한다.
+//
+// 이 프로젝트는 차량을 동시에 1대만 두고 키보드로만 조작하므로, 별도 매니저나
+// 게임패드(analog) 입력 없이 Scene이 매 프레임 simulate() 직전에 Simulate(dt)
+// 한 번만 불러주면 된다.
+// ======================================================
+class FPhysXVehicle4W
+{
+public:
+	FPhysXVehicle4W() = default;
+	~FPhysXVehicle4W();
+
+	// 내부 결과 버퍼를 BatchQuery/Updates가 직접 가리키므로 복사/이동 금지.
+	FPhysXVehicle4W(const FPhysXVehicle4W&) = delete;
+	FPhysXVehicle4W& operator=(const FPhysXVehicle4W&) = delete;
+
+	// 섀시 actor에 드라이브 데이터를 붙여 차량을 만든다. 실패 시 false.
+	bool Build(physx::PxScene* Scene, physx::PxPhysics* Physics, physx::PxRigidDynamic* ChassisActor, physx::PxMaterial* DefaultMaterial, const FPxVehicleSetup& Setup);
+	void Release();
+
+	bool IsValid() const { return Drive != nullptr; }
+	uint32 GetNbWheels() const { return NbWheels; }
+
+	// --- 입력 (키보드 on/off) ---
+	void SetAccel(bool b)      { RawInput.setDigitalAccel(b); }
+	void SetBrake(bool b)      { RawInput.setDigitalBrake(b); }
+	void SetHandbrake(bool b)  { RawInput.setDigitalHandbrake(b); }
+	void SetSteerLeft(bool b)  { RawInput.setDigitalSteerLeft(b); }
+	void SetSteerRight(bool b) { RawInput.setDigitalSteerRight(b); }
+
+	// --- 매 프레임 구동 (반드시 Scene->simulate() 직전) ---
+	// 입력 보간 → 서스펜션 raycast → 힘 적용을 자기 1대에 대해 수행.
+	void Simulate(float DeltaTime);
+
+	// --- 결과 조회 ---
+	bool IsInAir() const;
+	// 바퀴 i의 섀시-로컬 포즈(조향/구름/서스펜션 압축 포함). 범위 밖이면 false.
+	bool GetWheelLocalPose(uint32 WheelIndex, physx::PxTransform& OutPose) const;
+
+private:
+	void SmoothInputs(float DeltaTime);
+
+	static constexpr uint32 NbWheels = 4;
+
+	physx::PxVehicleDrive4W* Drive = nullptr;
+	physx::PxBatchQuery* BatchQuery = nullptr;
+	physx::PxVehicleDrivableSurfaceToTireFrictionPairs* FrictionPairs = nullptr;
+
+	physx::PxVehicleDrive4WRawInputData RawInput;
+	physx::PxFixedSizeLookupTable<8> SteerVsSpeed;
+
+	// 자기 1대용 고정 크기 버퍼. BatchQuery/Updates가 이 멤버 주소를 직접
+	// 가리키므로 객체를 복사/이동하면 안 된다(위 = delete).
+	physx::PxRaycastQueryResult SqResults[NbWheels];
+	physx::PxRaycastHit SqHits[NbWheels];
+	physx::PxWheelQueryResult WheelResults[NbWheels];
+	physx::PxVehicleWheelQueryResult WheelQuery;
+};
