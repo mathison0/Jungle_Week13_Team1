@@ -34,6 +34,7 @@
 #include "Object/Object.h"
 #include "Physics/BodySetup.h"
 #include "Physics/PhysicsAsset.h"
+#include "Physics/PhysicsAssetManager.h"
 #include "Physics/PhysicsGeometry.h"
 #include "Mesh/MeshManager.h"
 
@@ -106,6 +107,13 @@ namespace
 		FName ChildBoneName = FName::None;
 	};
 
+	enum class EManualPhysicsBodyShape : uint8
+	{
+		Sphere,
+		Capsule,
+		Box
+	};
+
 	FString MakePhysicsGraphNodeKey(const UBodySetup* BodySetup)
 	{
 		if (!BodySetup)
@@ -113,6 +121,11 @@ namespace
 			return "None";
 		}
 		return BodySetup->GetBoneName().ToString() + "#" + std::to_string(BodySetup->GetUUID());
+	}
+
+	FString MakePhysicsGraphConstraintNodeKey(int32 ConstraintIndex)
+	{
+		return "Constraint#" + std::to_string(ConstraintIndex);
 	}
 
 	int32 FindBoneIndexByName(const FSkeletalMesh* Asset, const FName& BoneName)
@@ -131,6 +144,127 @@ namespace
 			}
 		}
 		return -1;
+	}
+
+	float GetDefaultManualBodySize(const FSkeletalMesh* Asset, int32 BoneIndex)
+	{
+		if (!Asset || BoneIndex < 0 || BoneIndex >= static_cast<int32>(Asset->Bones.size()))
+		{
+			return 0.1f;
+		}
+
+		const FVector BoneLocation = Asset->Bones[BoneIndex].GetReferenceGlobalPose().GetLocation();
+		float BestChildDistance = 0.0f;
+		for (int32 ChildIndex = 0; ChildIndex < static_cast<int32>(Asset->Bones.size()); ++ChildIndex)
+		{
+			if (Asset->Bones[ChildIndex].ParentIndex != BoneIndex)
+			{
+				continue;
+			}
+
+			const float Distance = FVector::Distance(BoneLocation, Asset->Bones[ChildIndex].GetReferenceGlobalPose().GetLocation());
+			if (Distance > BestChildDistance)
+			{
+				BestChildDistance = Distance;
+			}
+		}
+
+		return std::max(0.04f, BestChildDistance > 0.0f ? BestChildDistance * 0.25f : 0.1f);
+	}
+
+	UBodySetup* AddManualPhysicsBodyForBone(USkeletalMesh* SkeletalMesh, int32 BoneIndex, EManualPhysicsBodyShape Shape)
+	{
+		FSkeletalMesh* Asset = SkeletalMesh ? SkeletalMesh->GetSkeletalMeshAsset() : nullptr;
+		UPhysicsAsset* PhysAsset = SkeletalMesh ? SkeletalMesh->EnsurePhysicsAsset() : nullptr;
+		if (!SkeletalMesh || !Asset || !PhysAsset || BoneIndex < 0 || BoneIndex >= static_cast<int32>(Asset->Bones.size()))
+		{
+			return nullptr;
+		}
+
+		const FBone& Bone = Asset->Bones[BoneIndex];
+		const FName BoneName(Bone.Name);
+		if (PhysAsset->FindBodySetupByBoneName(BoneName))
+		{
+			return nullptr;
+		}
+
+		UBodySetup* BodySetup = UObjectManager::Get().CreateObject<UBodySetup>(PhysAsset);
+		if (!BodySetup)
+		{
+			return nullptr;
+		}
+
+		const float Size = GetDefaultManualBodySize(Asset, BoneIndex);
+		BodySetup->SetBoneName(BoneName);
+		BodySetup->SetFName(FName(Bone.Name + "_BodySetup"));
+
+		FKAggregateGeom& AggGeom = BodySetup->GetAggGeom();
+		if (Shape == EManualPhysicsBodyShape::Sphere)
+		{
+			FKSphereElem Sphere;
+			Sphere.Name = Bone.Name + "_SphereBody";
+			Sphere.Radius = Size;
+			Sphere.Transform.Location = FVector::ZeroVector;
+			Sphere.Transform.Rotation = FQuat::Identity;
+			Sphere.Transform.Scale = FVector::OneVector;
+			AggGeom.SphereElems.push_back(Sphere);
+		}
+		else if (Shape == EManualPhysicsBodyShape::Capsule)
+		{
+			FKSphylElem Capsule;
+			Capsule.Name = Bone.Name + "_CapsuleBody";
+			Capsule.Radius = Size * 0.5f;
+			Capsule.Length = Size * 2.0f;
+			Capsule.Transform.Location = FVector::ZeroVector;
+			Capsule.Transform.Rotation = FQuat::Identity;
+			Capsule.Transform.Scale = FVector::OneVector;
+			AggGeom.SphylElems.push_back(Capsule);
+		}
+		else
+		{
+			FKBoxElem Box;
+			Box.Name = Bone.Name + "_BoxBody";
+			Box.Extent = FVector(Size, Size, Size);
+			Box.Transform.Location = FVector::ZeroVector;
+			Box.Transform.Rotation = FQuat::Identity;
+			Box.Transform.Scale = FVector::OneVector;
+			AggGeom.BoxElems.push_back(Box);
+		}
+
+		PhysAsset->BodySetups.push_back(BodySetup);
+		return BodySetup;
+	}
+
+	bool RemovePhysicsBodyAndConstraints(UPhysicsAsset* PhysAsset, UBodySetup* BodySetup)
+	{
+		if (!PhysAsset || !BodySetup)
+		{
+			return false;
+		}
+
+		const FName BoneName = BodySetup->GetBoneName();
+		bool bRemoved = false;
+		for (int32 ConstraintIndex = static_cast<int32>(PhysAsset->ConstraintSetups.size()) - 1; ConstraintIndex >= 0; --ConstraintIndex)
+		{
+			const FConstraintSetup& Constraint = PhysAsset->ConstraintSetups[ConstraintIndex];
+			if (Constraint.ParentBoneName == BoneName || Constraint.ChildBoneName == BoneName)
+			{
+				PhysAsset->ConstraintSetups.erase(PhysAsset->ConstraintSetups.begin() + ConstraintIndex);
+				bRemoved = true;
+			}
+		}
+
+		for (int32 BodyIndex = static_cast<int32>(PhysAsset->BodySetups.size()) - 1; BodyIndex >= 0; --BodyIndex)
+		{
+			if (PhysAsset->BodySetups[BodyIndex] == BodySetup)
+			{
+				PhysAsset->BodySetups.erase(PhysAsset->BodySetups.begin() + BodyIndex);
+				UObjectManager::Get().DestroyObject(BodySetup);
+				bRemoved = true;
+				break;
+			}
+		}
+		return bRemoved;
 	}
 
 	TArray<FPhysicsConstraintCandidate> BuildStrictConstraintCandidates(
@@ -583,6 +717,7 @@ void FMeshEditorWidget::Render(float DeltaTime)
 	ViewportClient.SetPhysicsAssetDebugDrawEnabled(ActiveTab == EMeshEditorTab::PhysicalAsset);
 	ViewportClient.SetPhysicsAssetSolidDebugDrawEnabled(
 		ActiveTab == EMeshEditorTab::PhysicalAsset && ViewportClient.GetRenderOptions().bShowPhysicsAssetSolid);
+	ViewportClient.SetSelectedPhysicsConstraintIndex(ActiveTab == EMeshEditorTab::PhysicalAsset ? SelectedConstraintIndex : -1);
 
 	const float AvailableHeight = ImGui::GetContentRegionAvail().y;
 
@@ -1522,6 +1657,28 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 		const bool bHasBodies = PhysAsset && PhysAsset->HasAnyBodySetup();
 		ImGui::Text("Bodies: %d", PhysAsset ? static_cast<int32>(PhysAsset->BodySetups.size()) : 0);
 		ImGui::Text("Constraints: %d", PhysAsset ? static_cast<int32>(PhysAsset->ConstraintSetups.size()) : 0);
+		if (PhysAsset)
+		{
+			if (ImGui::Button("Save Physics Asset", ImVec2(-1.0f, 0.0f)))
+			{
+				const FString MeshPackagePath = SkeletalMesh->GetAssetPathFileName();
+				FString PhysicsAssetPath = PhysAsset->GetAssetPathFileName();
+				if ((PhysicsAssetPath.empty() || PhysicsAssetPath == "None")
+					&& !MeshPackagePath.empty() && MeshPackagePath != "None")
+				{
+					PhysicsAssetPath = FPhysicsAssetManager::GetPhysicsAssetPackagePath(MeshPackagePath);
+					PhysAsset->SetAssetPathFileName(PhysicsAssetPath);
+					SkeletalMesh->SetPhysicsAsset(PhysAsset);
+				}
+
+				const FSkeletalMesh* MeshAsset = SkeletalMesh->GetSkeletalMeshAsset();
+				const FString SourcePath = MeshAsset ? MeshAsset->PathFileName : FString();
+				if (FPhysicsAssetManager::Get().Save(PhysAsset, SourcePath))
+				{
+					ClearDirty();
+				}
+			}
+		}
 		if (!bHasBodies)
 		{
 			if (ImGui::Button("Generate Bodies", ImVec2(-1.0f, 0.0f)))
@@ -1808,16 +1965,27 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 	{
 		USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(EditedObject);
 		const bool bCanAddBody = SkeletalMesh && BoneBodies.empty();
-		if (ImGui::MenuItem("Add Body", nullptr, false, bCanAddBody))
+		if (ImGui::BeginMenu("Add Body", bCanAddBody))
 		{
-			if (UBodySetup* NewBody = SkeletalMesh->AddDefaultPhysicsBodyForBone(Index))
+			auto AddBodyMenuItem = [&](const char* Label, EManualPhysicsBodyShape Shape)
 			{
-				SelectedBoneIndex = Index;
-				SelectedBodySetup = NewBody;
-				SelectedConstraintIndex = -1;
-				ViewportClient.SetSelectedPhysicsBody(SkeletalMesh, Index, NewBody);
-				MarkDirty();
-			}
+				if (ImGui::MenuItem(Label))
+				{
+					if (UBodySetup* NewBody = AddManualPhysicsBodyForBone(SkeletalMesh, Index, Shape))
+					{
+						SelectedBoneIndex = Index;
+						SelectedBodySetup = NewBody;
+						SelectedConstraintIndex = -1;
+						ViewportClient.SetSelectedPhysicsBody(SkeletalMesh, Index, NewBody);
+						MarkDirty();
+					}
+				}
+			};
+
+			AddBodyMenuItem("Sphere", EManualPhysicsBodyShape::Sphere);
+			AddBodyMenuItem("Capsule", EManualPhysicsBodyShape::Capsule);
+			AddBodyMenuItem("Cube", EManualPhysicsBodyShape::Box);
+			ImGui::EndMenu();
 		}
 		if (!bCanAddBody)
 		{
@@ -1861,6 +2029,22 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 						? static_cast<int32>(PhysAsset->ConstraintSetups.size()) - 1
 						: -1;
 					MarkDirty();
+				}
+				ImGui::Separator();
+				if (ImGui::MenuItem("Delete Body"))
+				{
+					if (RemovePhysicsBodyAndConstraints(PhysAsset, Body))
+					{
+						SelectedBodySetup = nullptr;
+						SelectedConstraintIndex = -1;
+						ViewportClient.SetSelectedBone(SkeletalMesh, Index);
+						MarkDirty();
+						ImGui::EndPopup();
+						ImGui::PopID();
+						ImGui::TreePop();
+						ImGui::PopID();
+						return;
+					}
 				}
 				ImGui::EndPopup();
 			}
@@ -2027,6 +2211,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 	}
 
 	const ImVec2 NodeSize(112.0f, 34.0f);
+	const ImVec2 ConstraintNodeSize(104.0f, 30.0f);
 	TMap<FString, ImVec2> NodeCenters;
 
 	for (int32 BodyIndex = 0; BodyIndex < static_cast<int32>(VisibleBodies.size()); ++BodyIndex)
@@ -2066,25 +2251,46 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 			continue;
 		}
 
+		const FString ConstraintNodeKey = MakePhysicsGraphConstraintNodeKey(ConstraintIndex);
+		const ImVec2 Mid((ParentIt->second.x + ChildIt->second.x) * 0.5f, (ParentIt->second.y + ChildIt->second.y) * 0.5f);
+		if (PhysicsGraphNodePositions.find(ConstraintNodeKey) == PhysicsGraphNodePositions.end())
+		{
+			FPhysicsGraphNodePosition Position;
+			Position.X = Mid.x - CanvasPos.x - ConstraintNodeSize.x * 0.5f;
+			Position.Y = Mid.y - CanvasPos.y - ConstraintNodeSize.y * 0.5f;
+			PhysicsGraphNodePositions[ConstraintNodeKey] = Position;
+		}
+
+		FPhysicsGraphNodePosition& ConstraintPosition = PhysicsGraphNodePositions[ConstraintNodeKey];
+		ConstraintPosition.X = std::clamp(ConstraintPosition.X, 4.0f, std::max(4.0f, CanvasSize.x - ConstraintNodeSize.x - 4.0f));
+		ConstraintPosition.Y = std::clamp(ConstraintPosition.Y, 4.0f, std::max(4.0f, CanvasSize.y - ConstraintNodeSize.y - 4.0f));
+		const ImVec2 ConstraintNodePos(CanvasPos.x + ConstraintPosition.X, CanvasPos.y + ConstraintPosition.Y);
+		const ImVec2 ConstraintNodeMax(ConstraintNodePos.x + ConstraintNodeSize.x, ConstraintNodePos.y + ConstraintNodeSize.y);
+		const ImVec2 ConstraintCenter(ConstraintNodePos.x + ConstraintNodeSize.x * 0.5f, ConstraintNodePos.y + ConstraintNodeSize.y * 0.5f);
+
 		const ImU32 LineColor = ConstraintIndex == SelectedConstraintIndex
 			? IM_COL32(120, 210, 255, 255)
 			: IM_COL32(180, 185, 195, 210);
-		DrawList->AddLine(ParentIt->second, ChildIt->second, LineColor, ConstraintIndex == SelectedConstraintIndex ? 3.0f : 2.0f);
+		DrawList->AddLine(ParentIt->second, ConstraintCenter, LineColor, ConstraintIndex == SelectedConstraintIndex ? 3.0f : 2.0f);
+		DrawList->AddLine(ConstraintCenter, ChildIt->second, LineColor, ConstraintIndex == SelectedConstraintIndex ? 3.0f : 2.0f);
 
-		const ImVec2 Mid((ParentIt->second.x + ChildIt->second.x) * 0.5f, (ParentIt->second.y + ChildIt->second.y) * 0.5f);
-		DrawList->AddCircleFilled(Mid, 5.0f, LineColor);
-		ImGui::SetCursorScreenPos(ImVec2(Mid.x - 9.0f, Mid.y - 9.0f));
+		ImGui::SetCursorScreenPos(ConstraintNodePos);
 		ImGui::PushID(("Constraint" + std::to_string(ConstraintIndex)).c_str());
-		ImGui::InvisibleButton("##ConstraintPick", ImVec2(18.0f, 18.0f), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+		ImGui::InvisibleButton("##ConstraintNode", ConstraintNodeSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
 		if (ImGui::IsItemHovered() && (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsMouseClicked(ImGuiMouseButton_Right)))
 		{
 			bPhysicsGraphCapturingMouse = true;
 			ImGui::SetNextFrameWantCaptureMouse(true);
 			InputSystem::Get().SetGuiMouseCapture(true);
 		}
-		if (ImGui::IsItemClicked())
+		if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f))
 		{
-			SelectedConstraintIndex = ConstraintIndex;
+			bPhysicsGraphCapturingMouse = true;
+			ImGui::SetNextFrameWantCaptureMouse(true);
+			InputSystem::Get().SetGuiMouseCapture(true);
+			const ImVec2 Delta = ImGui::GetIO().MouseDelta;
+			ConstraintPosition.X += Delta.x;
+			ConstraintPosition.Y += Delta.y;
 		}
 		if (ImGui::BeginPopupContextItem("##ConstraintContext"))
 		{
@@ -2099,6 +2305,11 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 			}
 			ImGui::EndPopup();
 		}
+		DrawList->AddRectFilled(ConstraintNodePos, ConstraintNodeMax, IM_COL32(144, 161, 83, 245), 4.0f);
+		DrawList->AddRect(ConstraintNodePos, ConstraintNodeMax,
+			ConstraintIndex == SelectedConstraintIndex ? IM_COL32(220, 235, 150, 255) : IM_COL32(185, 196, 130, 255), 4.0f);
+		DrawList->AddText(ImVec2(ConstraintNodePos.x + 8.0f, ConstraintNodePos.y + 6.0f), IM_COL32(245, 248, 230, 255), "Constraint");
+		DrawList->AddText(ImVec2(ConstraintNodePos.x + 8.0f, ConstraintNodePos.y + 19.0f), IM_COL32(218, 226, 186, 255), ChildName.c_str());
 		ImGui::PopID();
 	}
 
@@ -2135,20 +2346,26 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 			Position.X += Delta.x;
 			Position.Y += Delta.y;
 		}
-		if (ImGui::IsItemClicked())
-		{
-			const int32 BoneIndex = FindBoneIndexByName(Asset, BodySetup->GetBoneName());
-			SelectedBoneIndex = BoneIndex;
-			SelectedBodySetup = BodySetup;
-			SelectedConstraintIndex = -1;
-			ViewportClient.SetSelectedPhysicsBody(SkeletalMesh, BoneIndex, BodySetup);
-		}
 		if (ImGui::BeginPopupContextItem("##BodyGraphContext"))
 		{
 			if (RenderConstraintCandidateMenu(SkeletalMesh, PhysAsset, BodySetup))
 			{
 				SelectedConstraintIndex = static_cast<int32>(PhysAsset->ConstraintSetups.size()) - 1;
 				MarkDirty();
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Delete Body"))
+			{
+				if (RemovePhysicsBodyAndConstraints(PhysAsset, BodySetup))
+				{
+					SelectedBodySetup = nullptr;
+					SelectedConstraintIndex = -1;
+					ViewportClient.SetSelectedBone(SkeletalMesh, SelectedBoneIndex);
+					MarkDirty();
+					ImGui::EndPopup();
+					ImGui::PopID();
+					return;
+				}
 			}
 			ImGui::EndPopup();
 		}

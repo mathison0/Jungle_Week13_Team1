@@ -56,9 +56,18 @@ public:
 		MarkRenderStateDirty();
 	}
 
+	int32 GetSelectedPhysicsConstraintIndex() const { return SelectedPhysicsConstraintIndex; }
+	void SetSelectedPhysicsConstraintIndex(int32 InConstraintIndex)
+	{
+		if (SelectedPhysicsConstraintIndex == InConstraintIndex) return;
+		SelectedPhysicsConstraintIndex = InConstraintIndex;
+		MarkRenderStateDirty();
+	}
+
 private:
 	USkeletalMeshComponent* TargetMeshComponent = nullptr;
 	UBodySetup* SelectedPhysicsBodySetup = nullptr;
+	int32 SelectedPhysicsConstraintIndex = -1;
 	int32 SelectedBoneIndex = -1;
 	EBoneDebugDrawMode DrawMode = EBoneDebugDrawMode::SelectedOnly;
 	bool bDrawPhysicsAsset = false;

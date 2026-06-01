@@ -21,6 +21,8 @@ public:
 	const TArray<FWireLine>& GetCachedPhysicsAssetLines() const { return CachedPhysicsAssetLines; }
 	const TArray<FVertex>& GetCachedPhysicsAssetSolidVertices() const { return CachedPhysicsAssetSolidVertices; }
 	const TArray<uint32>& GetCachedPhysicsAssetSolidIndices() const { return CachedPhysicsAssetSolidIndices; }
+	const TArray<FVertex>& GetCachedPhysicsConstraintSolidVertices() const { return CachedPhysicsConstraintSolidVertices; }
+	const TArray<uint32>& GetCachedPhysicsConstraintSolidIndices() const { return CachedPhysicsConstraintSolidIndices; }
 
 	const FVector4& GetBoneColor() const { return BoneColor; }
 	const FVector4& GetParentBoneColor() const { return ParentBoneColor; }
@@ -36,6 +38,8 @@ private:
 	TArray<FWireLine> CachedPhysicsAssetLines;
 	TArray<FVertex> CachedPhysicsAssetSolidVertices;
 	TArray<uint32> CachedPhysicsAssetSolidIndices;
+	TArray<FVertex> CachedPhysicsConstraintSolidVertices;
+	TArray<uint32> CachedPhysicsConstraintSolidIndices;
 
 	FVector4 BoneColor;
 	FVector4 ParentBoneColor;

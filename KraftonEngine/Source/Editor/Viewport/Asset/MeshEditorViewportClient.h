@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Viewport/EditorPreviewViewportClient.h"
 #include "Viewport/ViewportClient.h"
@@ -96,6 +96,7 @@ public:
 	void SetBoneDebugDrawMode(EBoneDebugDrawMode InDrawMode);
 	void SetPhysicsAssetDebugDrawEnabled(bool bEnabled);
 	void SetPhysicsAssetSolidDebugDrawEnabled(bool bEnabled);
+	void SetSelectedPhysicsConstraintIndex(int32 ConstraintIndex);
 
 	void ApplyTransformSettingsToGizmo();
 

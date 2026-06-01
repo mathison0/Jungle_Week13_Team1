@@ -1,4 +1,4 @@
-#include "BoneDebugSceneProxy.h"
+﻿#include "BoneDebugSceneProxy.h"
 
 #include "Component/Debug/BoneDebugComponent.h"
 #include "Component/Primitive/SkeletalMeshComponent.h"
@@ -137,6 +137,105 @@ static void AddSolidTriangle(TArray<FVertex>& Vertices, TArray<uint32>& Indices,
 	Indices.push_back(BaseIndex);
 	Indices.push_back(BaseIndex + 1);
 	Indices.push_back(BaseIndex + 2);
+}
+
+static void MakeBasisFromAxis(const FVector& InAxis, FVector& OutAxis, FVector& OutTangentA, FVector& OutTangentB)
+{
+	OutAxis = InAxis;
+	if (OutAxis.IsNearlyZero())
+	{
+		OutAxis = FVector::XAxisVector;
+	}
+	OutAxis.Normalize();
+
+	const FVector UpHint = std::fabs(OutAxis.Z) > 0.9f ? FVector::YAxisVector : FVector::ZAxisVector;
+	OutTangentA = UpHint.Cross(OutAxis);
+	if (OutTangentA.IsNearlyZero())
+	{
+		OutTangentA = FVector::XAxisVector;
+	}
+	OutTangentA.Normalize();
+	OutTangentB = OutAxis.Cross(OutTangentA);
+	OutTangentB.Normalize();
+}
+
+static void BuildConstraintConeAndArc(TArray<FVertex>& Vertices, TArray<uint32>& Indices,
+	const FVector& Center, const FVector& ConeAxis,
+	float ConeLength, float LimitDegrees, const FVector4& ConeColor, const FVector4& ArcColor)
+{
+	if (ConeLength <= 0.0f || LimitDegrees <= 0.0f) return;
+
+	const float LimitRadians = FMath::Clamp(LimitDegrees, 0.0f, 89.0f) * FMath::Pi / 180.0f;
+	const float BaseRadius = std::max(0.002f, tanf(LimitRadians) * ConeLength);
+	const float ArcWidth = std::max(0.004f, ConeLength * 0.035f);
+	constexpr int32 Segments = 36;
+
+	FVector Axis, TangentA, TangentB;
+	MakeBasisFromAxis(ConeAxis, Axis, TangentA, TangentB);
+
+	const FVector BaseCenter = Center + Axis * ConeLength;
+	FVector PrevInner = BaseCenter + TangentA * BaseRadius;
+	FVector PrevOuter = BaseCenter + TangentA * (BaseRadius + ArcWidth);
+
+	for (int32 Segment = 1; Segment <= Segments; ++Segment)
+	{
+		const float Angle = 2.0f * FMath::Pi * static_cast<float>(Segment) / static_cast<float>(Segments);
+		const FVector RingDirection = TangentA * cosf(Angle) + TangentB * sinf(Angle);
+		const FVector NextInner = BaseCenter + RingDirection * BaseRadius;
+		const FVector NextOuter = BaseCenter + RingDirection * (BaseRadius + ArcWidth);
+
+		AddSolidTriangle(Vertices, Indices, Center, PrevInner, NextInner, ConeColor);
+		AddSolidTriangle(Vertices, Indices, PrevInner, PrevOuter, NextInner, ArcColor);
+		AddSolidTriangle(Vertices, Indices, NextInner, PrevOuter, NextOuter, ArcColor);
+		PrevInner = NextInner;
+		PrevOuter = NextOuter;
+	}
+}
+
+static void BuildConstraintSolidSector(TArray<FVertex>& Vertices, TArray<uint32>& Indices,
+	const FVector& Center, const FVector& AxisA, const FVector& AxisB,
+	float Radius, float LimitDegrees, const FVector4& Color)
+{
+	if (Radius <= 0.0f || LimitDegrees <= 0.0f) return;
+
+	const float LimitRadians = FMath::Clamp(LimitDegrees, 0.0f, 180.0f) * FMath::Pi / 180.0f;
+	constexpr int32 Segments = 32;
+	FVector Prev = Center + (AxisA * cosf(-LimitRadians) + AxisB * sinf(-LimitRadians)) * Radius;
+
+	for (int32 Segment = 1; Segment <= Segments; ++Segment)
+	{
+		const float Alpha = static_cast<float>(Segment) / static_cast<float>(Segments);
+		const float Angle = -LimitRadians + LimitRadians * 2.0f * Alpha;
+		const FVector Next = Center + (AxisA * cosf(Angle) + AxisB * sinf(Angle)) * Radius;
+		AddSolidTriangle(Vertices, Indices, Center, Prev, Next, Color);
+		Prev = Next;
+	}
+}
+
+static void BuildConstraintTwistBand(TArray<FVertex>& Vertices, TArray<uint32>& Indices,
+	const FVector& Center, const FVector& AxisX, const FVector& AxisY, const FVector& AxisZ,
+	float Radius, float BandHalfWidth, float LimitDegrees, const FVector4& Color)
+{
+	if (Radius <= 0.0f || BandHalfWidth <= 0.0f || LimitDegrees <= 0.0f) return;
+
+	const float LimitRadians = FMath::Clamp(LimitDegrees, 0.0f, 180.0f) * FMath::Pi / 180.0f;
+	constexpr int32 Segments = 28;
+	FVector PrevInner = Center - AxisX * BandHalfWidth + (AxisY * cosf(-LimitRadians) + AxisZ * sinf(-LimitRadians)) * Radius;
+	FVector PrevOuter = Center + AxisX * BandHalfWidth + (AxisY * cosf(-LimitRadians) + AxisZ * sinf(-LimitRadians)) * Radius;
+
+	for (int32 Segment = 1; Segment <= Segments; ++Segment)
+	{
+		const float Alpha = static_cast<float>(Segment) / static_cast<float>(Segments);
+		const float Angle = -LimitRadians + LimitRadians * 2.0f * Alpha;
+		const FVector Arc = (AxisY * cosf(Angle) + AxisZ * sinf(Angle)) * Radius;
+		const FVector NextInner = Center - AxisX * BandHalfWidth + Arc;
+		const FVector NextOuter = Center + AxisX * BandHalfWidth + Arc;
+
+		AddSolidTriangle(Vertices, Indices, PrevInner, NextInner, PrevOuter, Color);
+		AddSolidTriangle(Vertices, Indices, PrevOuter, NextInner, NextOuter, Color);
+		PrevInner = NextInner;
+		PrevOuter = NextOuter;
+	}
 }
 
 static void BuildPhysicsBoxSolid(TArray<FVertex>& Vertices, TArray<uint32>& Indices, const FVector& Center, const FVector& Extent,
@@ -360,6 +459,8 @@ void FBoneDebugSceneProxy::RebuildLines()
 	CachedPhysicsAssetLines.clear();
 	CachedPhysicsAssetSolidVertices.clear();
 	CachedPhysicsAssetSolidIndices.clear();
+	CachedPhysicsConstraintSolidVertices.clear();
+	CachedPhysicsConstraintSolidIndices.clear();
 
 	UBoneDebugComponent* Comp = static_cast<UBoneDebugComponent*>(GetOwner());
 	if (!Comp) return;
@@ -436,6 +537,7 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 	const FVector4 UnselectedSolidColor(0.56f, 0.58f, 0.60f, 0.30f);
 	const FVector4 SelectedSolidColor(0.25f, 0.76f, 1.00f, 0.30f);
 	UBodySetup* SelectedBodySetup = Comp->GetSelectedPhysicsBodySetup();
+	const int32 SelectedConstraintIndex = Comp->GetSelectedPhysicsConstraintIndex();
 
 	for (UBodySetup* BodySetup : PhysicsAsset->BodySetups)
 	{
@@ -495,5 +597,57 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 					std::max(0.0f, Sphyl.Length * 0.5f * Scale.Z), AxisX, AxisY, AxisZ, SolidColor);
 			}
 		}
+	}
+
+	const FVector4 Swing1ConeColor(1.0f, 0.08f, 0.05f, 0.26f);
+	const FVector4 Swing1ArcColor(1.0f, 0.08f, 0.05f, 0.58f);
+	const FVector4 Swing2ArcColor(0.05f, 0.9f, 0.18f, 0.58f);
+	const FVector4 TwistColor(0.10f, 0.34f, 1.0f, 0.62f);
+
+	for (int32 ConstraintIndex = 0; ConstraintIndex < static_cast<int32>(PhysicsAsset->ConstraintSetups.size()); ++ConstraintIndex)
+	{
+		const FConstraintSetup& Constraint = PhysicsAsset->ConstraintSetups[ConstraintIndex];
+
+		const int32 ParentBoneIndex = MeshComp->FindBoneIndex(Constraint.ParentBoneName.ToString());
+		const int32 ChildBoneIndex = MeshComp->FindBoneIndex(Constraint.ChildBoneName.ToString());
+		if (ParentBoneIndex < 0 || ChildBoneIndex < 0) continue;
+
+		FTransform ParentBoneWorldTransform;
+		FTransform ChildBoneWorldTransform;
+		if (!MeshComp->GetBoneWorldTransformByIndex(ParentBoneIndex, ParentBoneWorldTransform)
+			|| !MeshComp->GetBoneWorldTransformByIndex(ChildBoneIndex, ChildBoneWorldTransform))
+		{
+			continue;
+		}
+
+		const FMatrix ConstraintWorldMatrix = Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix();
+		FVector Center, AxisX, AxisY, AxisZ, Scale;
+		ExtractTransformAxes(ConstraintWorldMatrix, Center, AxisX, AxisY, AxisZ, Scale);
+
+		const float BoneDistance = FVector::Distance(ParentBoneWorldTransform.Location, ChildBoneWorldTransform.Location);
+		const float AutoRadius = FMath::Clamp(BoneDistance * 0.35f, 0.025f, 0.35f);
+		const float Radius = AutoRadius * 0.3f * (ConstraintIndex == SelectedConstraintIndex ? 1.15f : 1.0f);
+		const float BandHalfWidth = std::max(0.01f, Radius * 0.08f);
+
+		if (bDrawSolid)
+		{
+			if (Constraint.Option.Swing1Motion == EAngularConstraintMotion::Limited)
+			{
+				BuildConstraintConeAndArc(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
+					Center, AxisZ, Radius, Constraint.Option.Swing1LimitDegrees, Swing1ConeColor, Swing1ArcColor);
+			}
+			if (Constraint.Option.Swing2Motion == EAngularConstraintMotion::Limited)
+			{
+				BuildConstraintSolidSector(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
+					Center, AxisX, AxisZ, Radius * 0.92f, Constraint.Option.Swing2LimitDegrees, Swing2ArcColor);
+			}
+			if (Constraint.Option.TwistMotion == EAngularConstraintMotion::Limited)
+			{
+				BuildConstraintTwistBand(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
+					Center, AxisX, AxisY, AxisZ, Radius * 0.72f, BandHalfWidth, Constraint.Option.TwistLimitDegrees, TwistColor);
+			}
+		}
+
+		AddLine(CachedPhysicsAssetLines, Center, ChildBoneWorldTransform.Location);
 	}
 }
