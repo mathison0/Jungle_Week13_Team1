@@ -39,6 +39,11 @@ public:
     UPhysicsAsset() = default;
     ~UPhysicsAsset() override = default;
 
+    void Serialize(FArchive& Ar) override;
+
+    void SetAssetPathFileName(const FString& InPath) { AssetPathFileName = InPath; }
+    const FString& GetAssetPathFileName() const { return AssetPathFileName; }
+
     // PhysicsAsset Editor에서 bone별 collision body를 편집하는 목록.
     // 각 BodySetup의 BoneName은 skeleton에 실제로 존재해야 하며, bone 하나당 하나를 권장한다.
     UPROPERTY(Edit, Save, Instanced, Category="Physics", DisplayName="Body Setups", Type=Array)
@@ -58,4 +63,7 @@ public:
         const FSkeletalMesh& Mesh,
         const FPhysicsAssetAutoGenerateSettings& Settings = FPhysicsAssetAutoGenerateSettings(),
         FPhysicsAssetAutoGenerateStats* OutStats = nullptr);
+
+private:
+    FString AssetPathFileName = "None";
 };

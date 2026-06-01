@@ -4,6 +4,7 @@
 #include "Math/MathUtils.h"
 #include "Mesh/Skeletal/SkeletalMeshAsset.h"
 #include "Object/Object.h"
+#include "Serialization/Archive.h"
 
 #include <algorithm>
 #include <cctype>
@@ -254,6 +255,19 @@ static bool HasConstraint(const TArray<FConstraintSetup>& Constraints, const FNa
         }
     }
     return false;
+}
+
+void UPhysicsAsset::Serialize(FArchive& Ar)
+{
+    SerializeProperties(Ar, PF_Save);
+
+    for (UBodySetup* BodySetup : BodySetups)
+    {
+        if (BodySetup)
+        {
+            BodySetup->SetOuter(this);
+        }
+    }
 }
 
 bool UPhysicsAsset::HasAnyBodySetup() const

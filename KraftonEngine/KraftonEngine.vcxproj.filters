@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Intermediate">
@@ -72,6 +72,9 @@
     </Filter>
     <Filter Include="Source\Editor\UI\Asset\Particle">
       <UniqueIdentifier>{ebf11781-61db-1727-e031-70fd890518c6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\UI\Asset\Physics">
+      <UniqueIdentifier>{a9510143-b9c8-a4a8-aa42-31438e50f6bb}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Editor\UI\ContentBrowser">
       <UniqueIdentifier>{09a2ea7f-e891-b580-bef0-471bcd9b5d4b}</UniqueIdentifier>
@@ -272,7 +275,10 @@
       <UniqueIdentifier>{c1985821-1144-9a46-639a-f7de31f4a1fa}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Engine\Physics\PhysX">
-      <UniqueIdentifier>{bcbcfcd8-0c46-4a6a-85f4-8ba3ca6e7382}</UniqueIdentifier>
+      <UniqueIdentifier>{d87c17f2-a59e-599d-8e89-e08d70a1c594}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Engine\Physics\PhysicsMaterial">
+      <UniqueIdentifier>{b288c3b4-1587-36c9-d80c-c970a3c61eda}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Engine\Platform">
       <UniqueIdentifier>{813e0a37-91de-2afc-805f-1a0f801727b9}</UniqueIdentifier>
@@ -981,6 +987,21 @@
     <FxCompile Include="Shaders\PostProcess\CameraVignette.hlsl">
       <Filter>Shaders\PostProcess</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\DepthOfFieldBlur.hlsl">
+      <Filter>Shaders\PostProcess</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\DepthOfFieldCoC.hlsl">
+      <Filter>Shaders\PostProcess</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\DepthOfFieldComposite.hlsl">
+      <Filter>Shaders\PostProcess</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\DepthOfFieldDownsample.hlsl">
+      <Filter>Shaders\PostProcess</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\DepthOfFieldPoissonBlur.hlsl">
+      <Filter>Shaders\PostProcess</Filter>
+    </FxCompile>
     <FxCompile Include="Shaders\PostProcess\FXAA.hlsl">
       <Filter>Shaders\PostProcess</Filter>
     </FxCompile>
@@ -1096,6 +1117,9 @@
     </ClCompile>
     <ClCompile Include="Source\Editor\UI\Asset\Particle\ParticleSystemEditorWidget.cpp">
       <Filter>Source\Editor\UI\Asset\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\UI\Asset\Physics\PhysicalMaterialEditorWidget.cpp">
+      <Filter>Source\Editor\UI\Asset\Physics</Filter>
     </ClCompile>
     <ClCompile Include="Source\Editor\UI\ContentBrowser\ContentBrowser.cpp">
       <Filter>Source\Editor\UI\ContentBrowser</Filter>
@@ -1718,9 +1742,6 @@
     <ClCompile Include="Source\Engine\Particles\Runtime\ParticleEmitterInstance.cpp">
       <Filter>Source\Engine\Particles\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\BodyInstance.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
@@ -1733,22 +1754,34 @@
     <ClCompile Include="Source\Engine\Physics\ConstraintInstance.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\NativePhysicsScene.cpp">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysicsAsset.cpp">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysicsAssetManager.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysicsGeometry.cpp">
       <Filter>Source\Engine\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCore.cpp">
-      <Filter>Source\Engine\Physics\PhysX</Filter>
+    <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterial.cpp">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.cpp">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCollision.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.cpp">
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCore.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsScene.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneAdapter.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneBody.cpp">
@@ -1763,7 +1796,7 @@
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneQuery.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXPhysicsSceneAdapter.cpp">
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.cpp">
@@ -2206,6 +2239,9 @@
     </ClInclude>
     <ClInclude Include="Source\Editor\UI\Asset\Particle\ParticleSystemEditorWidget.h">
       <Filter>Source\Editor\UI\Asset\Particle</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\UI\Asset\Physics\PhysicalMaterialEditorWidget.h">
+      <Filter>Source\Editor\UI\Asset\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Editor\UI\ContentBrowser\ContentBrowser.h">
       <Filter>Source\Editor\UI\ContentBrowser</Filter>
@@ -2978,9 +3014,6 @@
     <ClInclude Include="Source\Engine\Particles\Runtime\ParticleRuntimeTypes.h">
       <Filter>Source\Engine\Particles\Runtime</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\IPhysicsScene.h">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\BodyInstance.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
@@ -2993,23 +3026,35 @@
     <ClInclude Include="Source\Engine\Physics\ConstraintInstance.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysicsAsset.h">
-      <Filter>Source\Engine\Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysicsGeometry.h">
+    <ClInclude Include="Source\Engine\Physics\IPhysicsScene.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\NativePhysicsScene.h">
       <Filter>Source\Engine\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCore.h">
-      <Filter>Source\Engine\Physics\PhysX</Filter>
+    <ClInclude Include="Source\Engine\Physics\PhysicsAsset.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysicsAssetManager.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysicsGeometry.h">
+      <Filter>Source\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterial.h">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.h">
+      <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCollision.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysXConverter.h">
-      <Filter>Source\Engine\Physics</Filter>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCore.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXHelper.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXPhysicsScene.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>

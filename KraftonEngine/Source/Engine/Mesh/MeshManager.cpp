@@ -26,6 +26,7 @@
 
 #include "Object/ReferenceCollector.h"
 #include "Physics/PhysicsAsset.h"
+#include "Physics/PhysicsAssetManager.h"
 
 TMap<FString, UStaticMesh*> FMeshManager::StaticMeshCache;
 TMap<FString, USkeletalMesh*> FMeshManager::SkeletalMeshCache;
@@ -498,7 +499,7 @@ static bool SaveSkeletalMeshBinary(USkeletalMesh* SkeletalMesh, const FString& B
 	return Writer.IsValid();
 }
 
-static bool AutoGeneratePhysicsAssetForImportedSkeletalMesh(USkeletalMesh* SkeletalMesh, const FString& PackagePath)
+static bool GenerateAndSavePhysicsAssetForImportedSkeletalMesh(USkeletalMesh* SkeletalMesh, const FString& PackagePath)
 {
 	if (!SkeletalMesh)
 	{
@@ -559,7 +560,16 @@ static bool AutoGeneratePhysicsAssetForImportedSkeletalMesh(USkeletalMesh* Skele
 			Stats.SkippedBoneCount);
 	}
 
-	return bGenerated;
+	const FString PhysicsAssetPath = FPhysicsAssetManager::GetPhysicsAssetPackagePath(PackagePath);
+	PhysicsAsset->SetAssetPathFileName(PhysicsAssetPath);
+	SkeletalMesh->SetPhysicsAsset(PhysicsAsset);
+	if (!FPhysicsAssetManager::Get().Save(PhysicsAsset, MeshAsset->PathFileName))
+	{
+		UE_LOG("[SkeletalMeshImport] PhysicsAsset save failed: package=%s", PhysicsAssetPath.c_str());
+		return false;
+	}
+
+	return true;
 }
 
 FString FMeshManager::GetStaticMeshBinaryFilePath(const FString& SourcePath)
@@ -1133,7 +1143,10 @@ bool FMeshManager::ImportSkeletalMeshAsNew(const FString& SourceFbxPath, ID3D11D
 	SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 	SkeletalMesh->SetSkeletalMeshAsset(NewMesh.release());
 	SkeletalMesh->SetSkeleton(Skeleton);
-	AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath);
+	if (!GenerateAndSavePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath))
+	{
+		return false;
+	}
 
 	if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, SourceFbxPath))
 	{
@@ -1244,7 +1257,10 @@ bool FMeshManager::ImportSkeletalMesh(const FSkeletalMeshImportRequest& Request,
 	SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 	SkeletalMesh->SetSkeletalMeshAsset(new FSkeletalMesh(std::move(ImportResult.Mesh)));
 	SkeletalMesh->SetSkeleton(TargetSkeleton);
-	AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath);
+	if (!GenerateAndSavePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath))
+	{
+		return false;
+	}
 
 	if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, Request.SourceFbxPath))
 	{
@@ -1396,7 +1412,10 @@ bool FMeshManager::ImportFbxScene(
 			SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 			SkeletalMesh->SetSkeletalMeshAsset(new FSkeletalMesh(std::move(ImportResult.Mesh)));
 			SkeletalMesh->SetSkeleton(EffectiveSkeleton);
-			AutoGeneratePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath);
+			if (!GenerateAndSavePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath))
+			{
+				return false;
+			}
 
 			if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, Request.SourceFbxPath))
 			{
