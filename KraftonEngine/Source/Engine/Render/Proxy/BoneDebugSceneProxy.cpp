@@ -238,6 +238,20 @@ static void BuildConstraintTwistBand(TArray<FVertex>& Vertices, TArray<uint32>& 
 	}
 }
 
+static float GetConstraintVisualLimitDegrees(EAngularConstraintMotion Motion, float LimitDegrees, float FreeDegrees)
+{
+	switch (Motion)
+	{
+	case EAngularConstraintMotion::Free:
+		return FreeDegrees;
+	case EAngularConstraintMotion::Limited:
+		return FMath::Clamp(LimitDegrees, 0.0f, FreeDegrees);
+	case EAngularConstraintMotion::Locked:
+	default:
+		return 0.0f;
+	}
+}
+
 static void BuildPhysicsBoxSolid(TArray<FVertex>& Vertices, TArray<uint32>& Indices, const FVector& Center, const FVector& Extent,
 	const FVector& AxisX, const FVector& AxisY, const FVector& AxisZ, const FVector4& Color)
 {
@@ -631,20 +645,27 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 
 		if (bDrawSolid)
 		{
-			if (Constraint.Option.Swing1Motion == EAngularConstraintMotion::Limited)
+			const float Swing1Degrees = GetConstraintVisualLimitDegrees(
+				Constraint.Option.Swing1Motion, Constraint.Option.Swing1LimitDegrees, 89.0f);
+			const float Swing2Degrees = GetConstraintVisualLimitDegrees(
+				Constraint.Option.Swing2Motion, Constraint.Option.Swing2LimitDegrees, 180.0f);
+			const float TwistDegrees = GetConstraintVisualLimitDegrees(
+				Constraint.Option.TwistMotion, Constraint.Option.TwistLimitDegrees, 180.0f);
+
+			if (Swing1Degrees > 0.0f)
 			{
 				BuildConstraintConeAndArc(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
-					Center, AxisZ, Radius, Constraint.Option.Swing1LimitDegrees, Swing1ConeColor, Swing1ArcColor);
+					Center, AxisZ, Radius, Swing1Degrees, Swing1ConeColor, Swing1ArcColor);
 			}
-			if (Constraint.Option.Swing2Motion == EAngularConstraintMotion::Limited)
+			if (Swing2Degrees > 0.0f)
 			{
 				BuildConstraintSolidSector(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
-					Center, AxisX, AxisZ, Radius * 0.92f, Constraint.Option.Swing2LimitDegrees, Swing2ArcColor);
+					Center, AxisX, AxisZ, Radius * 0.92f, Swing2Degrees, Swing2ArcColor);
 			}
-			if (Constraint.Option.TwistMotion == EAngularConstraintMotion::Limited)
+			if (TwistDegrees > 0.0f)
 			{
 				BuildConstraintTwistBand(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
-					Center, AxisX, AxisY, AxisZ, Radius * 0.72f, BandHalfWidth, Constraint.Option.TwistLimitDegrees, TwistColor);
+					Center, AxisX, AxisY, AxisZ, Radius * 0.72f, BandHalfWidth, TwistDegrees, TwistColor);
 			}
 		}
 

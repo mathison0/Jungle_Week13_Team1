@@ -8,8 +8,11 @@
 #include "Mesh/Skeletal/SkeletalMeshAsset.h"
 #include "Runtime/Engine.h"
 #include "Component/Primitive/SkeletalMeshComponent.h"
+#include "Component/PrimitiveComponent.h"
 #include "Component/Light/DirectionalLightComponent.h"
+#include "Component/Shape/BoxComponent.h"
 #include "Viewport/Viewport.h"
+#include "GameFramework/World.h"
 #include "GameFramework/Light/DirectionalLightActor.h"
 #include "GameFramework/Actor/StaticMeshActor.h"
 #include "Settings/EditorSettings.h"
@@ -28,14 +31,17 @@
 #include "UI/Asset/Animation/AnimationTimelinePanel.h"
 #include "UI/Asset/Animation/AnimSequencePropertyPanel.h"
 #include "UI/Asset/Animation/AnimMontagePropertyPanel.h"
+#include "UI/Panel/EditorPropertyRenderer.h"
 #include "UI/Util/EditorFileUtils.h"
 #include "Editor/UI/Util/EditorTextureManager.h"
 #include "Platform/Paths.h"
 #include "Object/Object.h"
+#include "Object/Reflection/UStruct.h"
 #include "Physics/BodySetup.h"
 #include "Physics/PhysicsAsset.h"
 #include "Physics/PhysicsAssetManager.h"
 #include "Physics/PhysicsGeometry.h"
+#include "Physics/IPhysicsScene.h"
 #include "Mesh/MeshManager.h"
 
 #include <imgui.h>
@@ -329,34 +335,103 @@ namespace
 		return Candidates;
 	}
 
-	bool RenderAngularMotionCombo(const char* Label, EAngularConstraintMotion& Motion)
+	void CollectEditablePropertiesFromStruct(UStruct* Struct, void* Container, UObject* OwnerObject, TArray<FPropertyValue>& OutProps)
 	{
-		const char* Names[] = { "Free", "Limited", "Locked" };
-		int Current = static_cast<int>(Motion);
-		if (Current < 0 || Current > 2)
+		if (!Struct || !Container)
 		{
-			Current = 1;
+			return;
 		}
 
-		bool bChanged = false;
-		if (ImGui::BeginCombo(Label, Names[Current]))
+		TArray<const FProperty*> Properties;
+		Struct->GetPropertyRefs(Properties);
+		for (const FProperty* Property : Properties)
 		{
-			for (int Index = 0; Index < 3; ++Index)
+			if (!Property || (Property->Flags & PF_Edit) == 0 || !Property->GetValuePtrFor(Container))
 			{
-				const bool bSelected = Current == Index;
-				if (ImGui::Selectable(Names[Index], bSelected))
+				continue;
+			}
+
+			FPropertyValue Value = Property->ToValue(Container, OwnerObject);
+			if (Value.PassesEditCondition())
+			{
+				OutProps.push_back(Value);
+			}
+		}
+	}
+
+	bool RenderReflectedPropertyTable(const char* TableId, TArray<FPropertyValue>& Props, bool bDispatchChange)
+	{
+		bool bChanged = false;
+		if (Props.empty())
+		{
+			ImGui::TextDisabled("No editable reflected properties.");
+			return false;
+		}
+
+		if (ImGui::BeginTable(TableId, 2,
+			ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_PadOuterX | ImGuiTableFlags_RowBg))
+		{
+			ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 118.0f);
+			ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+			ImGui::PushStyleColor(ImGuiCol_TableRowBg, ImVec4(0.13f, 0.13f, 0.13f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(0.145f, 0.145f, 0.145f, 1.0f));
+
+			FEditorPropertyRenderer PropertyRenderer;
+			for (int32 i = 0; i < static_cast<int32>(Props.size()); ++i)
+			{
+				ImGui::TableNextRow();
+				ImGui::PushID(i);
+
+				ImGui::TableSetColumnIndex(0);
+				const bool bPropertyOpen = FEditorPropertyRenderer::DrawPropertyLabel(Props[i]);
+
+				ImGui::TableSetColumnIndex(1);
+				ImGui::SetNextItemWidth(-1);
+
+				FEditorPropertyRenderOptions Options;
+				Options.bDispatchChange = bDispatchChange;
+				Options.bUseExternalExpansion = true;
+				Options.bParentExpanded = bPropertyOpen;
+				if (PropertyRenderer.RenderPropertyWidget(Props, i, Options))
 				{
-					Motion = static_cast<EAngularConstraintMotion>(Index);
 					bChanged = true;
 				}
-				if (bSelected)
-				{
-					ImGui::SetItemDefaultFocus();
-				}
+				ImGui::PopID();
 			}
-			ImGui::EndCombo();
+
+			ImGui::PopStyleColor(2);
+			ImGui::EndTable();
 		}
+
 		return bChanged;
+	}
+
+	void RegisterPreviewWorldCollisionComponents(UWorld* World, USkeletalMeshComponent* PreviewMeshComponent)
+	{
+		IPhysicsScene* PhysicsScene = World ? World->GetPhysicsScene() : nullptr;
+		if (!World || !PhysicsScene)
+		{
+			return;
+		}
+
+		for (AActor* Actor : World->GetActors())
+		{
+			if (!Actor)
+			{
+				continue;
+			}
+
+			for (UActorComponent* Component : Actor->GetComponents())
+			{
+				UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component);
+				if (!Primitive || Primitive == PreviewMeshComponent || !Primitive->IsQueryCollisionEnabled())
+				{
+					continue;
+				}
+				PhysicsScene->RegisterComponent(Primitive);
+			}
+		}
 	}
 
 	FString FormatMeshStatCount(size_t Value)
@@ -541,6 +616,17 @@ void FMeshEditorWidget::Open(UObject* Object)
 	FloorActor->InitDefaultComponents("Content/Data/BasicShape/Cube.OBJ");
 	FloorActor->SetActorLocation(FVector(0.0f, 0.0f, -0.05f));
 	FloorActor->SetActorScale(FVector(10.0f, 10.0f, 0.02f));
+	if (UBoxComponent* FloorCollider = FloorActor->AddComponent<UBoxComponent>())
+	{
+		FloorCollider->AttachToComponent(FloorActor->GetRootComponent());
+		FloorCollider->SetBoxExtent(FVector(1.0f, 1.0f, 1.0f));
+		FloorCollider->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
+		FloorCollider->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		FloorCollider->SetCollisionObjectType(ECollisionChannel::WorldStatic);
+		FloorCollider->SetCollisionResponseToAllChannels(ECollisionResponse::Block);
+		FloorCollider->SetSimulatePhysics(false);
+		FloorCollider->SetVisibility(false);
+	}
 
 	ImVec2 ViewportSize = ImGui::GetContentRegionAvail();
 
@@ -578,6 +664,8 @@ void FMeshEditorWidget::Open(UObject* Object)
 
 void FMeshEditorWidget::Close()
 {
+	StopPhysicsAssetSimulation(false);
+
 	FAssetEditorWidget::Close();
 
 	if (UWorld* PreviewWorld = ViewportClient.GetPreviewWorld())
@@ -598,6 +686,7 @@ void FMeshEditorWidget::Close()
 	SelectedBodySetup = nullptr;
 	SelectedConstraintIndex = -1;
 	PhysicsGraphNodePositions.clear();
+	bPhysicsAssetSimulationRunning = false;
 }
 
 void FMeshEditorWidget::Tick(float DeltaTime)
@@ -605,6 +694,25 @@ void FMeshEditorWidget::Tick(float DeltaTime)
 	if (ViewportClient.IsRenderable())
 	{
 		ViewportClient.Tick(DeltaTime);
+	}
+
+	if (bPhysicsAssetSimulationRunning)
+	{
+		USkeletalMeshComponent* Comp = ViewportClient.GetPreviewMeshComponent();
+		if (!Comp || !Comp->IsRagdollSimulating())
+		{
+			bPhysicsAssetSimulationRunning = false;
+			return;
+		}
+
+		if (UWorld* PreviewWorld = ViewportClient.GetPreviewWorld())
+		{
+			if (IPhysicsScene* PhysicsScene = PreviewWorld->GetPhysicsScene())
+			{
+				PhysicsScene->Tick(DeltaTime);
+			}
+		}
+		return;
 	}
 
 	if (ActiveTab == EMeshEditorTab::Animation)
@@ -631,6 +739,58 @@ void FMeshEditorWidget::Tick(float DeltaTime)
 
 		Comp->SetAnimationPose(Out.Pose, Out.MorphWeights);
 	}
+}
+
+void FMeshEditorWidget::StartPhysicsAssetSimulation()
+{
+	USkeletalMeshComponent* Comp = ViewportClient.GetPreviewMeshComponent();
+	USkeletalMesh* Mesh = Comp ? Comp->GetSkeletalMesh() : nullptr;
+	UPhysicsAsset* PhysAsset = Mesh ? Mesh->GetPhysicsAsset() : nullptr;
+	if (!Comp || !PhysAsset || !PhysAsset->HasAnyBodySetup())
+	{
+		return;
+	}
+
+	if (UWorld* PreviewWorld = ViewportClient.GetPreviewWorld())
+	{
+		if (IPhysicsScene* PhysicsScene = PreviewWorld->EnsurePhysicsScene())
+		{
+			RegisterPreviewWorldCollisionComponents(PreviewWorld, Comp);
+			if (Comp->IsRagdollSimulating())
+			{
+				Comp->SetSimulateRagdoll(false);
+			}
+			PhysicsScene->DestroyPhysicsAssetBodies(Comp);
+			PhysicsScene->InstantiatePhysicsAssetBodies(Comp);
+			PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(Comp, true);
+		}
+	}
+
+	Comp->SetSimulateRagdoll(true);
+	bPhysicsAssetSimulationRunning = Comp->IsRagdollSimulating();
+}
+
+void FMeshEditorWidget::StopPhysicsAssetSimulation(bool bResetPose)
+{
+	USkeletalMeshComponent* Comp = ViewportClient.GetPreviewMeshComponent();
+	if (Comp)
+	{
+		Comp->SetSimulateRagdoll(false);
+		if (UWorld* PreviewWorld = ViewportClient.GetPreviewWorld())
+		{
+			if (IPhysicsScene* PhysicsScene = PreviewWorld->GetPhysicsScene())
+			{
+				PhysicsScene->DestroyPhysicsAssetBodies(Comp);
+			}
+		}
+
+		if (bResetPose)
+		{
+			Comp->ApplyBoneEditBasePose();
+		}
+	}
+
+	bPhysicsAssetSimulationRunning = false;
 }
 
 void FMeshEditorWidget::CollectPreviewViewports(TArray<IEditorPreviewViewportClient*>& OutClients) const
@@ -776,6 +936,10 @@ void FMeshEditorWidget::RenderTabBar()
 			{
 				const EMeshEditorTab PreviousTab = ActiveTab;
 				ActiveTab = Tab;
+				if (PreviousTab == EMeshEditorTab::PhysicalAsset && ActiveTab != EMeshEditorTab::PhysicalAsset)
+				{
+					StopPhysicsAssetSimulation(true);
+				}
 				if (PreviousTab != ActiveTab && ActiveTab == EMeshEditorTab::Skeleton)
 				{
 					if (USkeletalMeshComponent* Comp = ViewportClient.GetPreviewMeshComponent())
@@ -1636,6 +1800,73 @@ void FMeshEditorWidget::RenderAnimationLayout(float TotalHeight)
 // Physical Asset tab
 // ─────────────────────────────────────────────────────────────────────────────
 
+void FMeshEditorWidget::RenderPhysicsSimulationControls(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset)
+{
+	const bool bHasSimulatableAsset = SkeletalMesh && PhysAsset && PhysAsset->HasAnyBodySetup();
+	constexpr float IconSize = 16.0f;
+	constexpr float ButtonSize = 24.0f;
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.15f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 1.0f, 1.0f, 0.3f));
+
+	auto DrawIconButton = [&](const char* Id, const wchar_t* IconFile, const char* FallbackLabel, bool bDisabled) -> bool
+		{
+			if (bDisabled)
+			{
+				ImGui::BeginDisabled();
+			}
+
+			bool bClicked = false;
+			if (ID3D11ShaderResourceView* Icon = LoadEditorIcon(IconFile))
+			{
+				const ImVec2 ButtonPos = ImGui::GetCursorScreenPos();
+				bClicked = ImGui::InvisibleButton(Id, ImVec2(ButtonSize, ButtonSize));
+				const float IconOffset = (ButtonSize - IconSize) * 0.5f;
+				ImGui::GetWindowDrawList()->AddImage(
+					reinterpret_cast<ImTextureID>(Icon),
+					ImVec2(ButtonPos.x + IconOffset, ButtonPos.y + IconOffset),
+					ImVec2(ButtonPos.x + IconOffset + IconSize, ButtonPos.y + IconOffset + IconSize));
+			}
+			else
+			{
+				bClicked = ImGui::Button(FallbackLabel, ImVec2(ButtonSize, ButtonSize));
+			}
+
+			if (bDisabled)
+			{
+				ImGui::EndDisabled();
+				bClicked = false;
+			}
+			return bClicked;
+		};
+
+	if (DrawIconButton("##PhysicsAssetSimPlay", L"icon_playInSelectedViewport_16x.png", ">", !bHasSimulatableAsset || bPhysicsAssetSimulationRunning))
+	{
+		StartPhysicsAssetSimulation();
+	}
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Start PhysX simulation");
+	}
+
+	ImGui::SameLine(0.0f, 4.0f);
+
+	if (DrawIconButton("##PhysicsAssetSimStop", L"generic_stop_16x.png", "[]", !bPhysicsAssetSimulationRunning))
+	{
+		StopPhysicsAssetSimulation(true);
+	}
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Stop PhysX simulation");
+	}
+
+	ImGui::SameLine();
+	ImGui::TextDisabled("%s", bPhysicsAssetSimulationRunning ? "Simulating" : "Stopped");
+
+	ImGui::PopStyleColor(3);
+}
+
 void FMeshEditorWidget::RenderPhysicalAssetLayout()
 {
 	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(EditedObject);
@@ -1657,6 +1888,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 		const bool bHasBodies = PhysAsset && PhysAsset->HasAnyBodySetup();
 		ImGui::Text("Bodies: %d", PhysAsset ? static_cast<int32>(PhysAsset->BodySetups.size()) : 0);
 		ImGui::Text("Constraints: %d", PhysAsset ? static_cast<int32>(PhysAsset->ConstraintSetups.size()) : 0);
+		RenderPhysicsSimulationControls(SkeletalMesh, PhysAsset);
 		if (PhysAsset)
 		{
 			if (ImGui::Button("Save Physics Asset", ImVec2(-1.0f, 0.0f)))
@@ -1771,19 +2003,17 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 	if (SkeletalMesh && PhysAsset && SelectedConstraintIndex >= 0 && SelectedConstraintIndex < static_cast<int32>(PhysAsset->ConstraintSetups.size()))
 	{
 		FConstraintSetup& Constraint = PhysAsset->ConstraintSetups[SelectedConstraintIndex];
-		bool bEdited = false;
-
 		ImGui::Text("Name: %s", Constraint.ConstraintName.ToString().c_str());
 		ImGui::Text("Parent: %s", Constraint.ParentBoneName.ToString().c_str());
 		ImGui::Text("Child: %s", Constraint.ChildBoneName.ToString().c_str());
 		ImGui::Dummy(ImVec2(0, 8));
 
-		bEdited |= RenderAngularMotionCombo("Twist", Constraint.Option.TwistMotion);
-		bEdited |= RenderAngularMotionCombo("Swing 1", Constraint.Option.Swing1Motion);
-		bEdited |= RenderAngularMotionCombo("Swing 2", Constraint.Option.Swing2Motion);
-		bEdited |= ImGui::DragFloat("Twist Limit", &Constraint.Option.TwistLimitDegrees, 0.5f, 0.1f, 180.0f);
-		bEdited |= ImGui::DragFloat("Swing 1 Limit", &Constraint.Option.Swing1LimitDegrees, 0.5f, 0.1f, 180.0f);
-		bEdited |= ImGui::DragFloat("Swing 2 Limit", &Constraint.Option.Swing2LimitDegrees, 0.5f, 0.1f, 180.0f);
+		TArray<FPropertyValue> Props;
+		CollectEditablePropertiesFromStruct(FConstraintSetup::StaticStruct(), &Constraint, nullptr, Props);
+		if (RenderReflectedPropertyTable("##ConstraintReflectionTable", Props, false))
+		{
+			MarkDirty();
+		}
 
 		ImGui::Dummy(ImVec2(0, 8));
 		if (ImGui::Button("Delete Constraint", ImVec2(-1.0f, 0.0f)))
@@ -1792,60 +2022,25 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 			SelectedConstraintIndex = -1;
 			MarkDirty();
 		}
-		else if (bEdited)
-		{
-			MarkDirty();
-		}
 	}
 	else if (SkeletalMesh && SelectedBoneIndex != -1 && SelectedBodySetup)
 	{
 		FSkeletalMesh* Asset = SkeletalMesh->GetSkeletalMeshAsset();
 		FBone& Bone = Asset->Bones[SelectedBoneIndex];
 		const char* ShapeType = nullptr;
-		FKShapeElem* ShapeElem = GetFirstPhysicsShapeElem(SelectedBodySetup, &ShapeType);
+		GetFirstPhysicsShapeElem(SelectedBodySetup, &ShapeType);
 
 		ImGui::Text("Body: %s", SelectedBodySetup->GetName().c_str());
 		ImGui::Text("Bone: %s", Bone.Name.c_str());
 		ImGui::Text("Shape: %s", ShapeType ? ShapeType : "None");
 		ImGui::Dummy(ImVec2(0, 10));
 
-		if (ShapeElem)
+		TArray<FPropertyValue> Props;
+		SelectedBodySetup->GetEditableProperties(Props);
+		if (RenderReflectedPropertyTable("##BodySetupReflectionTable", Props, true))
 		{
-			bool bEdited = false;
-
-			FVector Location = ShapeElem->Transform.Location;
-			if (ImGui::DragFloat3("Location", &Location.X, 0.1f))
-			{
-				ShapeElem->Transform.Location = Location;
-				bEdited = true;
-			}
-
-			FVector Rotation = ShapeElem->Transform.GetRotator().ToVector();
-			if (ImGui::DragFloat3("Rotation", &Rotation.X, 0.1f))
-			{
-				ShapeElem->Transform.SetRotation(FRotator(Rotation));
-				bEdited = true;
-			}
-
-			FVector Scale = ShapeElem->Transform.Scale;
-			if (ImGui::DragFloat3("Scale", &Scale.X, 0.1f, 0.01f))
-			{
-				ShapeElem->Transform.Scale = FVector(
-					std::max(0.01f, Scale.X),
-					std::max(0.01f, Scale.Y),
-					std::max(0.01f, Scale.Z));
-				bEdited = true;
-			}
-
-			if (bEdited)
-			{
-				ViewportClient.SetSelectedPhysicsBody(SkeletalMesh, SelectedBoneIndex, SelectedBodySetup);
-				MarkDirty();
-			}
-		}
-		else
-		{
-			ImGui::TextDisabled("No editable shape in this body.");
+			ViewportClient.SetSelectedPhysicsBody(SkeletalMesh, SelectedBoneIndex, SelectedBodySetup);
+			MarkDirty();
 		}
 	}
 	else if (SkeletalMesh && SelectedBoneIndex != -1)

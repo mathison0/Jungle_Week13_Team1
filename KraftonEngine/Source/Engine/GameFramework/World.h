@@ -66,6 +66,7 @@ public:
 	FLODUpdateContext PrepareLODContext();
 
 	void InitWorld();      // Set up the world before gameplay begins
+	IPhysicsScene* EnsurePhysicsScene(); // EditorPreview처럼 기본 물리 scene이 없는 월드에서 명시적으로 생성
 	void BeginPlay();      // Triggers BeginPlay on all actors
 	void Tick(float DeltaTime, ELevelTick TickType);  // Drives the game loop every frame
 	void EndPlay();        // Cleanup before world is destroyed
