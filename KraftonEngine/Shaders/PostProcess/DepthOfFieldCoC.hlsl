@@ -14,11 +14,14 @@ cbuffer DepthOfFieldCB : register(b2)
     float RenderTargetHeight;
     float DepthOfFieldScale;
     float DepthOfFieldMaxBlurSize;
+    float DepthOfFieldAcceptableCoCPixels;
+    float DepthOfFieldFocusTransitionPixels;
     float VisualizeFocusDistance;
     float DrawDebugFocusPlane;
     float _Pad0;
     float2 BlurDirection;
     float2 _Pad1;
+    float2 _Pad2;
 };
 
 static const float WorldUnitsToMillimeters = 1000.0f;
@@ -50,6 +53,9 @@ float4 PS(PS_Input_UV input) : SV_TARGET
     signedCoCPixels *= DepthOfFieldScale;
 
     float maxBlur = max(DepthOfFieldMaxBlurSize, 0.0f);
-    float coc = maxBlur > 0.0f ? clamp(signedCoCPixels, -maxBlur, maxBlur) / maxBlur : 0.0f;
+    float acceptableCoC = max(DepthOfFieldAcceptableCoCPixels, 0.0f);
+    float effectiveCoCPixels = max(abs(signedCoCPixels) - acceptableCoC, 0.0f);
+    float signedEffectiveCoCPixels = signedCoCPixels < 0.0f ? -effectiveCoCPixels : effectiveCoCPixels;
+    float coc = maxBlur > 0.0f ? clamp(signedEffectiveCoCPixels, -maxBlur, maxBlur) / maxBlur : 0.0f;
     return float4(coc, 0.0f, 0.0f, 1.0f);
 }

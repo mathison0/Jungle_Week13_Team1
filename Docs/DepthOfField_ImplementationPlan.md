@@ -12,9 +12,9 @@ Overall progress:
 
 ```text
 Documentation / UE parity review: Done
-Implementation progress: 0 / 7 batches accepted, 6 batches in Review, 1 batch in Progress
-Current work: Batch 7 - Editor/debug polish, camera DOF cleanup, and blur quality pass
-Next review point: Visual comparison of Gaussian vs Tiled Rotated Poisson Disk blur, physical CineCamera focus distance, debug focus plane, and Before/After DOF translucency separation
+Implementation progress: 0 / 8 batches accepted, 8 batches in Review, 0 batches in Progress
+Current work: Batch 8 - Near/Far DOF layer separation is ready for review
+Next review point: Visual comparison of separated Far background blur and premultiplied Near foreground blur, especially character/weapon silhouettes against focused or far backgrounds
 ```
 
 Status values:
@@ -36,7 +36,8 @@ Batch status:
 | 4 | Editor viewport exclusion and runtime camera guards | Review | Runtime reads ActiveCamera DOF; normal editor and asset/ObjViewer preview paths force DOF off. |
 | 5 | DOF render resources and pass stub | Review | Viewport now owns full-res CoC and half-res blur ping-pong resources; pass validates resources but remains visually no-op. |
 | 6 | Initial DOF shader and composite | Review | Added CoC, half-res blur, and composite shaders. Needs in-editor visual tuning/review. |
-| 7 | Editor/debug polish | In Progress | Camera DOF UI cleanup, focus visualization, debug focus plane, and blur method dropdown are implemented. Show flag and material editor visibility polish remain. |
+| 7 | Editor/debug polish | Review | Camera DOF UI cleanup, focus visualization, debug focus plane, blur method dropdown, acceptable CoC, and focus transition controls are implemented. Show flag and material editor visibility polish remain. |
+| 8 | Near/Far DOF layer separation | Review | Split half-res DOF into Far and Near layers. Far is composited behind the sharp scene; Near is premultiplied and alpha-composited over it. |
 
 Sync rule:
 
@@ -67,6 +68,10 @@ Sync rule:
 | 2026-06-01 | Started DOF blur quality pass: added a renderer-level `DepthOfFieldBlurMethod` option, defaulted it to Tiled Rotated Poisson Disk, added an Editor Debug dropdown for active viewport comparison against Gaussian, and added a stable Poisson gather shader path. |
 | 2026-06-01 | Verified the DOF shader set, including `DepthOfFieldPoissonBlur.hlsl`, with `fxc` VS/PS entry compilation and built `Debug|x64` successfully. Remaining warnings are existing FBX float-conversion and PhysX PDB link warnings. |
 | 2026-06-01 | Corrected DOF distance units for the engine's meter-based world scale: focus distance and linear scene depth now convert to millimeters with `* 1000`, and default manual focus distance changed from legacy `300` cm-style value to `3.0` meters. |
+| 2026-06-01 | Added base `UCameraComponent` DOF authoring controls for `DepthOfFieldFocalDistance` and `DepthOfFieldFstop`. Base cameras now resolve focus distance directly from post-process settings and derive an equivalent focal length from FOV plus the default sensor height, while CineCamera continues to override with filmback/focal length/aperture/focus settings. |
+| 2026-06-01 | Added renderer-level `Acceptable CoC` and `Focus Transition` debug controls. CoC generation now subtracts acceptable CoC in pixels before clamping, blur radius uses the effective CoC size, and composite blend uses a transition smoothstep instead of treating `MaxBlurSize` as blend sensitivity. |
+| 2026-06-01 | Started Batch 8: converting the single blurred DOF buffer into separated Far and Near layers. The target structure is full-res signed CoC, half-res Far ping-pong, half-res Near premultiplied ping-pong, then scene -> Far -> Near composite. |
+| 2026-06-01 | Completed Batch 8 implementation: viewport/frame resources now expose separate Far/Near half-res ping-pong targets, downsample writes both layers with MRT, blur runs per layer, and composite applies Far behind the scene then Near as premultiplied foreground. Verified DOF HLSL with `fxc` and built `Debug|x64` successfully; remaining warnings are existing FBX float-conversion and PhysX PDB link warnings. |
 
 ## Current Render Pass Order
 
@@ -399,6 +404,8 @@ struct FDepthOfFieldSettings
 {
     bool bEnableDepthOfField = false;
 
+    float DepthOfFieldFstop = 5.6f;
+    float DepthOfFieldFocalDistance = 3.0f;
     float DepthOfFieldScale = 1.0f;
     float DepthOfFieldMaxBlurSize = 12.0f;
     bool bVisualizeFocusDistance = false;
@@ -496,6 +503,8 @@ Recommended editor exposure:
   - `PostProcessBlendWeight` if the project wants to match UE camera blending later.
   - `PostProcessSettings.DepthOfField` implemented render-facing controls:
     - `Enable Depth of Field`
+    - `DepthOfFieldFocalDistance`
+    - `DepthOfFieldFstop`
     - `DepthOfFieldScale`
     - `DepthOfFieldMaxBlurSize`
     - `bVisualizeFocusDistance`
@@ -515,6 +524,8 @@ UCameraComponent
   Projection/FOV/Ortho
   PostProcessSettings
     Enable Depth of Field
+    DepthOfFieldFocalDistance
+    DepthOfFieldFstop
     DepthOfFieldScale
     DepthOfFieldMaxBlurSize
     Visualize Focus Distance
@@ -532,7 +543,7 @@ UCineCameraComponent
   CurrentHorizontalFOV
 ```
 
-Do not put filmback, lens presets, or focus method directly on the base `UCameraComponent`. The base camera can still drive DOF through `PostProcessSettings`; the cine camera adds physical inputs and resolves them into the same renderer-facing state. For cine cameras, projection FOV is output data derived from sensor size and focal length, not the authoring input.
+Do not put filmback, lens presets, or focus method directly on the base `UCameraComponent`. The base camera can still drive DOF through `PostProcessSettings`; it derives an equivalent focal length from its projection FOV and default sensor height. The cine camera adds physical inputs and resolves them into the same renderer-facing state. For cine cameras, projection FOV is output data derived from sensor size and focal length, not the authoring input.
 
 Current Camera Settings details:
 
@@ -565,18 +576,24 @@ Recommended resources:
 
 - Full-resolution scene color copy: existing `SceneColorCopyTexture`.
 - Depth copy: existing `DepthCopyTexture`.
-- Half/quarter-resolution DOF blur ping-pong textures:
-  - `DepthOfFieldRTVA`
-  - `DepthOfFieldSRVA`
-  - `DepthOfFieldRTVB`
-  - `DepthOfFieldSRVB`
+- Half-resolution Far DOF blur ping-pong textures:
+  - `DepthOfFieldFarRTVA`
+  - `DepthOfFieldFarSRVA`
+  - `DepthOfFieldFarRTVB`
+  - `DepthOfFieldFarSRVB`
+- Half-resolution Near DOF blur ping-pong textures:
+  - `DepthOfFieldNearRTVA`
+  - `DepthOfFieldNearSRVA`
+  - `DepthOfFieldNearRTVB`
+  - `DepthOfFieldNearSRVB`
 
 Tasks:
 
 1. Add DOF render targets to `FViewport`.
 2. Populate them into `FFrameContext`.
 3. Release them with viewport resources.
-4. Add system texture slot if needed, or reuse pass-local binding slots carefully.
+4. Use `t28` for the blur shader input and Far composite texture.
+5. Use `t29` for the Near composite texture.
 
 Review point:
 
@@ -593,8 +610,14 @@ Recommended initial algorithm:
 1. Copy current scene color into `SceneColorCopyTexture`.
 2. Copy current depth into `DepthCopyTexture`.
 3. Generate Circle of Confusion from reversed-Z depth.
-4. Downsample and blur scene color with a per-pixel radius derived from CoC.
-5. Composite sharp scene color and blurred color back into `ViewportRenderTexture`.
+4. Downsample scene color and signed CoC into two half-res layers:
+   - Far layer: color plus positive CoC coverage.
+   - Near layer: premultiplied color plus foreground coverage from negative CoC.
+5. Blur Far and Near layers independently.
+6. Composite back into `ViewportRenderTexture` in this order:
+   - sharp scene color
+   - Far blur behind it, blended only by positive full-res CoC
+   - Near blur over it, alpha-composited from the blurred foreground layer
 
 Important depth rule:
 
@@ -638,7 +661,7 @@ For physical circle of confusion, compute signed CoC in millimeters and convert 
 
 ```text
 WorldDistanceMeters * 1000 -> DistanceMM
-SignedCoCMM -> SignedCoCPixels -> clamped blur radius
+SignedCoCMM -> SignedCoCPixels -> effective CoC pixels -> clamped blur radius
 ```
 
 Project unit rule:
@@ -647,7 +670,24 @@ Project unit rule:
 - Camera focus distances are authored in meters.
 - Physical DOF shader math converts world-space depth and focus distance to millimeters with `* 1000`.
 
-`DepthOfFieldMaxBlurSize` is a screen-space clamp for the current blur implementation. Normalized signed CoC is converted back into a pixel radius with this value before blurring. It is intentionally named as blur size instead of bokeh size because the shader does not yet simulate blade-shaped aperture highlights.
+Current CoC policy:
+
+- `DepthOfFieldScale`: multiplies the physical CoC in pixels for art direction.
+- `DepthOfFieldAcceptableCoCPixels`: renderer/debug threshold. CoC below this size is treated as sharp focus and removed before blur.
+- `DepthOfFieldFocusTransitionPixels`: renderer/debug transition width used by composite to ramp blur contribution smoothly.
+- `DepthOfFieldMaxBlurSize`: final screen-space clamp for blur radius. It is intentionally named as blur size instead of bokeh size because the shader does not yet simulate blade-shaped aperture highlights.
+
+The CoC texture stores normalized signed effective CoC:
+
+```text
+signedEffectiveCoCPixels / DepthOfFieldMaxBlurSize
+```
+
+Blur shaders recover pixel radius with:
+
+```text
+abs(normalizedCoC) * DepthOfFieldMaxBlurSize
+```
 
 Current blur methods:
 
@@ -655,6 +695,14 @@ Current blur methods:
 - `TiledRotatedPoissonDisk`: default method. It performs a stable half-resolution aperture gather with a deterministic 4x4 tiled rotation, so it reduces directional banding without per-frame random jitter.
 
 The blur method is stored in `FViewportRenderOptions`, not camera settings. This keeps it as a renderer/editor debug quality switch while camera and cine camera components continue to own physical DOF authoring values.
+
+Current Near/Far layer policy:
+
+- Positive signed CoC is Far/background blur.
+- Negative signed CoC is Near/foreground blur.
+- Far blur does not alpha-composite over foreground; it is selected by the full-res positive CoC mask.
+- Near blur stores premultiplied RGB and coverage in alpha, so foreground silhouettes can spread over the sharp or far-blurred scene.
+- This is still a gather-style DOF. True scatter bokeh, depth-aware gather rejection, CoC dilation, and temporal stabilization remain deferred.
 
 ## Phase 6: Editor and Debug Controls
 
@@ -692,5 +740,6 @@ The first debugging UI should expose enough values to test focus distance, blur 
 9. Batch 5: DOF render resources and pass stub.
 10. Batch 6: first usable DOF shader and composite.
 11. Batch 7: editor/debug polish.
+12. Batch 8: Near/Far DOF layer separation.
 
 Each batch should compile independently whenever possible. If a batch cannot compile independently, the reason must be recorded in `Implementation Log`.

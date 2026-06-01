@@ -82,6 +82,8 @@ struct FDepthOfFieldSettings
 {
 	bool bEnableDepthOfField = false;
 
+	float DepthOfFieldFstop = 5.6f;
+	float DepthOfFieldFocalDistance = 3.0f;
 	float DepthOfFieldScale = 1.0f;
 	float DepthOfFieldMaxBlurSize = 12.0f;
 	bool bVisualizeFocusDistance = false;

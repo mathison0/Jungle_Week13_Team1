@@ -16,11 +16,14 @@ cbuffer DepthOfFieldCB : register(b2)
     float RenderTargetHeight;
     float DepthOfFieldScale;
     float DepthOfFieldMaxBlurSize;
+    float DepthOfFieldAcceptableCoCPixels;
+    float DepthOfFieldFocusTransitionPixels;
     float VisualizeFocusDistance;
     float DrawDebugFocusPlane;
     float _Pad0;
     float2 BlurDirection;
     float2 _Pad1;
+    float2 _Pad2;
 };
 
 static const float2 PoissonDisk16[16] =
@@ -76,7 +79,7 @@ float4 PS(PS_Input_UV input) : SV_TARGET
     float c = cos(angle);
 
     float centerAbsCoC = abs(centerCoC);
-    float3 color = center.rgb;
+    float4 blurred = center;
     float totalWeight = 1.0f;
 
     [unroll]
@@ -90,9 +93,9 @@ float4 PS(PS_Input_UV input) : SV_TARGET
         float sameSide = centerCoC * sampleColor.a >= 0.0f ? 1.0f : 0.0f;
         float cocWeight = lerp(0.35f, 1.0f, sameSide * saturate((sampleAbsCoC + 0.001f) / max(centerAbsCoC, 0.001f)));
 
-        color += sampleColor.rgb * cocWeight;
+        blurred += sampleColor * cocWeight;
         totalWeight += cocWeight;
     }
 
-    return float4(color / totalWeight, centerCoC);
+    return blurred / totalWeight;
 }

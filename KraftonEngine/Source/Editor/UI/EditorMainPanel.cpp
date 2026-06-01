@@ -430,6 +430,18 @@ void FEditorMainPanel::RenderEditorDebugPanel()
 
 				ImGui::EndCombo();
 			}
+
+			ImGui::DragFloat("Acceptable CoC", &RenderOptions.DepthOfFieldAcceptableCoCPixels, 0.01f, 0.0f, 3.0f, "%.2f px");
+			ImGui::DragFloat("Focus Transition", &RenderOptions.DepthOfFieldFocusTransitionPixels, 0.01f, 0.01f, 5.0f, "%.2f px");
+
+			if (RenderOptions.DepthOfFieldAcceptableCoCPixels < 0.0f)
+			{
+				RenderOptions.DepthOfFieldAcceptableCoCPixels = 0.0f;
+			}
+			if (RenderOptions.DepthOfFieldFocusTransitionPixels < 0.01f)
+			{
+				RenderOptions.DepthOfFieldFocusTransitionPixels = 0.01f;
+			}
 		}
 	}
 
