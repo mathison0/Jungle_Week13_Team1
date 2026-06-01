@@ -33,6 +33,7 @@ namespace physx
 
 class FPhysXSimulationCallback;
 class UPhysicalMaterial;
+class FPhysXVehicle4W;
 
 // ============================================================
 // FPhysXPhysicsScene — PhysX 4.1 기반 물리 시스템
@@ -123,6 +124,15 @@ public:
 	physx::PxScene* GetPxScene() const { return Scene; }
 	physx::PxRigidActor* GetComponentRigidActor(UPrimitiveComponent* Comp);
 
+	// PxVehicle 빌드에 필요한 공유 핸들. (PhysX 백엔드에서만 유효)
+	physx::PxPhysics* GetPhysics() const { return Physics; }
+	physx::PxMaterial* GetDefaultMaterial() const { return DefaultMaterial; }
+
+	// 차량 1대 등록/해제. 등록된 차는 매 프레임 simulate() 직전에 Simulate()가 불린다.
+	// 차량 객체 소유권은 컴포넌트에 있고 여기엔 포인터만 둔다(비소유).
+	void RegisterVehicle(FPhysXVehicle4W* Vehicle) { ActiveVehicle = Vehicle; }
+	void UnregisterVehicle(FPhysXVehicle4W* Vehicle) { if (ActiveVehicle == Vehicle) ActiveVehicle = nullptr; }
+
 private:
 	UWorld* World = nullptr;
 
@@ -137,6 +147,9 @@ private:
 	UPhysicalMaterial* DefaultPhysicalMaterial = nullptr;
 
 	FPhysXSimulationCallback* EventCallback = nullptr;
+
+	// 현재 씬에서 구동 중인 차량(비소유). Tick의 simulate() 직전에 Simulate()를 호출.
+	FPhysXVehicle4W* ActiveVehicle = nullptr;
 
 #ifdef _DEBUG
 	// PVD는 전역 PhysX 객체와 같이 공유
