@@ -78,6 +78,9 @@ public:
     void SetSimulateRagdoll(bool bEnable);
     bool IsRagdollSimulating() const { return bRagdollSimulating; }
 
+    void CachePhysicsAssetRuntimeScale();
+    void InvalidatePhysicsAssetRuntimeScale();
+
     TArray<std::unique_ptr<FBodyInstance>>& GetBodies() { return Bodies; }
     const TArray<std::unique_ptr<FBodyInstance>>& GetBodies() const { return Bodies; }
     TArray<std::unique_ptr<FConstraintInstance>>& GetConstraints() { return Constraints; }
@@ -86,6 +89,7 @@ public:
 protected:
     void BeginPlay() override;
     void EndPlay() override;
+    void OnTransformDirty() override;
 
     // 매 프레임 AnimInstance 평가 → 결과 포즈를 SetBoneLocalTransforms 로 푸시.
     // 이 경로가 CPU skinning 과 bounds dirty 를 한 번에 처리한다.
@@ -95,6 +99,7 @@ protected:
 
 private:
     void LoadAnimationFromPath();
+    void RecreatePhysicsAssetBodiesIfScaleChanged();
 
 protected:
     // Animation 런타임 상태.
@@ -115,4 +120,8 @@ protected:
 
 	UPROPERTY(Edit, Save, Category = "Physics", DisplayName = "Ragdoll Simulating")
     bool bRagdollSimulating = false;
+
+    FVector CachedPhysicsAssetRuntimeScale = FVector::OneVector;
+    bool bHasCachedPhysicsAssetRuntimeScale = false;
+    bool bRecreatingPhysicsAssetForScaleChange = false;
 };

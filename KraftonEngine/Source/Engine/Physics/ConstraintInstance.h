@@ -70,7 +70,7 @@ struct FConstraintSetup
     GENERATED_BODY()
 
     UPROPERTY(Edit, Save, Category="Physics|Constraint", DisplayName="Constraint Name")
-    FString ConstraintName;
+    FName ConstraintName;
 
     // PhysicsAsset Editor에서 선택하는 연결 대상 bone.
     // 두 이름 모두 UPhysicsAsset::BodySetups에 등록되어 있어야 runtime PxD6Joint가 생성된다.

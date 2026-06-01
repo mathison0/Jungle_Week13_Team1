@@ -113,7 +113,7 @@ public:
 	// 호출자(컴포넌트)가 반환 body를 보관하고, joint는 CreateConstraint로, PhysX 자원 해제는 DestroyBody로 한다.
 	// (DestroyBody는 PxRigidActor만 해제하며 FBodyInstance 객체는 호출자가 소유·삭제한다.)
 	std::unique_ptr<FBodyInstance> CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
-		const FTransform& WorldTransform, bool bDynamic);
+		const FTransform& WorldTransform, bool bDynamic, float UniformScale = 1.0f);
 	void DestroyBody(FBodyInstance* Body);
 
 	// --- Vehicle / 고급 PhysX 접근 게이트 ---

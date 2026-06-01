@@ -26,8 +26,12 @@ using namespace physx;
 // PhysX 자원 해제만 제공한다. joint는 CreateConstraint를 그대로 사용한다.
 // ================================================================
 
-std::unique_ptr<FBodyInstance> FPhysXPhysicsScene::CreateBodyFromBodySetup(UPrimitiveComponent* OwnerComp, UBodySetup* BodySetup,
-	const FTransform& WorldTransform, bool bDynamic)
+std::unique_ptr<FBodyInstance> FPhysXPhysicsScene::CreateBodyFromBodySetup(
+	UPrimitiveComponent* OwnerComp,
+	UBodySetup* BodySetup,
+	const FTransform& WorldTransform,
+	bool bDynamic,
+	float UniformScale)
 {
 	if (!Scene || !Physics || !DefaultMaterial || !BodySetup) return nullptr;
 
@@ -57,7 +61,7 @@ std::unique_ptr<FBodyInstance> FPhysXPhysicsScene::CreateBodyFromBodySetup(UPrim
 
 	TArray<FPhysXShapeDesc> Descs;
 	FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(BodySetup,
-		bDynamic ? EPhysXBodyType::Dynamic : EPhysXBodyType::Static, Collision, Material, Body.get(), Descs);
+		bDynamic ? EPhysXBodyType::Dynamic : EPhysXBodyType::Static, Collision, Material, Body.get(), UniformScale, Descs);
 
 	bool bAnyShape = false;
 	for (const FPhysXShapeDesc& Desc : Descs)
