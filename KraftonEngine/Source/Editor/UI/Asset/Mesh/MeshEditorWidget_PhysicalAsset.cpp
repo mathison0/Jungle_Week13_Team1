@@ -1180,19 +1180,17 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 					}
 
 					const FConstraintSetup& Constraint = PhysAsset->ConstraintSetups[ConstraintIndex];
-					ImGuiTreeNodeFlags ConstraintFlags = ImGuiTreeNodeFlags_Leaf
-						| ImGuiTreeNodeFlags_NoTreePushOnOpen
-						| ImGuiTreeNodeFlags_SpanAvailWidth;
-					if (SelectedConstraintIndex == ConstraintIndex)
-					{
-						ConstraintFlags |= ImGuiTreeNodeFlags_Selected;
-					}
-
 					ImGui::PushID(("Constraint" + std::to_string(ConstraintIndex)).c_str());
-					ImGui::TreeNodeEx("Constraint", ConstraintFlags, "Constraint: %s -> %s",
-						Constraint.ParentBoneName.ToString().c_str(),
-						Constraint.ChildBoneName.ToString().c_str());
-					if (ImGui::IsItemClicked())
+					const FString ConstraintLabel = "Constraint: "
+						+ Constraint.ParentBoneName.ToString()
+						+ " -> "
+						+ Constraint.ChildBoneName.ToString();
+					if (ID3D11ShaderResourceView* ConstraintIcon = LoadEditorIcon(L"PhysicsConstraintComponent_64x.png"))
+					{
+						ImGui::Image(reinterpret_cast<ImTextureID>(ConstraintIcon), ImVec2(14.0f, 14.0f));
+						ImGui::SameLine(0.0f, 4.0f);
+					}
+					if (ImGui::Selectable(ConstraintLabel.c_str(), SelectedConstraintIndex == ConstraintIndex))
 					{
 						SelectedBoneIndex = FindBoneIndexByName(Asset, Constraint.ChildBoneName);
 						SelectedBodySetup = nullptr;
@@ -1214,10 +1212,7 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 							MarkDirty();
 							ImGui::EndPopup();
 							ImGui::PopID();
-							if ((BodyFlags & ImGuiTreeNodeFlags_NoTreePushOnOpen) == 0)
-							{
-								ImGui::TreePop();
-							}
+							ImGui::TreePop();
 							ImGui::PopID();
 							ImGui::TreePop();
 							ImGui::PopID();
