@@ -468,6 +468,12 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		}
 	}
 
+	// ── Pre-simulate: 비-ragdoll skeletal body의 kinematic pose를 animation bone에 맞춘다 ──
+	// ragdoll OFF인 컴포넌트의 body는 kinematic이며, 여기서 매 frame bone pose를 target으로 줘야
+	// animation/캐릭터 이동을 따라온다. (ragdoll ON 컴포넌트는 post-simulate의
+	// SyncPhysicsAssetBodiesToBones가 body→bone 반대 방향으로 처리하므로 여기선 건너뛴다.)
+	SyncKinematicPhysicsAssetBodiesToBones();
+
 	// ── Vehicle: 입력 보간 + 서스펜션 raycast + 힘 적용 (반드시 simulate 직전) ──
 	if (ActiveVehicle)
 	{
