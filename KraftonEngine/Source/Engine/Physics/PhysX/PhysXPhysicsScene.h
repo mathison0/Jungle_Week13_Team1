@@ -179,6 +179,9 @@ private:
 	// 강체 하나의 PhysX 자원(PxRigidActor)을 해제하는 공통 경로. FBodyInstance 객체는 소유자가 지우므로 여기서 delete하지 않는다.
 	void ReleaseBodyResource(FBodyInstance* Body);
 	void SyncPhysicsAssetBodiesToBones(float DeltaTime);
+	// 위 함수의 반대 방향. ragdoll이 꺼진 동안 kinematic body를 매 frame animation bone pose로 끌고 간다.
+	// 없으면 BeginPlay에서 생성된 kinematic body가 첫 pose에 얼어붙어 raycast/overlap이 헛맞는다.
+	void SyncKinematicPhysicsAssetBodiesToBones();
 
 	// FPhysXShapeDesc 하나를 주어진 actor에 PxShape로 생성. 실패 시 nullptr.
 	physx::PxShape* CreateShapeOnActor(physx::PxRigidActor* Actor, const FPhysXShapeDesc& Desc);

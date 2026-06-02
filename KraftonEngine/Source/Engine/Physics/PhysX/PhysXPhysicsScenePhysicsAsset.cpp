@@ -259,6 +259,34 @@ void FPhysXPhysicsScene::SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* C
 	}
 }
 
+void FPhysXPhysicsScene::SyncKinematicPhysicsAssetBodiesToBones()
+{
+	// ragdoll이 꺼진 동안에는 PhysicsAsset body가 전부 kinematic이다(SetSimulatePhysics(false)).
+	// kinematic body는 "코드가 매 frame target을 줘야" 움직이는데, 그 경로가 없으면
+	// BeginPlay에서 생성된 위치(첫 pose)에 그대로 멈춰 animation/캐릭터 이동을 따라오지 않는다.
+	// → idle 캐릭터를 raycast/overlap으로 부위 타격하려 해도 collider가 화면과 어긋나 헛맞는다.
+	// 여기서 매 frame bone world pose를 kinematic target으로 먹여 그 누락된 절반을 채운다.
+	// (ragdoll ON 컴포넌트는 post-simulate의 SyncPhysicsAssetBodiesToBones가 body→bone 반대 방향 담당.)
+	for (USkeletalMeshComponent* Comp : SkeletalPhysicsComponents)
+	{
+		if (!Comp || Comp->IsRagdollSimulating()) continue;
+
+		for (auto& Body : Comp->GetBodies())
+		{
+			if (!Body || !Body->IsValidBodyInstance()) continue;
+
+			// 부분 타격(hit reaction)으로 일부 body만 dynamic으로 전환된 경우 그 body는 물리가 구동하므로 건너뛴다.
+			// (dynamic body에 setKinematicTarget은 PhysX가 무시하지만, 의도를 코드로 명시하고 불필요한 계산도 피한다.)
+			if (!Body->IsKinematic()) continue;
+
+			FTransform BoneWorldTransform;
+			if (!Comp->GetBoneWorldTransformByIndex(Body->GetBoneIndex(), BoneWorldTransform)) continue;
+
+			Body->SetKinematicTarget(BoneWorldTransform.Location, BoneWorldTransform.Rotation);
+		}
+	}
+}
+
 void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones(float DeltaTime)
 {
 	for (USkeletalMeshComponent* Comp : SkeletalPhysicsComponents)
