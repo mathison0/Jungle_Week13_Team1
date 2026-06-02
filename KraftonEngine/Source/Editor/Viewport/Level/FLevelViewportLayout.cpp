@@ -9,8 +9,10 @@
 #include "Engine/Platform/WindowsWindow.h"
 #include "Engine/Input/InputSystem.h"
 #include "GameFramework/Actor/DecalActor.h"
+#include "GameFramework/Actor/ClothActor.h"
 #include "GameFramework/Actor/HeightFogActor.h"
 #include "GameFramework/Actor/TriggerVolumeBase.h"
+#include "GameFramework/Actor/WindDirectionalSourceActor.h"
 #include "GameFramework/Light/AmbientLightActor.h"
 #include "GameFramework/Light/DirectionalLightActor.h"
 #include "GameFramework/Light/PointLightActor.h"
@@ -1730,6 +1732,8 @@ void FLevelViewportLayout::RenderViewportPlaceActorPopup()
 		PlaceActorMenuItem("Sphere Collider", EViewportPlaceActorType::SphereCollider);
 		PlaceActorMenuItem("Capsule Collider", EViewportPlaceActorType::CapsuleCollider);
 		PlaceActorMenuItem("Trigger Volume", EViewportPlaceActorType::TriggerVolume);
+		PlaceActorMenuItem("Cloth Actor", EViewportPlaceActorType::Cloth);
+		PlaceActorMenuItem("Wind Directional Source", EViewportPlaceActorType::WindDirectionalSource);
 		PlaceActorMenuItem("Skeletal Mesh Actor", EViewportPlaceActorType::SkeletalMesh);
 		PlaceActorMenuItem("Character",           EViewportPlaceActorType::Character);
 		PlaceActorMenuItem("Lua Character",       EViewportPlaceActorType::LuaCharacter);
@@ -1983,6 +1987,29 @@ AActor* FLevelViewportLayout::SpawnActorFromViewportMenu(EViewportPlaceActorType
 		{
 			Actor->InitDefaultComponents();
 			SpawnedActor = Actor;
+		}
+		break;
+	}
+	case EViewportPlaceActorType::Cloth:
+	{
+		AClothActor* Actor = World->SpawnActor<AClothActor>();
+		if (Actor)
+		{
+			Actor->InitDefaultComponents();
+			SpawnedActor = Actor;
+			SpawnLocation.Z += 1.0f;
+		}
+		break;
+	}
+	case EViewportPlaceActorType::WindDirectionalSource:
+	{
+		AWindDirectionalSourceActor* Actor = World->SpawnActor<AWindDirectionalSourceActor>();
+		if (Actor)
+		{
+			Actor->InitDefaultComponents();
+			Actor->SetActorRotation(FVector(0.0f, 0.0f, 0.0f));
+			SpawnedActor = Actor;
+			SpawnLocation.Z += 1.0f;
 		}
 		break;
 	}

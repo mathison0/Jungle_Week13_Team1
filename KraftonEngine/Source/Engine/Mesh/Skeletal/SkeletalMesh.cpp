@@ -136,7 +136,9 @@ void USkeletalMesh::Serialize(FArchive& Ar)
         SyncSkeletonBindingFromAsset();
 		CacheSectionMaterialIndices();
 		SkeletalMeshAsset->bBoundsValid = false;
-		LoadPhysicsAssetFromPath();
+		// PhysicsAsset은 즉시 로드하지 않는다 — 썸네일/프리뷰는 물리를 안 쓰므로 첫 GetPhysicsAsset/EnsurePhysicsAsset 때 1회 lazy-load.
+		PhysicsAsset = nullptr;
+		bPhysicsAssetLoadAttempted = false;
 	}
 }
 
@@ -158,9 +160,11 @@ FSkeletalMesh* USkeletalMesh::GetSkeletalMeshAsset() const
 
 UPhysicsAsset* USkeletalMesh::EnsurePhysicsAsset()
 {
+	EnsurePhysicsAssetLoaded(); // 저장된 에셋을 먼저 lazy-load한 뒤, 없을 때만 새로 만든다.
 	if (!PhysicsAsset)
 	{
 		PhysicsAsset = UObjectManager::Get().CreateObject<UPhysicsAsset>();
+		bPhysicsAssetLoadAttempted = true;
 	}
 
 	return PhysicsAsset;
@@ -364,6 +368,7 @@ bool USkeletalMesh::HasPhysicsConstraintBetweenBodies(const FName& BoneNameA, co
 void USkeletalMesh::SetPhysicsAsset(UPhysicsAsset* InPhysicsAsset)
 {
 	PhysicsAsset = InPhysicsAsset;
+	bPhysicsAssetLoadAttempted = true; // 명시 설정 후엔 lazy-load가 덮어쓰지 않도록
 	if (PhysicsAsset)
 	{
 		PhysicsAssetPath = PhysicsAsset->GetAssetPathFileName();
@@ -398,6 +403,23 @@ void USkeletalMesh::LoadPhysicsAssetFromPath()
 		PhysicsAsset = FPhysicsAssetManager::Get().Load(PhysicsAssetPath.ToString());
 	}
 	PhysicsAssetPath.SetCachedObject(PhysicsAsset);
+	bPhysicsAssetLoadAttempted = true;
+}
+
+// PhysicsAsset lazy-load 진입점. 아직 시도 안 했으면 저장 경로에서 1회 로드한다.
+// 썸네일/프리뷰는 GetPhysicsAsset을 호출하지 않으므로 물리 에셋을 영영 로드하지 않아 로드 비용이 사라진다.
+void USkeletalMesh::EnsurePhysicsAssetLoaded()
+{
+	if (!bPhysicsAssetLoadAttempted)
+	{
+		LoadPhysicsAssetFromPath();
+	}
+}
+
+UPhysicsAsset* USkeletalMesh::GetPhysicsAsset() const
+{
+	const_cast<USkeletalMesh*>(this)->EnsurePhysicsAssetLoaded();
+	return PhysicsAsset;
 }
 
 void USkeletalMesh::SetSkeletalMaterials(TArray<FSkeletalMaterial>&& InMaterials)

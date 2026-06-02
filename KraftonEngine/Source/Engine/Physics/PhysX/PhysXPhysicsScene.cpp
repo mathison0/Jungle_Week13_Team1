@@ -2,9 +2,12 @@
 #include "PhysXCore.h"
 #include "PhysXCollision.h"
 #include "PhysXSimulationCallback.h"
+#include "PhysXClothCollisionReader.h"
 #include "PhysXHelper.h"
 #include "Physics/PhysX/Vehicle/PhysXVehicle4W.h"
+#include "Component/Primitive/ClothComponent.h"
 #include "Component/PrimitiveComponent.h"
+#include "Component/Primitive/SkeletalMeshComponent.h"
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
 #include "Math/Quat.h"
@@ -17,6 +20,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <vector>
 
 using namespace physx;
 
@@ -34,6 +38,7 @@ static void ApplyRootMassAndCOM(PxRigidDynamic* Dyn, UPrimitiveComponent* Root)
 	PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, MassKg);
 	Dyn->setCMassLocalPose(PxTransform(FPhysXHelper::ToPxVec3(Root->GetCenterOfMass())));
 }
+
 // ============================================================
 // Lifecycle
 // ============================================================
@@ -316,6 +321,81 @@ void FPhysXPhysicsScene::RebuildBody(UPrimitiveComponent* Comp)
 	for (UPrimitiveComponent* C : CompList)
 	{
 		RegisterComponent(C);
+	}
+}
+
+void FPhysXPhysicsScene::GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const
+{
+	OutData.Reset();
+	if (!Scene || !Desc.ClothComponent)
+	{
+		return;
+	}
+
+	const FMatrix& ClothWorldInverse = Desc.ClothComponent->GetWorldInverseMatrix();
+	std::vector<PxRigidActor*> VisitedActors;
+
+	auto GatherRigidActor = [&](PxRigidActor* Actor)
+	{
+		if (!Actor)
+		{
+			return;
+		}
+
+		if (std::find(VisitedActors.begin(), VisitedActors.end(), Actor) != VisitedActors.end())
+		{
+			return;
+		}
+		VisitedActors.push_back(Actor);
+
+		const PxU32 NumShapes = Actor->getNbShapes();
+		if (NumShapes == 0)
+		{
+			return;
+		}
+
+		std::vector<PxShape*> Shapes(NumShapes);
+		Actor->getShapes(Shapes.data(), NumShapes);
+
+		for (PxShape* Shape : Shapes)
+		{
+			UPrimitiveComponent* OwnerComponent = Shape ? FPhysXHelper::GetOwnerComponentFromPxShape(Shape) : nullptr;
+
+			if (!Shape || !Shape->getFlags().isSet(PxShapeFlag::eSIMULATION_SHAPE))
+			{
+				continue;
+			}
+
+			if (OwnerComponent == Desc.ClothComponent)
+			{
+				continue;
+			}
+
+			if (OwnerComponent && !OwnerComponent->IsCollisionEnabled())
+			{
+				continue;
+			}
+
+			FPhysXClothCollisionReader::AppendNvClothCollisionFromPxShape(Actor, Shape, Desc.CollisionThickness, ClothWorldInverse, OutData);
+		}
+	};
+
+	for (FBodyInstance* Host : Bodies)
+	{
+		GatherRigidActor(FPhysXHelper::GetRigidActor(Host));
+	}
+
+	for (USkeletalMeshComponent* SkeletalComponent : SkeletalPhysicsComponents)
+	{
+		if (!SkeletalComponent)
+		{
+			continue;
+		}
+
+		for (const std::unique_ptr<FBodyInstance>& Body : SkeletalComponent->GetBodies())
+		{
+			GatherRigidActor(FPhysXHelper::GetRigidActor(Body.get()));
+		}
 	}
 }
 

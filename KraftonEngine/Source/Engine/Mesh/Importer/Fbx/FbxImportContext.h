@@ -28,6 +28,11 @@ struct FFbxImportContext
 	TMap<FbxNode*, int32> BoneNodeToIndex;
 	FReferenceSkeleton ReferenceSkeleton;
 
+	// [스케일 베이크아웃] import에서 본 bind 스케일을 1로 정규화했는지 + 본별 원본 누적 스케일.
+	// 애니 키프레임을 베이크된 스켈레톤과 같은 scale-free 공간으로 맞추는 데 사용한다.
+	bool          bBindScaleBaked = false;
+	TArray<float> BindScaleAccum;
+
 	TArray<FVertexPNCTBW>         SkeletalVertices;
 	TArray<uint32>                SkeletalIndices;
 	TArray<FSkeletalMeshSection>  SkeletalSections;

@@ -45,7 +45,7 @@ public:
     void SetSkeletonBinding(const FSkeletonBinding& InBinding);
     const FSkeletonBinding& GetSkeletonBinding() const { return SkeletonBinding; }
 
-    UPhysicsAsset* GetPhysicsAsset() const { return PhysicsAsset; }
+    UPhysicsAsset* GetPhysicsAsset() const; // lazy-load: 첫 접근 시 경로에서 1회 로드(썸네일은 미접근→미로드)
     UPhysicsAsset* EnsurePhysicsAsset();
     bool GenerateDefaultPhysicsAsset(bool bOverwriteExisting = false);
     UBodySetup* AddDefaultPhysicsBodyForBone(int32 BoneIndex);
@@ -59,6 +59,7 @@ public:
 
 private:
     void LoadPhysicsAssetFromPath();
+    void EnsurePhysicsAssetLoaded(); // 미로드면 LoadPhysicsAssetFromPath를 1회 호출
     void CacheSectionMaterialIndices();
     void SyncSkeletonBindingToAsset();
     void SyncSkeletonBindingFromAsset();
@@ -74,4 +75,5 @@ private:
     UPROPERTY(Edit, Save, Category="Physics", DisplayName="Physics Asset", AssetType="UPhysicsAsset", AllowedClass=UPhysicsAsset)
     FSoftObjectPtr PhysicsAssetPath = "None";
     UPhysicsAsset* PhysicsAsset = nullptr;
+    bool bPhysicsAssetLoadAttempted = false; // lazy-load 1회 가드(로드 시도 후 true)
 };

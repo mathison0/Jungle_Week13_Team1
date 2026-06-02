@@ -11,6 +11,7 @@ local ENEMY_FALLBACK_TAG = "HitTarget"
 local BEAM_SOURCE_PARAMETER = "BeamSource"
 local BEAM_TARGET_PARAMETER = "BeamEnd"
 local BEAM_FORWARD_DISTANCE = 100.0
+local RAGDOLL_KEY = string.byte("R")
 
 local EQUIPMENT_BY_MODE = {
     Sword = {
@@ -149,6 +150,10 @@ end
 function Tick(dt)
     if mesh == nil then
         return
+    end
+
+    if Input.GetKeyDown(RAGDOLL_KEY) then
+        mesh:SetSimulateRagdoll(not mesh:IsRagdollSimulating())
     end
 
     local mode = _G.YuiCombatMode or "Sword"

@@ -4,6 +4,8 @@
 #include "Mesh/Importer/Fbx/FbxSkeletonImporter.h"
 #include "Mesh/Importer/Fbx/FbxSkinWeightImporter.h"
 #include "Mesh/Importer/Fbx/FbxAnimationImporter.h"
+#include "Mesh/Importer/Fbx/FbxScaleBakeUtil.h"
+#include "Core/Logging/Log.h"
 
 #include <utility>
 
@@ -42,6 +44,16 @@ namespace
 		if (!FFbxSkinWeightImporter::ImportSkin(Scene, Context, OutMessage))
 		{
 			return false;
+		}
+
+		// [Phase 1b] 본 bind scale을 베이크아웃(균등 & !=1일 때만 실제 적용). 결과를 Context에 보관해
+		// 애니 키프레임(FbxAnimationImporter)도 같은 scale-free 공간으로 맞춘다.
+		{
+			const FScaleBakeResult ScaleBake = FbxScaleBakeUtil::BakeOutBindScale(Context.Bones, /*bApplyMutation*/ true);
+			Context.bBindScaleBaked = ScaleBake.bBaked;
+			Context.BindScaleAccum  = ScaleBake.ScaleAccum;
+			UE_LOG("[ScaleBake] mesh bones=%d maxScale=%.4f nonUniformity=%.4f baked=%d",
+				static_cast<int32>(Context.Bones.size()), ScaleBake.MaxScale, ScaleBake.MaxNonUniformity, ScaleBake.bBaked ? 1 : 0);
 		}
 
 		// Skin import can refine inverse bind poses from FBX clusters, so rebuild the reference skeleton after skin data is processed.

@@ -49,7 +49,7 @@ void FSpatialPartition::ClearQueuedActorFlags()
 {
 	for (AActor* Actor : DirtyActors)
 	{
-		if (Actor)
+		if (IsValid(Actor))
 		{
 			Actor->SetQueuedForPartitionUpdate(false);
 		}

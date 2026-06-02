@@ -622,6 +622,11 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 		ImGui::Text("Constraints: %d", PhysAsset ? static_cast<int32>(PhysAsset->ConstraintSetups.size()) : 0);
 		RenderPhysicsSimulationControls(SkeletalMesh, PhysAsset);
 
+		// 자동생성 merge-up 임계값(0이면 해당 캡 비활성). 작은/깊은 본은 드롭 대신 부모 바디로 병합된다.
+		ImGui::SliderFloat("Min Bone Size Ratio", &AutoGenMinBoneSizeRatio, 0.0f, 0.25f, "%.3f");
+		ImGui::SliderInt("Max Bone Depth (0=off)", &AutoGenMaxBoneDepth, 0, 16);
+		ImGui::SliderInt("Max Body Count (0=off)", &AutoGenMaxBodyCount, 0, 128);
+
 		// Auto generate bodies 버튼
 		if (ImGui::Button("Generate Bodies", ImVec2(-1.0f, 0.0f)))
 		{
@@ -639,6 +644,9 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 			Settings.ShapePadding = 1.10f;
 			Settings.MinShapeSize = 0.01f;
 			Settings.MinVertexCount = 12;
+			Settings.MinBoneSizeRatio = AutoGenMinBoneSizeRatio;
+			Settings.MaxBoneDepth = AutoGenMaxBoneDepth;
+			Settings.MaxBodyCount = AutoGenMaxBodyCount;
 
 			if (PhysAsset->AutoGeneratePrimitiveBodiesFromSkeletalMesh(*(SkeletalMesh->GetSkeletalMeshAsset()), Settings))
 			{

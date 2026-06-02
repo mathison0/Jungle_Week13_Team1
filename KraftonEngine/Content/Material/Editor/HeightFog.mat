@@ -12,5 +12,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Editor/Icons/S_ExpoHeightFog_256x.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }

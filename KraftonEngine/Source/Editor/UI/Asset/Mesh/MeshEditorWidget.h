@@ -127,6 +127,11 @@ private:
 	float HierarchyWidth    = 250.0f;
 	float DetailsWidth      = 300.0f;
 
+	// PhysicsAsset 자동생성 merge-up 임계값(Generate 패널에서 조절). 기본값은 FPhysicsAssetAutoGenerateSettings와 동일.
+	float AutoGenMinBoneSizeRatio = 0.04f; // 본/메시 크기 비율 미만이면 부모로 병합
+	int32 AutoGenMaxBoneDepth     = 0;     // 0=무제한
+	int32 AutoGenMaxBodyCount     = 0;     // 0=무제한
+
 	uint32  InstanceId;
 	FName   PreviewWorldHandle = FName::None;
 	FString WindowIdSuffix;

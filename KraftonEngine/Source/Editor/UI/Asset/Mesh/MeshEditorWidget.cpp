@@ -369,8 +369,8 @@ void FMeshEditorWidget::Open(UObject* Object)
 
 	AStaticMeshActor* FloorActor = WorldContext.World->SpawnActor<AStaticMeshActor>();
 	FloorActor->InitDefaultComponents("Content/Data/BasicShape/Cube.OBJ");
-	FloorActor->SetActorLocation(FVector(0.0f, 0.0f, -0.05f));
-	FloorActor->SetActorScale(FVector(10.0f, 10.0f, 0.02f));
+	FloorActor->SetActorLocation(FVector(0.0f, 0.0f, -1.f));
+	FloorActor->SetActorScale(FVector(10.0f, 10.0f, 1.f));
 	if (UBoxComponent* FloorCollider = FloorActor->AddComponent<UBoxComponent>())
 	{
 		FloorCollider->AttachToComponent(FloorActor->GetRootComponent());

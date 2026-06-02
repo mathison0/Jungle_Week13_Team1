@@ -132,19 +132,13 @@ void FBodyInstance::SetBodyTransform(const FVector& WorldLocation, const FQuat& 
 
 	if (PxRigidDynamic* Dynamic = GetPxRigidDynamic())
 	{
-		// Kinematic은 코드에서 처리
-		if (Dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC)
-		{
-			Dynamic->setKinematicTarget(NewPose);
-			return;
-		}
-
 		Dynamic->setGlobalPose(NewPose);
-		// Teleport 성격 -> 속도 유지하지 않는 쪽이 예측 가능
-		// 기존 엔진 정책이 velocity 보존이라서 따로 처리 -> 바뀐다면 bResetVelocity = true 변경
 		// 정책: SetBodyTransform() 같은 함수가 
 		// 물리 Body의 위치를 강제로 바꿀 때 속도까지 초기화할지 말지에 대한 규칙
-		if (bResetVelocity)
+		// kinematic body엔 velocity 개념이 없어 set*Velocity가 거부된다("Body must be non-kinematic!").
+		// ragdoll 활성화는 이 teleport 직후 바디를 dynamic으로 바꾸고 그때 velocity는 0에서 시작하므로,
+		// kinematic인 동안의 리셋은 스킵해도 결과가 같다.
+		if (bResetVelocity && !(Dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC))
 		{
 			Dynamic->setLinearVelocity(PxVec3(0.0f));
 			Dynamic->setAngularVelocity(PxVec3(0.0f));

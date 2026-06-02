@@ -6,12 +6,27 @@
 #include "Mesh/Importer/Fbx/FbxSkeletalMeshImporter.h"
 #include "Mesh/Importer/Fbx/FbxSkeletonImporter.h"
 #include "Mesh/Importer/Fbx/FbxAnimationImporter.h"
+#include "Mesh/Importer/Fbx/FbxScaleBakeUtil.h"
+#include "Core/Logging/Log.h"
 #include "Platform/Paths.h"
 
 #include <utility>
 
 namespace
 {
+	// [스케일 베이크아웃] skeleton-only / animation-only / scene(no-skin) 경로 공용.
+	// 본 bind 스케일을 1로 정규화(균등 & !=1일 때만)하고 결과를 Context에 보관해 애니 키프레임도 같은 공간으로 맞춘다.
+	// (skin 경로는 ImportMeshCore가 이미 베이크하므로 여기서 호출하지 않는다.)
+	static void BakeImportedSkeletonScale(FFbxImportContext& Context)
+	{
+		const FScaleBakeResult Bake = FbxScaleBakeUtil::BakeOutBindScale(Context.Bones, /*bApplyMutation*/ true);
+		Context.bBindScaleBaked = Bake.bBaked;
+		Context.BindScaleAccum  = Bake.ScaleAccum;
+		FbxScaleBakeUtil::BakeOutBindScale(Context.ReferenceSkeleton, /*bApplyMutation*/ true);
+		UE_LOG("[ScaleBake] skeleton bones=%d maxScale=%.4f baked=%d",
+			static_cast<int32>(Context.Bones.size()), Bake.MaxScale, Bake.bBaked ? 1 : 0);
+	}
+
 	static bool TryResolveAnimationTimeRange(const FbxTakeInfo* TakeInfo, double& OutStartSecond, double& OutEndSecond)
 	{
 		if (!TakeInfo)
@@ -195,6 +210,8 @@ bool FFbxImporter::ImportSkeletonOnly(const FString& FilePath, FFbxSkeletonImpor
 		return false;
 	}
 
+	BakeImportedSkeletonScale(Context);
+
 	OutResult.SourceSkeleton = std::move(Context.ReferenceSkeleton);
 	return true;
 }
@@ -232,6 +249,8 @@ bool FFbxImporter::ImportAnimationOnly(
 	{
 		return false;
 	}
+
+	BakeImportedSkeletonScale(Context);
 
 	if (!FFbxAnimationImporter::ImportAnimations(SceneHandle.Scene, Context, Options, OutMessage))
 	{
@@ -303,6 +322,8 @@ bool FFbxImporter::ImportSkeletalScene(
 		{
 			return false;
 		}
+
+		BakeImportedSkeletonScale(Context);
 
 		OutResult.SourceSkeleton = Context.ReferenceSkeleton;
 		OutResult.bHasSkeleton   = OutResult.SourceSkeleton.GetNumBones() > 0;

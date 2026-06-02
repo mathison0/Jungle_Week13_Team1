@@ -28,8 +28,12 @@ private:
 
 	UActorComponent* SelectedComponent = nullptr;
 	AActor* LastSelectedActor = nullptr;
+	UObject* LastDetailsTarget = nullptr;
 	bool bActorSelected = true; // true: Actor details, false: Component details
 	bool bShowEditorOnlyComponents = false;
+	bool bRestoreDetailsScroll = false;
+	bool bDetailsContentInvalidatedThisFrame = false;
+	float DetailsScrollY = 0.0f;
 
 	char RenameBuffer[256] = {};
 	bool bShowDuplicateWarning = false;
