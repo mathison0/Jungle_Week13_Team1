@@ -1391,23 +1391,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 			const char* SaveLabel = IsDirty() ? "Save Physics Asset*" : "Save Physics Asset";
 			if (ImGui::Button(SaveLabel, ImVec2(-1.0f, 0.0f)))
 			{
-				const FString MeshPackagePath = SkeletalMesh->GetAssetPathFileName();
-				FString PhysicsAssetPath = PhysAsset->GetAssetPathFileName();
-				if ((PhysicsAssetPath.empty() || PhysicsAssetPath == "None")
-					&& !MeshPackagePath.empty() && MeshPackagePath != "None")
-				{
-					PhysicsAssetPath = FPhysicsAssetManager::GetPhysicsAssetPackagePath(MeshPackagePath);
-					PhysAsset->SetAssetPathFileName(PhysicsAssetPath);
-					SkeletalMesh->SetPhysicsAsset(PhysAsset);
-				}
-
-				const FSkeletalMesh* MeshAsset = SkeletalMesh->GetSkeletalMeshAsset();
-				const FString SourcePath = MeshAsset ? MeshAsset->PathFileName : FString();
-				if (FPhysicsAssetManager::Get().Save(PhysAsset, SourcePath)
-					&& FMeshManager::SaveSkeletalMesh(SkeletalMesh))
-				{
-					ClearDirty();
-				}
+				SaveCurrentPhysicsAsset();
 			}
 		}
 	}
