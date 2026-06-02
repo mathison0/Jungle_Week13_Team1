@@ -1494,6 +1494,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 		if (RenderReflectedPropertyTable("##ConstraintReflectionTable", Props, false))
 		{
 			MarkDirty();
+			ViewportClient.RefreshPhysicsAssetDebugDraw();
 		}
 
 		ImGui::Dummy(ImVec2(0, 8));

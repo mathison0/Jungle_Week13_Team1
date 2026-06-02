@@ -138,6 +138,7 @@ public:
 	void SetPhysicsAssetDebugDrawEnabled(bool bEnabled);
 	void SetPhysicsAssetSolidDebugDrawEnabled(bool bEnabled);
 	void SetSelectedPhysicsConstraintIndex(int32 ConstraintIndex);
+	void RefreshPhysicsAssetDebugDraw();
 
 	void ApplyTransformSettingsToGizmo();
 

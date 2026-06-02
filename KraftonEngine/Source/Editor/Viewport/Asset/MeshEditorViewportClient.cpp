@@ -107,6 +107,21 @@ namespace
 		return BoneIndex >= 0 && MeshComponent->GetBoneWorldTransformByIndex(BoneIndex, OutTransform);
 	}
 
+	FTransform BuildConstraintDisplayWorldTransform(
+		const FConstraintSetup& Constraint,
+		const FTransform& ParentBoneWorldTransform,
+		const FTransform& ChildBoneWorldTransform)
+	{
+		const FTransform ParentFrameWorld = MatrixToGizmoTransform(Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix());
+		const FTransform ChildFrameWorld = MatrixToGizmoTransform(Constraint.ChildFrame.ToMatrix() * ChildBoneWorldTransform.ToMatrix());
+
+		FTransform Result;
+		Result.Location = FVector::Lerp(ParentFrameWorld.Location, ChildFrameWorld.Location, 0.5f);
+		Result.Rotation = FQuat::Slerp(ParentFrameWorld.Rotation.GetNormalized(), ChildFrameWorld.Rotation.GetNormalized(), 0.5f).GetNormalized();
+		Result.Scale = ClampConstraintScale(FVector::Lerp(ParentFrameWorld.Scale, ChildFrameWorld.Scale, 0.5f));
+		return Result;
+	}
+
 	bool IntersectShapeLocalAABB(const FRay& WorldRay, const FMatrix& ShapeWorldMatrix, const FVector& LocalExtent, float& OutDistance)
 	{
 		const FMatrix Inverse = ShapeWorldMatrix.GetInverse();
@@ -445,12 +460,14 @@ bool FPhysicsConstraintTransformGizmoTarget::GetConstraintWorldTransform(FTransf
 
 	const FConstraintSetup& Constraint = PhysicsAsset->ConstraintSetups[ConstraintIndex];
 	FTransform ParentBoneWorldTransform;
-	if (!GetBoneWorldTransformByName(MeshComponent, Constraint.ParentBoneName, ParentBoneWorldTransform))
+	FTransform ChildBoneWorldTransform;
+	if (!GetBoneWorldTransformByName(MeshComponent, Constraint.ParentBoneName, ParentBoneWorldTransform)
+		|| !GetBoneWorldTransformByName(MeshComponent, Constraint.ChildBoneName, ChildBoneWorldTransform))
 	{
 		return false;
 	}
 
-	OutTransform = MatrixToGizmoTransform(Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix());
+	OutTransform = BuildConstraintDisplayWorldTransform(Constraint, ParentBoneWorldTransform, ChildBoneWorldTransform);
 	return true;
 }
 
@@ -790,6 +807,18 @@ void FMeshEditorViewportClient::SetSelectedPhysicsConstraintIndex(int32 Constrai
 	}
 }
 
+void FMeshEditorViewportClient::RefreshPhysicsAssetDebugDraw()
+{
+	if (BoneDebugComponent)
+	{
+		BoneDebugComponent->MarkRenderStateDirty();
+	}
+	if (Gizmo && Gizmo->HasTarget())
+	{
+		Gizmo->UpdateGizmoTransform();
+	}
+}
+
 void FMeshEditorViewportClient::SetOnPhysicsAssetModified(std::function<void()> InCallback)
 {
 	OnPhysicsAssetModified = std::move(InCallback);
@@ -1108,7 +1137,10 @@ bool FMeshEditorViewportClient::TryPickPhysicsAssetConstraint(const FRay& Ray)
 			continue;
 		}
 
-		const FTransform ConstraintWorldTransform = MatrixToGizmoTransform(Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix());
+		const FTransform ConstraintWorldTransform = BuildConstraintDisplayWorldTransform(
+			Constraint,
+			ParentBoneWorldTransform,
+			ChildBoneWorldTransform);
 		const float BoneDistance = FVector::Distance(ParentBoneWorldTransform.Location, ChildBoneWorldTransform.Location);
 		const float AutoRadius = FMath::Clamp(BoneDistance * 0.35f, 0.025f, 0.35f);
 		const float PickRadius = std::max(0.025f, AutoRadius * 0.3f * 1.6f);

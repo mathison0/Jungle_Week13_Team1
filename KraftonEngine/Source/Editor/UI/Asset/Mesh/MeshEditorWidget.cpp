@@ -437,6 +437,7 @@ void FMeshEditorWidget::Open(UObject* Object)
 	ViewportClient.SetOnPhysicsAssetModified([this]()
 		{
 			MarkDirty();
+			ViewportClient.RefreshPhysicsAssetDebugDraw();
 		});
 
 	WorldContext.World->SetEditorPOVProvider(&ViewportClient);

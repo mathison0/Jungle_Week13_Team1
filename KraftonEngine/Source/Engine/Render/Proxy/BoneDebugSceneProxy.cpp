@@ -442,6 +442,18 @@ static void ExtractTransformAxes(const FMatrix& Matrix, FVector& OutCenter, FVec
 	OutScale.Z = NormalizeAxis(OutAxisZ);
 }
 
+static FMatrix BuildConstraintDisplayWorldMatrix(const FConstraintSetup& Constraint, const FTransform& ParentBoneWorldTransform, const FTransform& ChildBoneWorldTransform)
+{
+	const FTransform ParentFrameWorld(Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix());
+	const FTransform ChildFrameWorld(Constraint.ChildFrame.ToMatrix() * ChildBoneWorldTransform.ToMatrix());
+
+	const FTransform DisplayTransform(
+		FVector::Lerp(ParentFrameWorld.Location, ChildFrameWorld.Location, 0.5f),
+		FQuat::Slerp(ParentFrameWorld.Rotation.GetNormalized(), ChildFrameWorld.Rotation.GetNormalized(), 0.5f).GetNormalized(),
+		FVector::Lerp(ParentFrameWorld.Scale, ChildFrameWorld.Scale, 0.5f));
+	return DisplayTransform.ToMatrix();
+}
+
 #pragma endregion
 
 
@@ -662,8 +674,8 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 			continue;
 		}
 
-		// 제약 조건이 렌더링될 기준 프레임 계산 (부모 프레임 기준)
-		const FMatrix ConstraintWorldMatrix = Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix();
+		// Parent/Child constraint frame을 함께 반영해서 두 프레임 중 어느 쪽을 편집해도 시각화가 따라오도록 합니다.
+		const FMatrix ConstraintWorldMatrix = BuildConstraintDisplayWorldMatrix(Constraint, ParentBoneWorldTransform, ChildBoneWorldTransform);
 		FVector Center, AxisX, AxisY, AxisZ, Scale;
 		ExtractTransformAxes(ConstraintWorldMatrix, Center, AxisX, AxisY, AxisZ, Scale);
 
