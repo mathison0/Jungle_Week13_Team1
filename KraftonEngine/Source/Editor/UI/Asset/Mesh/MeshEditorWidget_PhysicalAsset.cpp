@@ -747,6 +747,7 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 		{
 			PhysAsset->ConstraintSetups.erase(PhysAsset->ConstraintSetups.begin() + SelectedConstraintIndex);
 			SelectedConstraintIndex = -1;
+			ViewportClient.SetSelectedPhysicsConstraint(SkeletalMesh, -1);
 			MarkDirty();
 		}
 	}
@@ -957,6 +958,8 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 					SelectedConstraintIndex = PhysAsset
 						? static_cast<int32>(PhysAsset->ConstraintSetups.size()) - 1
 						: -1;
+					SelectedBodySetup = nullptr;
+					ViewportClient.SetSelectedPhysicsConstraint(SkeletalMesh, SelectedConstraintIndex);
 					MarkDirty();
 				}
 				ImGui::Separator();
@@ -1229,11 +1232,13 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 				PhysicsGraphFocusBodySetup = GraphRootBody;
 			}
 			SelectedConstraintIndex = ConstraintIndex;
+			SelectedBodySetup = nullptr;
 			const int32 ChildBoneIndex = FindBoneIndexByName(Asset, Constraint.ChildBoneName);
 			if (ChildBoneIndex >= 0)
 			{
 				SelectedBoneIndex = ChildBoneIndex;
 			}
+			ViewportClient.SetSelectedPhysicsConstraint(SkeletalMesh, ConstraintIndex);
 		}
 		if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f))
 		{
@@ -1250,6 +1255,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 			{
 				PhysAsset->ConstraintSetups.erase(PhysAsset->ConstraintSetups.begin() + ConstraintIndex);
 				SelectedConstraintIndex = -1;
+				ViewportClient.SetSelectedPhysicsConstraint(SkeletalMesh, -1);
 				MarkDirty();
 				ImGui::EndPopup();
 				ImGui::PopID();
@@ -1318,6 +1324,8 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 					PhysicsGraphFocusBodySetup = GraphRootBody;
 				}
 				SelectedConstraintIndex = static_cast<int32>(PhysAsset->ConstraintSetups.size()) - 1;
+				SelectedBodySetup = nullptr;
+				ViewportClient.SetSelectedPhysicsConstraint(SkeletalMesh, SelectedConstraintIndex);
 				MarkDirty();
 			}
 			ImGui::Separator();

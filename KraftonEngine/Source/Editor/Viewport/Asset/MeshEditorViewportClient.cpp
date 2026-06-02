@@ -27,6 +27,7 @@ namespace
 {
 	constexpr float MatrixDecomposeTolerance = 1.0e-6f;
 	constexpr float MinPhysicsBodyGizmoScale = 0.01f;
+	constexpr float MinPhysicsConstraintGizmoScale = 0.01f;
 
 	FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup)
 	{
@@ -88,6 +89,25 @@ namespace
 			std::max(MinPhysicsBodyGizmoScale, Scale.Z));
 	}
 
+	FVector ClampConstraintScale(const FVector& Scale)
+	{
+		return FVector(
+			std::max(MinPhysicsConstraintGizmoScale, Scale.X),
+			std::max(MinPhysicsConstraintGizmoScale, Scale.Y),
+			std::max(MinPhysicsConstraintGizmoScale, Scale.Z));
+	}
+
+	bool GetBoneWorldTransformByName(USkeletalMeshComponent* MeshComponent, const FName& BoneName, FTransform& OutTransform)
+	{
+		if (!MeshComponent)
+		{
+			return false;
+		}
+
+		const int32 BoneIndex = MeshComponent->FindBoneIndex(BoneName.ToString());
+		return BoneIndex >= 0 && MeshComponent->GetBoneWorldTransformByIndex(BoneIndex, OutTransform);
+	}
+
 	bool IntersectShapeLocalAABB(const FRay& WorldRay, const FMatrix& ShapeWorldMatrix, const FVector& LocalExtent, float& OutDistance)
 	{
 		const FMatrix Inverse = ShapeWorldMatrix.GetInverse();
@@ -112,6 +132,30 @@ namespace
 		const FVector LocalHit = LocalRay.Origin + LocalRay.Direction * HitT;
 		const FVector WorldHit = ShapeWorldMatrix.TransformPositionWithW(LocalHit);
 		OutDistance = FVector::Distance(WorldRay.Origin, WorldHit);
+		return true;
+	}
+
+	bool IntersectRaySphere(const FRay& Ray, const FVector& Center, float Radius, float& OutDistance)
+	{
+		if (Radius <= 0.0f)
+		{
+			return false;
+		}
+
+		const FVector ToCenter = Center - Ray.Origin;
+		const float AlongRay = ToCenter.Dot(Ray.Direction);
+		if (AlongRay < 0.0f)
+		{
+			return false;
+		}
+
+		const FVector ClosestPoint = Ray.Origin + Ray.Direction * AlongRay;
+		if (FVector::DistSquared(ClosestPoint, Center) > Radius * Radius)
+		{
+			return false;
+		}
+
+		OutDistance = AlongRay;
 		return true;
 	}
 }
@@ -276,6 +320,165 @@ void FPhysicsBodyTransformGizmoTarget::SetShapeWorldTransform(const FTransform& 
 	const FMatrix LocalMatrix = WorldTransform.ToMatrix() * BoneWorldTransform.ToMatrix().GetInverse();
 	ShapeElem->Transform = MatrixToGizmoTransform(LocalMatrix);
 	ShapeElem->Transform.Scale = ClampBodyScale(ShapeElem->Transform.Scale);
+	if (OnModified)
+	{
+		OnModified();
+	}
+}
+
+void FPhysicsConstraintTransformGizmoTarget::SetConstraint(USkeletalMeshComponent* InMeshComp, UPhysicsAsset* InPhysicsAsset, int32 InConstraintIndex)
+{
+	MeshComponent = InMeshComp;
+	PhysicsAsset = InPhysicsAsset;
+	ConstraintIndex = InConstraintIndex;
+}
+
+void FPhysicsConstraintTransformGizmoTarget::Clear()
+{
+	MeshComponent = nullptr;
+	PhysicsAsset = nullptr;
+	ConstraintIndex = -1;
+}
+
+bool FPhysicsConstraintTransformGizmoTarget::IsValid() const
+{
+	FTransform WorldTransform;
+	return GetConstraintWorldTransform(WorldTransform);
+}
+
+UWorld* FPhysicsConstraintTransformGizmoTarget::GetWorld() const
+{
+	return MeshComponent ? MeshComponent->GetWorld() : nullptr;
+}
+
+FVector FPhysicsConstraintTransformGizmoTarget::GetWorldLocation() const
+{
+	FTransform WorldTransform;
+	return GetConstraintWorldTransform(WorldTransform) ? WorldTransform.Location : FVector::ZeroVector;
+}
+
+FRotator FPhysicsConstraintTransformGizmoTarget::GetWorldRotation() const
+{
+	FTransform WorldTransform;
+	return GetConstraintWorldTransform(WorldTransform) ? WorldTransform.GetRotator() : FRotator::ZeroRotator;
+}
+
+FQuat FPhysicsConstraintTransformGizmoTarget::GetWorldQuat() const
+{
+	FTransform WorldTransform;
+	return GetConstraintWorldTransform(WorldTransform) ? WorldTransform.Rotation : FQuat::Identity;
+}
+
+FVector FPhysicsConstraintTransformGizmoTarget::GetWorldScale() const
+{
+	FTransform WorldTransform;
+	return GetConstraintWorldTransform(WorldTransform) ? WorldTransform.Scale : FVector::OneVector;
+}
+
+void FPhysicsConstraintTransformGizmoTarget::SetWorldLocation(const FVector& NewLocation)
+{
+	FTransform WorldTransform;
+	if (GetConstraintWorldTransform(WorldTransform))
+	{
+		WorldTransform.Location = NewLocation;
+		SetConstraintWorldTransform(WorldTransform);
+	}
+}
+
+void FPhysicsConstraintTransformGizmoTarget::SetWorldRotation(const FRotator& NewRotation)
+{
+	FTransform WorldTransform;
+	if (GetConstraintWorldTransform(WorldTransform))
+	{
+		WorldTransform.SetRotation(NewRotation);
+		SetConstraintWorldTransform(WorldTransform);
+	}
+}
+
+void FPhysicsConstraintTransformGizmoTarget::SetWorldRotation(const FQuat& NewQuat)
+{
+	FTransform WorldTransform;
+	if (GetConstraintWorldTransform(WorldTransform))
+	{
+		WorldTransform.SetRotation(NewQuat);
+		SetConstraintWorldTransform(WorldTransform);
+	}
+}
+
+void FPhysicsConstraintTransformGizmoTarget::SetWorldScale(const FVector& NewScale)
+{
+	FTransform WorldTransform;
+	if (GetConstraintWorldTransform(WorldTransform))
+	{
+		WorldTransform.Scale = ClampConstraintScale(NewScale);
+		SetConstraintWorldTransform(WorldTransform);
+	}
+}
+
+void FPhysicsConstraintTransformGizmoTarget::AddWorldOffset(const FVector& Delta)
+{
+	SetWorldLocation(GetWorldLocation() + Delta);
+}
+
+void FPhysicsConstraintTransformGizmoTarget::AddWorldRotation(const FQuat& Delta, bool bWorldSpace)
+{
+	FTransform WorldTransform;
+	if (GetConstraintWorldTransform(WorldTransform))
+	{
+		WorldTransform.Rotation = bWorldSpace
+			? (Delta * WorldTransform.Rotation).GetNormalized()
+			: (WorldTransform.Rotation * Delta).GetNormalized();
+		SetConstraintWorldTransform(WorldTransform);
+	}
+}
+
+void FPhysicsConstraintTransformGizmoTarget::AddScaleDelta(const FVector& Delta)
+{
+	SetWorldScale(GetWorldScale() + Delta);
+}
+
+bool FPhysicsConstraintTransformGizmoTarget::GetConstraintWorldTransform(FTransform& OutTransform) const
+{
+	if (!MeshComponent || !PhysicsAsset || ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(PhysicsAsset->ConstraintSetups.size()))
+	{
+		return false;
+	}
+
+	const FConstraintSetup& Constraint = PhysicsAsset->ConstraintSetups[ConstraintIndex];
+	FTransform ParentBoneWorldTransform;
+	if (!GetBoneWorldTransformByName(MeshComponent, Constraint.ParentBoneName, ParentBoneWorldTransform))
+	{
+		return false;
+	}
+
+	OutTransform = MatrixToGizmoTransform(Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix());
+	return true;
+}
+
+void FPhysicsConstraintTransformGizmoTarget::SetConstraintWorldTransform(const FTransform& WorldTransform)
+{
+	if (!MeshComponent || !PhysicsAsset || ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(PhysicsAsset->ConstraintSetups.size()))
+	{
+		return;
+	}
+
+	FConstraintSetup& Constraint = PhysicsAsset->ConstraintSetups[ConstraintIndex];
+	FTransform ParentBoneWorldTransform;
+	FTransform ChildBoneWorldTransform;
+	if (!GetBoneWorldTransformByName(MeshComponent, Constraint.ParentBoneName, ParentBoneWorldTransform)
+		|| !GetBoneWorldTransformByName(MeshComponent, Constraint.ChildBoneName, ChildBoneWorldTransform))
+	{
+		return;
+	}
+
+	Constraint.ParentFrame = MatrixToGizmoTransform(WorldTransform.ToMatrix() * ParentBoneWorldTransform.ToMatrix().GetInverse());
+	Constraint.ChildFrame = MatrixToGizmoTransform(WorldTransform.ToMatrix() * ChildBoneWorldTransform.ToMatrix().GetInverse());
+	Constraint.ParentFrame.Scale = ClampConstraintScale(Constraint.ParentFrame.Scale);
+	Constraint.ChildFrame.Scale = ClampConstraintScale(Constraint.ChildFrame.Scale);
+	if (OnModified)
+	{
+		OnModified();
+	}
 }
 
 void FMeshEditorViewportClient::Initialize(ID3D11Device* Device, uint32 Width, uint32 Height)
@@ -299,6 +502,8 @@ void FMeshEditorViewportClient::Release()
 	PreviewWorld = nullptr;
 	PreviewActor = nullptr;
 	OnPhysicsBodyPicked = nullptr;
+	OnPhysicsConstraintPicked = nullptr;
+	OnPhysicsAssetModified = nullptr;
 
 	UObjectManager::Get().DestroyObject(Gizmo);
 	Gizmo = nullptr;
@@ -433,8 +638,10 @@ void FMeshEditorViewportClient::SetSelectedBone(USkeletalMesh* Mesh, int32 BoneI
 	SelectedMesh = Mesh;
 	SelectedBoneIndex = BoneIndex;
 	SelectedPhysicsBodySetup = nullptr;
+	SelectedPhysicsConstraintIndex = -1;
 	RenderOptions.WeightBoneHeatMapBoneIndex = BoneIndex;
 	PhysicsBodyTarget.Clear();
+	PhysicsConstraintTarget.Clear();
 
 	if (Gizmo && PreviewMeshComponent && BoneIndex >= 0)
 	{
@@ -451,6 +658,7 @@ void FMeshEditorViewportClient::SetSelectedBone(USkeletalMesh* Mesh, int32 BoneI
 		BoneDebugComponent->SetTargetMeshComponent(PreviewMeshComponent);
 		BoneDebugComponent->SetSelectedBoneIndex(BoneIndex);
 		BoneDebugComponent->SetSelectedPhysicsBodySetup(nullptr);
+		BoneDebugComponent->SetSelectedPhysicsConstraintIndex(-1);
 	}
 }
 
@@ -459,9 +667,11 @@ void FMeshEditorViewportClient::SetSelectedPhysicsBody(USkeletalMesh* Mesh, int3
 	SelectedMesh = Mesh;
 	SelectedBoneIndex = BoneIndex;
 	SelectedPhysicsBodySetup = BodySetup;
+	SelectedPhysicsConstraintIndex = -1;
 	RenderOptions.WeightBoneHeatMapBoneIndex = BoneIndex;
 
 	PhysicsBodyTarget.SetBody(PreviewMeshComponent, BodySetup);
+	PhysicsConstraintTarget.Clear();
 
 	if (Gizmo && PhysicsBodyTarget.IsValid())
 	{
@@ -477,6 +687,57 @@ void FMeshEditorViewportClient::SetSelectedPhysicsBody(USkeletalMesh* Mesh, int3
 		BoneDebugComponent->SetTargetMeshComponent(PreviewMeshComponent);
 		BoneDebugComponent->SetSelectedBoneIndex(BoneIndex);
 		BoneDebugComponent->SetSelectedPhysicsBodySetup(BodySetup);
+		BoneDebugComponent->SetSelectedPhysicsConstraintIndex(-1);
+	}
+}
+
+void FMeshEditorViewportClient::SetSelectedPhysicsConstraint(USkeletalMesh* Mesh, int32 ConstraintIndex)
+{
+	SelectedMesh = Mesh;
+	SelectedPhysicsBodySetup = nullptr;
+	SelectedPhysicsConstraintIndex = ConstraintIndex;
+
+	UPhysicsAsset* PhysicsAsset = Mesh ? Mesh->GetPhysicsAsset() : nullptr;
+	if (!PhysicsAsset || ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(PhysicsAsset->ConstraintSetups.size()))
+	{
+		SelectedBoneIndex = -1;
+		PhysicsBodyTarget.Clear();
+		PhysicsConstraintTarget.Clear();
+		if (Gizmo)
+		{
+			Gizmo->Deactivate();
+		}
+		if (BoneDebugComponent)
+		{
+			BoneDebugComponent->SetSelectedPhysicsBodySetup(nullptr);
+			BoneDebugComponent->SetSelectedPhysicsConstraintIndex(-1);
+		}
+		return;
+	}
+
+	const FConstraintSetup& Constraint = PhysicsAsset->ConstraintSetups[ConstraintIndex];
+	const int32 ChildBoneIndex = PreviewMeshComponent ? PreviewMeshComponent->FindBoneIndex(Constraint.ChildBoneName.ToString()) : -1;
+	SelectedBoneIndex = ChildBoneIndex;
+	RenderOptions.WeightBoneHeatMapBoneIndex = ChildBoneIndex;
+
+	PhysicsBodyTarget.Clear();
+	PhysicsConstraintTarget.SetConstraint(PreviewMeshComponent, PhysicsAsset, ConstraintIndex);
+
+	if (Gizmo && PhysicsConstraintTarget.IsValid())
+	{
+		Gizmo->SetTarget(&PhysicsConstraintTarget);
+	}
+	else if (Gizmo)
+	{
+		Gizmo->Deactivate();
+	}
+
+	if (BoneDebugComponent)
+	{
+		BoneDebugComponent->SetTargetMeshComponent(PreviewMeshComponent);
+		BoneDebugComponent->SetSelectedBoneIndex(ChildBoneIndex);
+		BoneDebugComponent->SetSelectedPhysicsBodySetup(nullptr);
+		BoneDebugComponent->SetSelectedPhysicsConstraintIndex(ConstraintIndex);
 	}
 }
 
@@ -527,6 +788,13 @@ void FMeshEditorViewportClient::SetSelectedPhysicsConstraintIndex(int32 Constrai
 	{
 		BoneDebugComponent->SetSelectedPhysicsConstraintIndex(ConstraintIndex);
 	}
+}
+
+void FMeshEditorViewportClient::SetOnPhysicsAssetModified(std::function<void()> InCallback)
+{
+	OnPhysicsAssetModified = std::move(InCallback);
+	PhysicsBodyTarget.SetOnModified(OnPhysicsAssetModified);
+	PhysicsConstraintTarget.SetOnModified(OnPhysicsAssetModified);
 }
 
 void FMeshEditorViewportClient::TickShortcuts()
@@ -790,7 +1058,67 @@ void FMeshEditorViewportClient::HandleDragStart(const FRay& Ray)
 		return;
 	}
 
+	if (TryPickPhysicsAssetConstraint(Ray))
+	{
+		return;
+	}
+
 	TryPickPhysicsAssetBody(Ray);
+}
+
+bool FMeshEditorViewportClient::TryPickPhysicsAssetConstraint(const FRay& Ray)
+{
+	if (!PreviewMeshComponent)
+	{
+		return false;
+	}
+
+	USkeletalMesh* Mesh = PreviewMeshComponent->GetSkeletalMesh();
+	UPhysicsAsset* PhysicsAsset = Mesh ? Mesh->GetPhysicsAsset() : nullptr;
+	if (!PhysicsAsset || PhysicsAsset->ConstraintSetups.empty())
+	{
+		return false;
+	}
+
+	int32 BestConstraintIndex = -1;
+	float BestDistance = FLT_MAX;
+
+	for (int32 ConstraintIndex = 0; ConstraintIndex < static_cast<int32>(PhysicsAsset->ConstraintSetups.size()); ++ConstraintIndex)
+	{
+		const FConstraintSetup& Constraint = PhysicsAsset->ConstraintSetups[ConstraintIndex];
+
+		FTransform ParentBoneWorldTransform;
+		FTransform ChildBoneWorldTransform;
+		if (!GetBoneWorldTransformByName(PreviewMeshComponent, Constraint.ParentBoneName, ParentBoneWorldTransform)
+			|| !GetBoneWorldTransformByName(PreviewMeshComponent, Constraint.ChildBoneName, ChildBoneWorldTransform))
+		{
+			continue;
+		}
+
+		const FTransform ConstraintWorldTransform = MatrixToGizmoTransform(Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix());
+		const float BoneDistance = FVector::Distance(ParentBoneWorldTransform.Location, ChildBoneWorldTransform.Location);
+		const float AutoRadius = FMath::Clamp(BoneDistance * 0.35f, 0.025f, 0.35f);
+		const float PickRadius = std::max(0.025f, AutoRadius * 0.3f * 1.6f);
+
+		float Distance = 0.0f;
+		if (IntersectRaySphere(Ray, ConstraintWorldTransform.Location, PickRadius, Distance) && Distance < BestDistance)
+		{
+			BestDistance = Distance;
+			BestConstraintIndex = ConstraintIndex;
+		}
+	}
+
+	if (BestConstraintIndex < 0)
+	{
+		return false;
+	}
+
+	SetSelectedPhysicsConstraint(Mesh, BestConstraintIndex);
+	if (OnPhysicsConstraintPicked)
+	{
+		OnPhysicsConstraintPicked(BestConstraintIndex);
+	}
+	return true;
 }
 
 bool FMeshEditorViewportClient::TryPickPhysicsAssetBody(const FRay& Ray)

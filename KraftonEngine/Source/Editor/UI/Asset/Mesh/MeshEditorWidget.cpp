@@ -402,6 +402,36 @@ void FMeshEditorWidget::Open(UObject* Object)
 			PhysicsGraphFocusBodySetup = BodySetup;
 			SelectedConstraintIndex = -1;
 		});
+	ViewportClient.SetOnPhysicsConstraintPicked([this](int32 ConstraintIndex)
+		{
+			USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(EditedObject);
+			UPhysicsAsset* PhysAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
+			FSkeletalMesh* Asset = SkeletalMesh ? SkeletalMesh->GetSkeletalMeshAsset() : nullptr;
+			if (!PhysAsset || !Asset || ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(PhysAsset->ConstraintSetups.size()))
+			{
+				return;
+			}
+
+			const FConstraintSetup& Constraint = PhysAsset->ConstraintSetups[ConstraintIndex];
+			SelectedConstraintIndex = ConstraintIndex;
+			SelectedBodySetup = nullptr;
+			PhysicsGraphFocusBodySetup = PhysAsset->FindBodySetupByBoneName(Constraint.ChildBoneName);
+			SelectedBoneIndex = -1;
+
+			const FString ChildBoneName = Constraint.ChildBoneName.ToString();
+			for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Asset->Bones.size()); ++BoneIndex)
+			{
+				if (Asset->Bones[BoneIndex].Name == ChildBoneName)
+				{
+					SelectedBoneIndex = BoneIndex;
+					break;
+				}
+			}
+		});
+	ViewportClient.SetOnPhysicsAssetModified([this]()
+		{
+			MarkDirty();
+		});
 
 	WorldContext.World->SetEditorPOVProvider(&ViewportClient);
 
@@ -452,6 +482,8 @@ void FMeshEditorWidget::Close()
 
 	ViewportClient.Release();
 	ViewportClient.SetOnPhysicsBodyPicked(nullptr);
+	ViewportClient.SetOnPhysicsConstraintPicked(nullptr);
+	ViewportClient.SetOnPhysicsAssetModified(nullptr);
 	SelectedBodySetup = nullptr;
 	PhysicsGraphFocusBodySetup = nullptr;
 	SelectedConstraintIndex = -1;
