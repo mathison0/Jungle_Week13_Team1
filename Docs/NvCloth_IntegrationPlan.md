@@ -296,11 +296,11 @@ KraftonEngine/ThirdParty/NvCloth
  |-- include
  |   `-- NvCloth
  |-- lib
- |   `-- win.x86_64.vc143.md
+ |   `-- win.x86_64.vc141.cuda10.md
  |       |-- debug
  |       `-- release
  |-- bin
- |   `-- win.x86_64.vc143.md
+ |   `-- win.x86_64.vc141.cuda10.md
  |       |-- debug
  |       `-- release
  `-- source
@@ -312,11 +312,74 @@ Expected project variables:
 ```xml
 <NvClothRoot>$(ProjectDir)ThirdParty\NvCloth\</NvClothRoot>
 <NvClothIncludeDirectories>$(NvClothRoot)include</NvClothIncludeDirectories>
-<NvClothLibDir>$(NvClothRoot)lib\win.x86_64.vc143.md\$(NvClothBuildConfig)</NvClothLibDir>
-<NvClothBinDir>$(NvClothRoot)bin\win.x86_64.vc143.md\$(NvClothBuildConfig)</NvClothBinDir>
+<NvClothLibDir>$(NvClothRoot)lib\win.x86_64.vc141.cuda10.md\$(NvClothBuildConfig)</NvClothLibDir>
+<NvClothBinDir>$(NvClothRoot)bin\win.x86_64.vc141.cuda10.md\$(NvClothBuildConfig)</NvClothBinDir>
 ```
 
 The engine should link NvCloth import/static libraries and copy required NvCloth DLLs into `$(OutDir)` in the existing post-build copy style.
+
+## CUDA 10.0 NvCloth Rebuild Notes
+
+The current checked-in NvCloth binaries were rebuilt for CUDA Toolkit 10.0 and the VS2017 v141 toolset, then copied into the engine ThirdParty folder. The folder name is intentionally `win.x86_64.vc141.cuda10.md` so the binary ABI/toolchain target is visible instead of implying a vc143 build.
+
+The CUDA 10.0 build also includes a `compute_60` PTX fallback in addition to NvCloth's default CUDA 10 SASS targets (`sm_30`, `sm_35`, `sm_50`, `sm_60`). This matters for newer GPUs such as RTX 40-series: CUDA 10.0 cannot emit native `sm_89` code, but a current NVIDIA driver may JIT the embedded PTX instead of failing with `CUDA_ERROR_NO_BINARY_FOR_GPU`.
+
+Local tool versions used:
+
+```text
+CUDA Toolkit: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.0
+nvcc: release 10.0, V10.0.130
+MSVC v141: C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.16.27023
+Generator: Visual Studio 17 2022, x64, toolset v141
+External NvCloth workspace: C:\Users\jungle\Desktop\YG\Week13\NvCloth
+```
+
+Configure NvCloth from a clean build directory with CUDA paths written using forward slashes:
+
+```powershell
+$env:GW_DEPS_ROOT = "C:/Users/jungle/Desktop/YG/Week13/NvCloth/"
+& "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" `
+  -S "C:/Users/jungle/Desktop/YG/Week13/NvCloth" `
+  -B "_nvcloth_cuda10_v141_build" `
+  -G "Visual Studio 17 2022" `
+  -A x64 `
+  -T v141 `
+  -DCMAKE_GENERATOR_INSTANCE="C:/Program Files/Microsoft Visual Studio/2022/Community,version=17.14.37027.9" `
+  -DCUDA_TOOLKIT_ROOT_DIR="C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0" `
+  -DCUDA_SDK_ROOT_DIR="C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0" `
+  "-DCUDA_NVCC_FLAGS=-gencode;arch=compute_60,code=compute_60" `
+  -DPX_OUTPUT_DLL_DIR="out/bin" `
+  -DPX_OUTPUT_LIB_DIR="out/lib"
+```
+
+Build Release and Debug from a v141 developer environment. This is important because plain MSBuild can otherwise pick up newer VS2022 headers, which CUDA 10.0 cannot compile.
+
+```powershell
+& cmd.exe /s /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat`" -vcvars_ver=14.16 && set `"GW_DEPS_ROOT=C:/Users/jungle/Desktop/YG/Week13/NvCloth/`" && set `"CUDA_PATH=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0`" && set `"CUDA_PATH_V10_0=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0`" && `"C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe`" `"_nvcloth_cuda10_v141_build\NvCloth.vcxproj`" /p:Configuration=release /p:Platform=x64 /p:VCToolsVersion=14.16.27023 /m"
+& cmd.exe /s /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat`" -vcvars_ver=14.16 && set `"GW_DEPS_ROOT=C:/Users/jungle/Desktop/YG/Week13/NvCloth/`" && set `"CUDA_PATH=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0`" && set `"CUDA_PATH_V10_0=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0`" && `"C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe`" `"_nvcloth_cuda10_v141_build\NvCloth.vcxproj`" /p:Configuration=debug /p:Platform=x64 /p:VCToolsVersion=14.16.27023 /m"
+```
+
+Copy the resulting files into the engine:
+
+```text
+_nvcloth_cuda10_v141_build/out/bin/NvCloth_x64.dll
+  -> KraftonEngine/ThirdParty/NvCloth/bin/win.x86_64.vc141.cuda10.md/release/NvCloth_x64.dll
+_nvcloth_cuda10_v141_build/out/bin/NvClothDEBUG_x64.dll
+  -> KraftonEngine/ThirdParty/NvCloth/bin/win.x86_64.vc141.cuda10.md/debug/NvClothDEBUG_x64.dll
+_nvcloth_cuda10_v141_build/out/lib/NvCloth_x64.lib
+  -> KraftonEngine/ThirdParty/NvCloth/lib/win.x86_64.vc141.cuda10.md/release/NvCloth_x64.lib
+_nvcloth_cuda10_v141_build/out/lib/NvClothDEBUG_x64.lib
+  -> KraftonEngine/ThirdParty/NvCloth/lib/win.x86_64.vc141.cuda10.md/debug/NvClothDEBUG_x64.lib
+```
+
+Verification performed:
+
+- `cuobjdump --dump-ptx` on the generated `cuda_compile_fatbin_1_generated_CuSolverKernel.cu.fatbin` showed embedded PTX with `.target sm_60`.
+- `dumpbin /DEPENDENTS` on `NvCloth_x64.dll` showed `nvcuda.dll` as delay-loaded and no `cudart64_*.dll` direct dependency.
+- `dumpbin /EXPORTS` showed CUDA/DX/CPU factory exports including `NvClothCreateFactoryCUDA`.
+- Engine `Debug|x64` and `Release|x64` builds passed after switching the project paths to `win.x86_64.vc141.cuda10.md`; only the pre-existing PhysX PDB `LNK4099` warnings remained.
+
+Compatibility guarantee: these binaries are built against CUDA Toolkit 10.0, so they are the correct target for a CUDA 10.0-era demo machine. Runtime success still depends on the installed NVIDIA driver and GPU supporting the CUDA path that NvCloth uses. On newer GPUs, the included PTX fallback may allow the driver to JIT the CUDA kernels, but this is still a runtime driver/GPU capability check rather than an absolute guarantee. The engine must keep the existing CUDA -> DX11 -> CPU fallback path as the actual safety net for machines where CUDA factory creation fails.
 
 ## Integration Strategy
 
@@ -667,6 +730,7 @@ Implementation notes:
 | 2026-06-02 | Removed temporary cloth smoke-test diagnostics: stripped per-frame/per-shape `[ClothCollision]` logs, cloth registration `[ClothDebug]` logs, and temporary shared-read log-file opening. Kept real cloth failure and NvCloth assert logs as engine diagnostics. Debug x64 build passed with only existing PhysX PDB warnings. |
 | 2026-06-02 | Merge hold note: merging `feature/cloth` into current `main` produced runtime crash dumps around `Render/Resource/Buffer.cpp` in the dynamic vertex buffer path. Do not treat this as solved by build cleanup alone. Before the final merge, inspect how `FClothSceneProxy::PrepareDrawBuffer` interacts with the merged render pipeline, especially multi-pass calls such as main draw and shadow-map caster collection, dynamic buffer reallocation/release, stale draw-command buffer pointers, and proxy destruction during PIE stop. |
 | 2026-06-02 | Pre-merge stabilization pass: changed dynamic vertex/index buffers to report create/resize failure, keep the previous valid buffer alive when resize fails, and make Cloth/Skeletal/Particle/Text/Line upload paths skip drawing instead of dereferencing failed D3D buffers. Also moved `FPhysXClothCollisionReader` implementation from header to `.cpp`, moved cloth collision budget constants into `FClothCollisionBuilder`, removed the anonymous namespace from `FClothSceneProxy`, and restored short Korean comments for the touched cloth collision code. |
+| 2026-06-02 | Rebuilt the checked-in NvCloth Debug and Release binaries with CUDA Toolkit 10.0 and MSVC v141, embedded a `compute_60` PTX fallback for newer GPUs that cannot use the CUDA 10 native SASS targets, renamed the ThirdParty binary folders from `win.x86_64.vc143.md` to `win.x86_64.vc141.cuda10.md`, updated project generation/current project paths, verified CUDA/DX/CPU factory exports plus delay-loaded `nvcuda.dll`, and re-verified Debug x64 plus Release x64 engine builds. |
 
 ## Pre-Smoke Structural Review
 
