@@ -36,6 +36,23 @@ namespace
             && std::fabs(A.Y - B.Y) <= Tolerance
             && std::fabs(A.Z - B.Z) <= Tolerance;
     }
+
+    float SmoothStep01(float Alpha)
+    {
+        Alpha = std::clamp(Alpha, 0.0f, 1.0f);
+        // 전환 시작/끝에서 기울기를 0으로 만들어 첫 프레임과 마지막 프레임의 튐을 줄인다.
+        return Alpha * Alpha * (3.0f - 2.0f * Alpha);
+    }
+
+    FTransform BlendLocalTransform(const FTransform& A, const FTransform& B, float Alpha)
+    {
+        FTransform Result;
+        Result.Location = A.Location + (B.Location - A.Location) * Alpha;
+        // Euler 보간은 축 순서와 wrapping 때문에 쉽게 꼬이므로 rotation은 quaternion slerp로 처리한다.
+        Result.Rotation = FQuat::Slerp(A.Rotation.GetNormalized(), B.Rotation.GetNormalized(), Alpha).GetNormalized();
+        Result.Scale = A.Scale + (B.Scale - A.Scale) * Alpha;
+        return Result;
+    }
 }
 
 USkeletalMeshComponent::~USkeletalMeshComponent()
@@ -89,6 +106,7 @@ void USkeletalMeshComponent::EndPlay()
         }
     }
     bRagdollSimulating = false;
+    ResetRagdollBlendToPhysics();
 
     Super::EndPlay();
 }
@@ -102,6 +120,7 @@ void USkeletalMeshComponent::OnTransformDirty()
 void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InMesh)
 {
     Super::SetSkeletalMesh(InMesh);
+    ResetRagdollBlendToPhysics();
     // Mesh 가 바뀌면 이전 AnimInstance 가 가리키던 본 인덱스/카운트가 무의미해진다.
     // 새 SkeletalMesh 기준으로 AnimInstance 를 재인스턴스화한다.
     InitializeAnimation();
@@ -146,6 +165,7 @@ void USkeletalMeshComponent::RecreatePhysicsAssetBodiesIfScaleChanged()
     }
 
     const bool bWasRagdollSimulating = bRagdollSimulating;
+    ResetRagdollBlendToPhysics();
     bRecreatingPhysicsAssetForScaleChange = true;
 
     PhysicsScene->DestroyPhysicsAssetBodies(this);
@@ -193,6 +213,10 @@ void USkeletalMeshComponent::SetSimulateRagdoll(bool bEnable)
     if (!Owner)
     {
         bRagdollSimulating = bEnable;
+        if (!bEnable)
+        {
+            ResetRagdollBlendToPhysics();
+        }
         return;
     }
 
@@ -201,6 +225,10 @@ void USkeletalMeshComponent::SetSimulateRagdoll(bool bEnable)
     if (!PhysicsScene)
     {
         bRagdollSimulating = bEnable;
+        if (!bEnable)
+        {
+            ResetRagdollBlendToPhysics();
+        }
         return;
     }
 
@@ -211,16 +239,100 @@ void USkeletalMeshComponent::SetSimulateRagdoll(bool bEnable)
             PhysicsScene->InstantiatePhysicsAssetBodies(this);
         }
 
-        // 시뮬레이션을 깨우기 전에 현재 애니메이션 포즈로 바디를 맞춘다.
-        // 순서가 반대면 활성화 직후 한 프레임 동안 이전 자세가 노출될 수 있다.
+        // 전환 순서가 중요하다.
+        // 1) 현재 렌더링 중인 animation local pose를 blend 시작점으로 캡처한다.
+        // 2) PhysX body를 같은 animation pose의 world transform으로 텔레포트한다.
+        // 3) body를 dynamic으로 전환한다.
+        //
+        // 이 순서가 깨지면 첫 physics write-back에서 이전 body pose 또는 bind pose가 노출되어
+        // blend를 넣어도 캐릭터가 한 프레임 튀어 보일 수 있다.
+        BeginRagdollBlendToPhysics();
         PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(this, true);
         PhysicsScene->SetPhysicsAssetBodiesSimulate(this, true);
         bRagdollSimulating = !Bodies.empty();
+        if (!bRagdollSimulating)
+        {
+            ResetRagdollBlendToPhysics();
+        }
         return;
     }
 
     PhysicsScene->SetPhysicsAssetBodiesSimulate(this, false);
     bRagdollSimulating = false;
+    ResetRagdollBlendToPhysics();
+}
+
+void USkeletalMeshComponent::BeginRagdollBlendToPhysics()
+{
+    // 재진입 또는 mesh/scale 변경 직후 남아 있을 수 있는 이전 전환 상태를 먼저 비운다.
+    ResetRagdollBlendToPhysics();
+
+    USkeletalMesh* Mesh = GetSkeletalMesh();
+    FSkeletalMesh* Asset = Mesh ? Mesh->GetSkeletalMeshAsset() : nullptr;
+    // duration이 0 이하이거나 비정상 값이면 의도적으로 즉시 전환한다.
+    // 이 경우 PhysicsScene write-back이 만든 pose가 그대로 적용된다.
+    if (!Asset || Asset->Bones.empty() ||
+        !std::isfinite(RagdollBlendToPhysicsDuration) ||
+        RagdollBlendToPhysicsDuration <= 0.0f)
+    {
+        return;
+    }
+
+    RagdollBlendStartLocalPose.resize(Asset->Bones.size());
+    for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Asset->Bones.size()); ++BoneIndex)
+    {
+        // write-back 최종 결과도 skeleton local pose이므로 시작점도 local space로 캡처한다.
+        // world space에서 섞으면 parent/child 계층 재계산 과정에서 scale과 parent rotation 오차가 커진다.
+        RagdollBlendStartLocalPose[BoneIndex] = GetBoneLocalTransformByIndex(BoneIndex);
+    }
+
+    RagdollBlendToPhysicsElapsed = 0.0f;
+    bRagdollBlendToPhysicsActive = true;
+}
+
+void USkeletalMeshComponent::ResetRagdollBlendToPhysics()
+{
+    RagdollBlendStartLocalPose.clear();
+    RagdollBlendToPhysicsElapsed = 0.0f;
+    bRagdollBlendToPhysicsActive = false;
+}
+
+void USkeletalMeshComponent::ApplyRagdollBlendToPhysics(float DeltaTime, TArray<FTransform>& InOutPhysicsLocalPose)
+{
+    if (!bRagdollBlendToPhysicsActive)
+    {
+        return;
+    }
+
+    if (!std::isfinite(RagdollBlendToPhysicsDuration) ||
+        RagdollBlendToPhysicsDuration <= 0.0f ||
+        RagdollBlendStartLocalPose.size() != InOutPhysicsLocalPose.size())
+    {
+        // skeleton이 바뀌었거나 설정값이 깨진 경우에는 stale pose로 섞지 않는다.
+        // 물리 포즈를 즉시 적용하는 쪽이 잘못된 배열을 보간하는 것보다 안전하다.
+        ResetRagdollBlendToPhysics();
+        return;
+    }
+
+    RagdollBlendToPhysicsElapsed += std::isfinite(DeltaTime) ? std::max(DeltaTime, 0.0f) : 0.0f;
+    const float LinearAlpha = std::clamp(RagdollBlendToPhysicsElapsed / RagdollBlendToPhysicsDuration, 0.0f, 1.0f);
+    const float BlendAlpha = SmoothStep01(LinearAlpha);
+
+    // InOutPhysicsLocalPose는 PhysX body world pose를 skeleton local pose로 환산한 결과다.
+    // 이 배열을 in-place로 수정하면 이후 SetBoneLocalTransforms 경로와 CPU/GPU skinning 경로를 그대로 재사용할 수 있다.
+    for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(InOutPhysicsLocalPose.size()); ++BoneIndex)
+    {
+        InOutPhysicsLocalPose[BoneIndex] = BlendLocalTransform(
+            RagdollBlendStartLocalPose[BoneIndex],
+            InOutPhysicsLocalPose[BoneIndex],
+            BlendAlpha);
+    }
+
+    if (LinearAlpha >= 1.0f)
+    {
+        // 완전히 physics pose로 넘어간 뒤에는 매 프레임 불필요한 배열 보간을 하지 않는다.
+        ResetRagdollBlendToPhysics();
+    }
 }
 
 void USkeletalMeshComponent::SetAnimationMode(EAnimationMode InMode)

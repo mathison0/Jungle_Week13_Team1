@@ -74,9 +74,12 @@ public:
 
     // true: 현재 animation pose를 PhysX body 시작 위치로 복사한 뒤 ragdoll simulation을 시작한다.
     // false: simulation을 끄고 다음 Tick부터 animation pose 평가로 즉시 복귀한다.
-    // 현재는 물리 pose와 animation pose 사이의 blend-out은 지원하지 않는다.
+    // Animation -> Ragdoll은 짧게 blend-in하고, Ragdoll -> Animation blend-out은 아직 지원하지 않는다.
     void SetSimulateRagdoll(bool bEnable);
     bool IsRagdollSimulating() const { return bRagdollSimulating; }
+    // PhysX write-back이 만든 최종 local pose를 렌더 포즈에 적용하기 직전에 호출된다.
+    // 컴포넌트가 전환 시작 포즈와 시간을 소유하므로 PhysX 레이어는 blend 상태를 알 필요가 없다.
+    void ApplyRagdollBlendToPhysics(float DeltaTime, TArray<FTransform>& InOutPhysicsLocalPose);
 
     void CachePhysicsAssetRuntimeScale();
     void InvalidatePhysicsAssetRuntimeScale();
@@ -100,6 +103,10 @@ protected:
 private:
     void LoadAnimationFromPath();
     void RecreatePhysicsAssetBodiesIfScaleChanged();
+    // Animation -> Ragdoll 전환 순간의 현재 local pose를 저장한다.
+    // 물리는 즉시 dynamic으로 돌지만, 렌더 포즈는 이 pose에서 physics pose로 짧게 따라간다.
+    void BeginRagdollBlendToPhysics();
+    void ResetRagdollBlendToPhysics();
 
 protected:
     // Animation 런타임 상태.
@@ -120,6 +127,16 @@ protected:
 
 	UPROPERTY(Edit, Save, Category = "Physics", DisplayName = "Ragdoll Simulating")
     bool bRagdollSimulating = false;
+    // 랙돌이 켜진 뒤 렌더링 본 포즈가 물리 포즈로 완전히 넘어가는 시간.
+    // 0 이하이면 기존처럼 즉시 physics pose를 쓴다.
+    UPROPERTY(Edit, Save, Category = "Physics", DisplayName = "Ragdoll Blend To Physics Time")
+    float RagdollBlendToPhysicsDuration = 0.20f;
+
+    // 전환 시작 시점의 skeleton local pose. PhysX body는 이미 animation pose로 동기화되어 있으므로
+    // 여기서는 visual pop을 줄이기 위한 렌더 포즈 blend 기준으로만 사용한다.
+    TArray<FTransform> RagdollBlendStartLocalPose;
+    float RagdollBlendToPhysicsElapsed = 0.0f;
+    bool bRagdollBlendToPhysicsActive = false;
 
     FVector CachedPhysicsAssetRuntimeScale = FVector::OneVector;
     bool bHasCachedPhysicsAssetRuntimeScale = false;
