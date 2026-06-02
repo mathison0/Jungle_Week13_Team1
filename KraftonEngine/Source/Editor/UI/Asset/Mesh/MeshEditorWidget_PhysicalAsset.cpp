@@ -685,6 +685,10 @@ void FMeshEditorWidget::RenderPhysicsSimulationControls(USkeletalMesh* SkeletalM
 	ImGui::TextDisabled("%s", bPhysicsAssetSimulationRunning ? "Simulating" : "Stopped");
 
 	ImGui::PopStyleColor(3);
+
+	ImGui::Text("Simulation Rate");
+	ImGui::SetNextItemWidth(-1.0f);
+	ImGui::SliderFloat("##PhysicsAssetSimulationRate", &PhysicsAssetSimulationTimeScale, 0.0f, 2.0f, "%.2fx");
 }
 
 //PhysicsAsset 탭의 본 계층 구조 + 시뮬레이션 컨트롤 + 기타 편집 UI 렌더링. 선택된 본/바디/제약 조건에 따라 세부 패널도 함께 렌더링.
