@@ -153,6 +153,10 @@ private:
 	// 현재 씬에서 구동 중인 차량(비소유). Tick의 simulate() 직전에 Simulate()를 호출.
 	FPhysXVehicle4W* ActiveVehicle = nullptr;
 
+	// 랙돌/동적 바디는 렌더 FPS 변화에 민감하므로 fixed timestep으로 적분한다.
+	// frame 시간을 누적했다가 60Hz 단위로만 simulate하고, 너무 큰 누적 시간은 버려 발산을 막는다.
+	float PhysicsTimeAccumulator = 0.0f;
+
 #ifdef _DEBUG
 	// PVD는 전역 PhysX 객체와 같이 공유
 	// Scene 단위 소유가 아니기 때문에 관찰용 포인터만 보관
