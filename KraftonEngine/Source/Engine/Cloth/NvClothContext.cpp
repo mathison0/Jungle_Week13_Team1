@@ -12,6 +12,7 @@
 #include <Windows.h>
 #include <d3d11.h>
 
+#include <atomic>
 #include <cstring>
 #include <mutex>
 #endif
@@ -31,11 +32,37 @@ static const char* GetNvClothLogFileName(const char* File)
 	return LastSeparator ? LastSeparator + 1 : File;
 }
 
+static std::atomic<bool> GNvClothBackendErrorReported = false;
+
+static bool IsNvClothBackendBlockingError(physx::PxErrorCode::Enum Code)
+{
+	return Code == physx::PxErrorCode::eABORT ||
+		Code == physx::PxErrorCode::eOUT_OF_MEMORY ||
+		Code == physx::PxErrorCode::eINTERNAL_ERROR ||
+		Code == physx::PxErrorCode::eINVALID_OPERATION ||
+		Code == physx::PxErrorCode::eINVALID_PARAMETER;
+}
+
+static void ResetNvClothBackendError()
+{
+	GNvClothBackendErrorReported.store(false);
+}
+
+static bool DidNvClothBackendReportError()
+{
+	return GNvClothBackendErrorReported.load();
+}
+
 class FNvClothErrorCallback : public physx::PxErrorCallback
 {
 public:
 	void reportError(physx::PxErrorCode::Enum Code, const char* Message, const char* File, int Line) override
 	{
+		if (IsNvClothBackendBlockingError(Code))
+		{
+			GNvClothBackendErrorReported.store(true);
+		}
+
 		const char* Severity = "Info";
 		if (Code == physx::PxErrorCode::eABORT || Code == physx::PxErrorCode::eOUT_OF_MEMORY)
 		{
@@ -344,11 +371,14 @@ bool FNvClothContext::TryCreateCudaFactory(FString& InOutFallbackStatus)
 	}
 
 	CudaContext = NewContext;
+	ResetNvClothBackendError();
 	Factory = NvClothCreateFactoryCUDA(NewContext);
-	if (!Factory)
+	const bool bBackendError = DidNvClothBackendReportError();
+	if (!Factory || bBackendError)
 	{
+		DestroyFactory();
 		ReleaseCuda();
-		InOutFallbackStatus += "CUDA factory failed -> ";
+		InOutFallbackStatus += bBackendError ? "CUDA factory reported error -> " : "CUDA factory failed -> ";
 		return false;
 	}
 
@@ -383,11 +413,14 @@ bool FNvClothContext::TryCreateDx11Factory(ID3D11Device* Device, bool bSynchroni
 		return false;
 	}
 
+	ResetNvClothBackendError();
 	Factory = NvClothCreateFactoryDX11(DxContextManager);
-	if (!Factory)
+	const bool bBackendError = DidNvClothBackendReportError();
+	if (!Factory || bBackendError)
 	{
+		DestroyFactory();
 		ReleaseDx11();
-		InOutFallbackStatus += "DX11 factory failed -> ";
+		InOutFallbackStatus += bBackendError ? "DX11 factory reported error -> " : "DX11 factory failed -> ";
 		return false;
 	}
 
@@ -404,10 +437,13 @@ bool FNvClothContext::TryCreateDx11Factory(ID3D11Device* Device, bool bSynchroni
 bool FNvClothContext::TryCreateCpuFactory(FString& InOutFallbackStatus)
 {
 #if WITH_NVCLOTH
+	ResetNvClothBackendError();
 	Factory = NvClothCreateFactoryCPU();
-	if (!Factory)
+	const bool bBackendError = DidNvClothBackendReportError();
+	if (!Factory || bBackendError)
 	{
-		InOutFallbackStatus += "CPU factory failed";
+		DestroyFactory();
+		InOutFallbackStatus += bBackendError ? "CPU factory reported error" : "CPU factory failed";
 		return false;
 	}
 

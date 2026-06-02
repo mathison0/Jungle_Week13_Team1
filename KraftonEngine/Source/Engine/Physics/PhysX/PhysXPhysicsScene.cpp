@@ -494,7 +494,7 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		Host->GetOwnerComponent()->SetRelativeRotation(NewRot);
 	}
 
-	SyncPhysicsAssetBodiesToBones();
+	SyncPhysicsAssetBodiesToBones(DeltaTime);
 
 	// ── Dispatch deferred contact/trigger events ──
 	// onContact / onTrigger 는 fetchResults 안에서 fire 되므로 거기서 직접 게임 핸들러를
