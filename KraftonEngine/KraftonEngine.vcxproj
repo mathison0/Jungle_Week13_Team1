@@ -136,8 +136,8 @@
     <NvClothIncludeDirectories>$(NvClothRoot)include</NvClothIncludeDirectories>
     <NvClothBuildConfig Condition="'$(Configuration)'=='Debug'">debug</NvClothBuildConfig>
     <NvClothBuildConfig Condition="'$(Configuration)'!='Debug'">release</NvClothBuildConfig>
-    <NvClothLibDir>$(NvClothRoot)lib\win.x86_64.vc143.md\$(NvClothBuildConfig)</NvClothLibDir>
-    <NvClothBinDir>$(NvClothRoot)bin\win.x86_64.vc143.md\$(NvClothBuildConfig)</NvClothBinDir>
+    <NvClothLibDir>$(NvClothRoot)lib\win.x86_64.vc141.cuda10.md\$(NvClothBuildConfig)</NvClothLibDir>
+    <NvClothBinDir>$(NvClothRoot)bin\win.x86_64.vc141.cuda10.md\$(NvClothBuildConfig)</NvClothBinDir>
     <NvClothDependency Condition="'$(Configuration)'=='Debug'">NvClothDEBUG_x64.lib</NvClothDependency>
     <NvClothDependency Condition="'$(Configuration)'!='Debug'">NvCloth_x64.lib</NvClothDependency>
   </PropertyGroup>

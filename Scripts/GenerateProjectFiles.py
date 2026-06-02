@@ -141,7 +141,7 @@ FMOD_DEBUG_DLL = "fmodL.dll"
 FMOD_RELEASE_DLL = "fmod.dll"
 
 NVCLOTH_ROOT = "ThirdParty\\NvCloth\\"
-NVCLOTH_BIN_PLATFORM = "win.x86_64.vc143.md"
+NVCLOTH_BIN_PLATFORM = "win.x86_64.vc141.cuda10.md"
 NVCLOTH_DEBUG_LIB = "NvClothDEBUG_x64.lib"
 NVCLOTH_RELEASE_LIB = "NvCloth_x64.lib"
 
