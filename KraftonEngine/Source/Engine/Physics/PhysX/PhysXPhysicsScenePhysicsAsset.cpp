@@ -7,6 +7,8 @@
 #include "Physics/BodySetup.h"
 #include "Physics/PhysicsAsset.h"
 
+#include <PxPhysicsAPI.h>
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -199,6 +201,48 @@ bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComp
 
 		Body->SetBodyTransform(BoneWorldTransform.Location, BoneWorldTransform.Rotation, bResetVelocity);
 		bSynced = true;
+	}
+
+	// A constraint can skip bones that do not own bodies. Animation on those
+	// intermediate bones moves the child actor away from its reference-pose
+	// anchor. Match only the parent anchor position after teleporting bodies;
+	// authored frame rotations and angular limits remain unchanged.
+	int32 AdjustedAnchorCount = 0;
+	float MaxAnchorError = 0.0f;
+	for (auto& Constraint : Comp->GetConstraints())
+	{
+		if (!Constraint || !Constraint->IsValidConstraint()) continue;
+
+		physx::PxJoint* Joint = Constraint->GetJointHandle();
+		physx::PxRigidActor* ParentActor = Constraint->ParentBody
+			? Constraint->ParentBody->GetPxRigidActor()
+			: nullptr;
+		physx::PxRigidActor* ChildActor = Constraint->ChildBody
+			? Constraint->ChildBody->GetPxRigidActor()
+			: nullptr;
+		if (!Joint || !ParentActor || !ChildActor) continue;
+
+		physx::PxTransform ParentLocalPose = Joint->getLocalPose(physx::PxJointActorIndex::eACTOR0);
+		const physx::PxTransform ChildLocalPose = Joint->getLocalPose(physx::PxJointActorIndex::eACTOR1);
+		const physx::PxTransform ParentWorldPose = ParentActor->getGlobalPose();
+		const physx::PxTransform ChildWorldPose = ChildActor->getGlobalPose();
+		const physx::PxVec3 ParentAnchorWorld = ParentWorldPose.transform(ParentLocalPose.p);
+		const physx::PxVec3 ChildAnchorWorld = ChildWorldPose.transform(ChildLocalPose.p);
+		const float AnchorError = (ChildAnchorWorld - ParentAnchorWorld).magnitude();
+		MaxAnchorError = std::max(MaxAnchorError, AnchorError);
+
+		if (AnchorError <= 1.0e-4f) continue;
+
+		ParentLocalPose.p = ParentWorldPose.transformInv(ChildAnchorWorld);
+		Joint->setLocalPose(physx::PxJointActorIndex::eACTOR0, ParentLocalPose);
+		++AdjustedAnchorCount;
+	}
+
+	if (AdjustedAnchorCount > 0)
+	{
+		UE_LOG("[PhysX] Ragdoll pose sync adjusted joint anchors: count=%d maxError=%.4f",
+			AdjustedAnchorCount,
+			MaxAnchorError);
 	}
 	return bSynced;
 }

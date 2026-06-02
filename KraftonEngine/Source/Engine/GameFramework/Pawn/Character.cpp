@@ -43,6 +43,11 @@ void ACharacter::PostDuplicate()
 
 void ACharacter::AddMovementInput(const FVector& WorldDirection, float ScaleValue)
 {
+	if (Mesh && Mesh->IsRagdollSimulating())
+	{
+		return;
+	}
+
 	if (CharacterMovement)
 	{
 		CharacterMovement->AddInputVector(WorldDirection, ScaleValue);
@@ -51,6 +56,11 @@ void ACharacter::AddMovementInput(const FVector& WorldDirection, float ScaleValu
 
 void ACharacter::Jump()
 {
+	if (Mesh && Mesh->IsRagdollSimulating())
+	{
+		return;
+	}
+
 	if (CharacterMovement)
 	{
 		CharacterMovement->Jump();
@@ -96,6 +106,11 @@ void ACharacter::SetupInputComponent()
 void ACharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (Mesh && Mesh->IsRagdollSimulating())
+	{
+		return;
+	}
 
 	if (bAutoInputMouseLook)
 	{
