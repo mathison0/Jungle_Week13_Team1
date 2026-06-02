@@ -427,6 +427,13 @@ void FMeshEditorWidget::Open(UObject* Object)
 				}
 			}
 		});
+	ViewportClient.SetOnPhysicsAssetPickMissed([this]()
+		{
+			SelectedBoneIndex = -1;
+			SelectedBodySetup = nullptr;
+			PhysicsGraphFocusBodySetup = nullptr;
+			SelectedConstraintIndex = -1;
+		});
 	ViewportClient.SetOnPhysicsAssetModified([this]()
 		{
 			MarkDirty();
@@ -678,6 +685,7 @@ void FMeshEditorWidget::Close()
 	ViewportClient.Release();
 	ViewportClient.SetOnPhysicsBodyPicked(nullptr);
 	ViewportClient.SetOnPhysicsConstraintPicked(nullptr);
+	ViewportClient.SetOnPhysicsAssetPickMissed(nullptr);
 	ViewportClient.SetOnPhysicsAssetModified(nullptr);
 	SelectedBodySetup = nullptr;
 	PhysicsGraphFocusBodySetup = nullptr;

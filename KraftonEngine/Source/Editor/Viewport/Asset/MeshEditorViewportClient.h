@@ -130,6 +130,7 @@ public:
 	const FBone* GetSelectedBone() const;
 	void SetOnPhysicsBodyPicked(std::function<void(int32, UBodySetup*)> InCallback) { OnPhysicsBodyPicked = std::move(InCallback); }
 	void SetOnPhysicsConstraintPicked(std::function<void(int32)> InCallback) { OnPhysicsConstraintPicked = std::move(InCallback); }
+	void SetOnPhysicsAssetPickMissed(std::function<void()> InCallback) { OnPhysicsAssetPickMissed = std::move(InCallback); }
 	void SetOnPhysicsAssetModified(std::function<void()> InCallback);
 
 	EBoneDebugDrawMode GetBoneDebugDrawMode() const;
@@ -171,12 +172,14 @@ private:
 	UBoneDebugComponent* BoneDebugComponent = nullptr;
 	std::function<void(int32, UBodySetup*)> OnPhysicsBodyPicked;
 	std::function<void(int32)> OnPhysicsConstraintPicked;
+	std::function<void()> OnPhysicsAssetPickMissed;
 	std::function<void()> OnPhysicsAssetModified;
 
 	UWorld* PreviewWorld = nullptr;
 	AActor* PreviewActor = nullptr;
 
 	bool bIsRenderable = false;
+	bool bPhysicsAssetDebugDrawEnabled = false;
 
 	FViewportCameraTransform ViewTransform;
 
