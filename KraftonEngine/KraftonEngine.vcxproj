@@ -633,6 +633,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxMaterialImporter.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneLoader.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneQuery.cpp" />
+    <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxScaleBakeUtil.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSkeletalMeshImporter.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSkeletonImporter.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSkinWeightImporter.cpp" />
@@ -1049,6 +1050,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxMaterialImporter.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneLoader.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneQuery.h" />
+    <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxScaleBakeUtil.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSkeletalMeshImporter.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSkeletonImporter.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSkinWeightImporter.h" />
