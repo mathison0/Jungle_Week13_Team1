@@ -11,7 +11,7 @@
 
 #include <algorithm>
 
-static bool IsShapeUsableForCloth(const UPrimitiveComponent* Component, const UClothComponent* ClothComponent)
+bool FClothCollisionBridge::IsShapeUsableForCloth(const UPrimitiveComponent* Component, const UClothComponent* ClothComponent)
 {
 	if (!Component || Component == ClothComponent)
 	{

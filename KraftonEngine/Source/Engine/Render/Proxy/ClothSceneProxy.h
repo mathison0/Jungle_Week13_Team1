@@ -19,6 +19,13 @@ public:
 		FDrawCommandBuffer& OutBuffer) const override;
 
 private:
+	struct FDefaultClothMaterialConstants
+	{
+		FVector4 SectionColor = FVector4(0.78f, 0.82f, 0.90f, 1.0f);
+		float HasNormalMap = 0.0f;
+		float Padding[3] = { 0.0f, 0.0f, 0.0f };
+	};
+
 	UClothComponent* GetClothComponent() const;
 	void RebuildSectionDraws();
 

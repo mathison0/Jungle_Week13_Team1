@@ -2,10 +2,6 @@
 
 #include <algorithm>
 
-static constexpr uint32 MaxClothCollisionSpheres = 32;
-static constexpr uint32 MaxClothCollisionCapsules = 16;
-static constexpr uint32 MaxClothCollisionPlanes = 32;
-
 FVector FClothCollisionBuilder::TransformWorldPositionToClothLocal(const FMatrix& ClothWorldInverse, const FVector& WorldPosition)
 {
 	return ClothWorldInverse.TransformPositionWithW(WorldPosition);

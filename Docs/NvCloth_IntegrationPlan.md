@@ -665,6 +665,8 @@ Implementation notes:
 | 2026-06-02 | Added cloth stability controls after capsule collision smoke testing: exposed `LinearDrag`, `AngularDrag`, `Friction`, `CollisionMassScale`, `CollisionThickness`, and `Continuous Collision` on `UClothComponent`, raised stable defaults for damping/drag/lift, applied the new values through `FClothInstance::ApplySettings`, clamped large cloth delta time to `1/30`, and passed collision thickness through both PhysX and Native collision gather paths. Debug x64 build passed with only existing PhysX PDB warnings. |
 | 2026-06-02 | Polished authoring defaults: changed new `UClothComponent` grid size defaults from `300 x 300` to `7 x 7`, added `Radius` and `Falloff Exponent` to `UWindDirectionalSourceComponent`, changed `FClothScene` to compute wind per cloth component location, added selected-source radius visualization, added `WindDirectional.mat` using `S_WindDirectional.PNG`, and made `AWindDirectionalSourceActor` create an editor-only billboard like light/fog actors. Debug x64 build passed with only existing PhysX PDB warnings. |
 | 2026-06-02 | Removed temporary cloth smoke-test diagnostics: stripped per-frame/per-shape `[ClothCollision]` logs, cloth registration `[ClothDebug]` logs, and temporary shared-read log-file opening. Kept real cloth failure and NvCloth assert logs as engine diagnostics. Debug x64 build passed with only existing PhysX PDB warnings. |
+| 2026-06-02 | Merge hold note: merging `feature/cloth` into current `main` produced runtime crash dumps around `Render/Resource/Buffer.cpp` in the dynamic vertex buffer path. Do not treat this as solved by build cleanup alone. Before the final merge, inspect how `FClothSceneProxy::PrepareDrawBuffer` interacts with the merged render pipeline, especially multi-pass calls such as main draw and shadow-map caster collection, dynamic buffer reallocation/release, stale draw-command buffer pointers, and proxy destruction during PIE stop. |
+| 2026-06-02 | Pre-merge stabilization pass: changed dynamic vertex/index buffers to report create/resize failure, keep the previous valid buffer alive when resize fails, and make Cloth/Skeletal/Particle/Text/Line upload paths skip drawing instead of dereferencing failed D3D buffers. Also moved `FPhysXClothCollisionReader` implementation from header to `.cpp`, moved cloth collision budget constants into `FClothCollisionBuilder`, removed the anonymous namespace from `FClothSceneProxy`, and restored short Korean comments for the touched cloth collision code. |
 
 ## Pre-Smoke Structural Review
 
@@ -685,7 +687,6 @@ Known limits that are acceptable before smoke:
 - Cloth collision is one-way. Rigid bodies do not receive impulses from cloth.
 - Collision primitive budgets are intentionally bounded in `FClothCollisionBuilder` to avoid feeding unbounded arrays into NvCloth every frame.
 - Runtime shape support is limited to sphere, capsule, and box.
-- `FPhysXClothCollisionReader` is header-only for now. If it grows beyond simple geometry translation, move implementation to `.cpp`.
 - Existing saved cloth actors may still carry older serialized damping/drag values. New defaults apply to newly created components; existing scene instances should be reviewed in Details or re-saved with the new stability values.
 - Existing saved cloth actors may also keep older width/height values. The `7 x 7` default applies to newly created `UClothComponent` instances.
 
@@ -695,3 +696,12 @@ Not acceptable to regress:
 - PhysX Scene shape gathering must remain backend-owned through `IPhysicsScene`, not copied into `FClothScene`.
 - Wind values must stay on `UWindDirectionalSourceComponent`; cloth components should only receive the aggregated result.
 - Renderer/material policy should stay user-material driven, not hidden cloth material overrides.
+
+Merge investigation notes:
+
+- Final merge into `main` is intentionally deferred until the `Buffer.cpp` runtime crash is understood.
+- The observed crash locations were in `FDynamicVertexBuffer::Release` / `FDynamicVertexBuffer::Update`, not directly inside NvCloth simulation.
+- The likely risk area is the cloth render proxy's mutable dynamic vertex/index buffers being prepared from multiple merged render paths and then stored as raw `ID3D11Buffer*` values in draw commands.
+- Verify whether shadow-map collection, normal draw-command building, selection/debug passes, or PIE teardown can call `PrepareDrawBuffer` after the owning proxy/component has been removed or can keep stale buffer pointers after a dynamic buffer resize.
+- Any fix should preserve the engine render ownership model. Prefer clarifying dynamic-buffer lifetime and draw-command ownership over adding cloth-specific special cases in unrelated render passes.
+- Current mitigation is engine-level dynamic-buffer hardening, not a cloth-only bypass: failed D3D buffer creation no longer leads to `SetPrivateData`, `Map`, or `Release` on invalid resources, and resize failure keeps the previous resource alive while the caller skips the unsafe draw.

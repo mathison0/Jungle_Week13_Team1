@@ -1838,6 +1838,9 @@
     <ClCompile Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.cpp">
       <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\PhysXClothCollisionReader.cpp">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXCollision.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClCompile>
@@ -3158,13 +3161,13 @@
     <ClInclude Include="Source\Engine\Physics\PhysicsMaterial\PhysicalMaterialManager.h">
       <Filter>Source\Engine\Physics\PhysicsMaterial</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXClothCollisionReader.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCollision.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCore.h">
-      <Filter>Source\Engine\Physics\PhysX</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXClothCollisionReader.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXHelper.h">

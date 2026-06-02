@@ -237,8 +237,8 @@ bool FFontGeometry::UploadWorldBuffers(ID3D11DeviceContext* Context)
 	const uint32 VertCount = static_cast<uint32>(WorldVertices.size());
 	const uint32 IdxCount  = static_cast<uint32>(WorldIndices.size());
 
-	WorldVB.EnsureCapacity(Device, VertCount);
-	WorldIB.EnsureCapacity(Device, IdxCount);
+	if (!WorldVB.EnsureCapacity(Device, VertCount)) return false;
+	if (!WorldIB.EnsureCapacity(Device, IdxCount)) return false;
 	if (!WorldVB.Update(Context, WorldVertices.data(), VertCount)) return false;
 	if (!WorldIB.Update(Context, WorldIndices.data(), IdxCount)) return false;
 	return true;
@@ -251,8 +251,8 @@ bool FFontGeometry::UploadScreenBuffers(ID3D11DeviceContext* Context)
 	const uint32 VertCount = static_cast<uint32>(ScreenVertices.size());
 	const uint32 IdxCount  = static_cast<uint32>(ScreenIndices.size());
 
-	ScreenVB.EnsureCapacity(Device, VertCount);
-	ScreenIB.EnsureCapacity(Device, IdxCount);
+	if (!ScreenVB.EnsureCapacity(Device, VertCount)) return false;
+	if (!ScreenIB.EnsureCapacity(Device, IdxCount)) return false;
 	if (!ScreenVB.Update(Context, ScreenVertices.data(), VertCount)) return false;
 	if (!ScreenIB.Update(Context, ScreenIndices.data(), IdxCount)) return false;
 	return true;

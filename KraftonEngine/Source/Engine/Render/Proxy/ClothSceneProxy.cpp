@@ -6,16 +6,6 @@
 #include "Render/Command/DrawCommand.h"
 #include "Render/Shader/ShaderManager.h"
 
-namespace
-{
-	struct FDefaultClothMaterialConstants
-	{
-		FVector4 SectionColor = FVector4(0.78f, 0.82f, 0.90f, 1.0f);
-		float HasNormalMap = 0.0f;
-		float Padding[3] = { 0.0f, 0.0f, 0.0f };
-	};
-}
-
 FClothSceneProxy::FClothSceneProxy(UClothComponent* InComponent)
 	: FPrimitiveSceneProxy(InComponent)
 {
@@ -64,20 +54,32 @@ bool FClothSceneProxy::PrepareDrawBuffer(ID3D11Device* Device, ID3D11DeviceConte
 
 	if (VertexBuffer.GetMaxCount() == 0 || VertexBuffer.GetStride() != sizeof(FVertexPNCTT))
 	{
-		VertexBuffer.Create(Device, View.VertexCount, sizeof(FVertexPNCTT));
+		if (!VertexBuffer.Create(Device, View.VertexCount, sizeof(FVertexPNCTT)))
+		{
+			return false;
+		}
 	}
 	else
 	{
-		VertexBuffer.EnsureCapacity(Device, View.VertexCount);
+		if (!VertexBuffer.EnsureCapacity(Device, View.VertexCount))
+		{
+			return false;
+		}
 	}
 
 	if (IndexBuffer.GetMaxCount() == 0)
 	{
-		IndexBuffer.Create(Device, View.IndexCount);
+		if (!IndexBuffer.Create(Device, View.IndexCount))
+		{
+			return false;
+		}
 	}
 	else
 	{
-		IndexBuffer.EnsureCapacity(Device, View.IndexCount);
+		if (!IndexBuffer.EnsureCapacity(Device, View.IndexCount))
+		{
+			return false;
+		}
 	}
 
 	if (!VertexBuffer.Update(Context, View.VertexData, View.VertexCount))

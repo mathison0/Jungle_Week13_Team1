@@ -318,13 +318,19 @@ bool FParticleSystemSceneProxy::PrepareParticleDrawBuffer(const FParticleDrawBat
 
 		if (!bMeshInstanceBufferCreated)
 		{
-			MeshInstanceBuffer.Create(Device, 1024, sizeof(FMeshParticleInstanceData));
+			if (!MeshInstanceBuffer.Create(Device, 1024, sizeof(FMeshParticleInstanceData)))
+			{
+				return false;
+			}
 			bMeshInstanceBufferCreated = true;
 		}
 
 		if (MeshInstances.empty()) return false;
 
-		MeshInstanceBuffer.EnsureCapacity(Device, static_cast<uint32>(MeshInstances.size()));
+		if (!MeshInstanceBuffer.EnsureCapacity(Device, static_cast<uint32>(MeshInstances.size())))
+		{
+			return false;
+		}
 		if (!MeshInstanceBuffer.Update(Context, MeshInstances.data(), static_cast<uint32>(MeshInstances.size())))
 		{
 			return false;

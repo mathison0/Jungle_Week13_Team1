@@ -212,8 +212,8 @@ bool FLineGeometry::UploadBuffers(ID3D11DeviceContext* Context)
 	const uint32 IndexCount = static_cast<uint32>(Indices.size());
 	if (VertexCount == 0 || IndexCount == 0) return false;
 
-	VB.EnsureCapacity(Device, VertexCount);
-	IB.EnsureCapacity(Device, IndexCount);
+	if (!VB.EnsureCapacity(Device, VertexCount)) return false;
+	if (!IB.EnsureCapacity(Device, IndexCount)) return false;
 	if (!VB.Update(Context, IndexedVertices.data(), VertexCount)) return false;
 	if (!IB.Update(Context, Indices.data(), IndexCount)) return false;
 	return true;

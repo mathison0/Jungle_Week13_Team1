@@ -4,7 +4,7 @@
 #include "Math/Matrix.h"
 #include "Math/Vector.h"
 
-// 엔진 월드 공간의 충돌 프리미티브를 NvCloth가 쓰는 cloth 로컬 충돌 배열로 변환한다.
+// 엔진 월드 공간의 충돌 프리미티브를 NvCloth가 쓰는 cloth-local 충돌 배열로 변환한다.
 class FClothCollisionBuilder
 {
 public:
@@ -35,6 +35,10 @@ public:
 		FClothCollisionData& OutData);
 
 private:
+	static constexpr uint32 MaxClothCollisionSpheres = 32;
+	static constexpr uint32 MaxClothCollisionCapsules = 16;
+	static constexpr uint32 MaxClothCollisionPlanes = 32;
+
 	static FVector TransformWorldPositionToClothLocal(const FMatrix& ClothWorldInverse, const FVector& WorldPosition);
 	static FVector TransformWorldVectorToClothLocal(const FMatrix& ClothWorldInverse, const FVector& WorldOrigin, const FVector& WorldVector);
 	static float TransformWorldRadiusToClothLocal(const FMatrix& ClothWorldInverse, const FVector& WorldCenter, float WorldRadius);
