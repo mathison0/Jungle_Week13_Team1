@@ -65,6 +65,7 @@ public:
 	void GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const override;
 
 	void Tick(float DeltaTime) override;
+	FPhysicsSceneStats GetStats() const override { return LastStats; }
 
 	// --- Force, Torque ----
 	void AddForce(UPrimitiveComponent* Comp, const FVector& Force) override;
@@ -153,6 +154,10 @@ private:
 	// 현재 씬에서 구동 중인 차량(비소유). Tick의 simulate() 직전에 Simulate()를 호출.
 	FPhysXVehicle4W* ActiveVehicle = nullptr;
 
+	// 랙돌/동적 바디는 렌더 FPS 변화에 민감하므로 fixed timestep으로 적분한다.
+	// frame 시간을 누적했다가 60Hz 단위로만 simulate하고, 너무 큰 누적 시간은 버려 발산을 막는다.
+	float PhysicsTimeAccumulator = 0.0f;
+
 #ifdef _DEBUG
 	// PVD는 전역 PhysX 객체와 같이 공유
 	// Scene 단위 소유가 아니기 때문에 관찰용 포인터만 보관
@@ -167,6 +172,7 @@ private:
 	// ragdoll body/constraint는 컴포넌트(SkeletalMeshComponent)가 소유한다. 여기엔
 	// bone 계층 writeback(SyncPhysicsAssetBodiesToBones)을 위해 컴포넌트 목록만 둔다.
 	TArray<USkeletalMeshComponent*> SkeletalPhysicsComponents;
+	FPhysicsSceneStats LastStats;
 
 	// 내부 헬퍼
 	// Comp가 속한 강체의 대표 body. 등록 안 됐으면 nullptr.
@@ -194,4 +200,7 @@ private:
 	bool AddTriangleMeshShapeFromStaticMesh(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UStaticMeshComponent* Comp);
 	// HostActor에서 Comp에 매칭된 shape를 detach.
 	void DetachShapeForComponent(physx::PxRigidActor* HostActor, UPrimitiveComponent* Comp);
+
+	mutable uint32 PendingRaycastQueries = 0;
+	mutable uint32 PendingSweepQueries = 0;
 };

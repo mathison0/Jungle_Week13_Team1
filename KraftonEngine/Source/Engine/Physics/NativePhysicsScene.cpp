@@ -7,6 +7,7 @@
 #include "GameFramework/AActor.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 void FNativePhysicsScene::Initialize(UWorld* InWorld)
@@ -113,6 +114,8 @@ void FNativePhysicsScene::GatherClothCollision(const FClothCollisionGatherDesc& 
 void FNativePhysicsScene::Tick(float DeltaTime)
 {
 	if (!World) return;
+
+	const auto PhysicsStartTime = std::chrono::high_resolution_clock::now();
 
 	// ── 힘 적분 + 중력: bSimulatePhysics인 컴포넌트에 적용 ──
 	for (UPrimitiveComponent* Comp : RegisteredComponents)
@@ -296,6 +299,24 @@ void FNativePhysicsScene::Tick(float DeltaTime)
 
 	PreviousOverlaps = CurrentOverlaps;
 	PreviousBlockPairs = CurrentBlockPairs;
+
+	const auto PhysicsEndTime = std::chrono::high_resolution_clock::now();
+	LastStats.PhysicsTimeMs = std::chrono::duration<double, std::milli>(PhysicsEndTime - PhysicsStartTime).count();
+	LastStats.RigidBodiesTotal = static_cast<uint32>(RegisteredComponents.size());
+	LastStats.RigidBodiesActive = 0;
+	for (UPrimitiveComponent* Comp : RegisteredComponents)
+	{
+		if (Comp && Comp->GetSimulatePhysics())
+		{
+			++LastStats.RigidBodiesActive;
+		}
+	}
+	LastStats.JointsCount = 0;
+	LastStats.ContactPairs = static_cast<uint32>(CurrentBlockPairs.size());
+	LastStats.RaycastQueries = PendingRaycastQueries;
+	LastStats.SweepQueries = PendingSweepQueries;
+	PendingRaycastQueries = 0;
+	PendingSweepQueries = 0;
 }
 
 // ============================================================
@@ -471,6 +492,7 @@ bool FNativePhysicsScene::Raycast(const FVector& Start, const FVector& Dir, floa
 {
 	// Channel filter: 응답이 TraceChannel에 대해 Block이 아니면 skip
 	// (overlap/ignore 응답인 trigger volume 등은 raycast 결과에서 제외)
+	++PendingRaycastQueries;
 	return NativeRaycastImpl(RegisteredComponents, Start, Dir, MaxDist, IgnoreActor,
 		[TraceChannel](UPrimitiveComponent* Comp) {
 			return Comp->GetCollisionResponseToChannel(TraceChannel) == ECollisionResponse::Block;
@@ -480,6 +502,7 @@ bool FNativePhysicsScene::Raycast(const FVector& Start, const FVector& Dir, floa
 bool FNativePhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVector& Dir, float MaxDist, FHitResult& OutHit,
 	uint32 ObjectTypeMask, const AActor* IgnoreActor) const
 {
+	++PendingRaycastQueries;
 	if (ObjectTypeMask == 0) return false;
 
 	// ObjectType 자체를 마스크로 필터. 응답은 보지 않음.
@@ -495,6 +518,7 @@ bool FNativePhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVect
 bool FNativePhysicsScene::SphereSweepShapeComponents(const FVector& Start, const FVector& Dir, float MaxDist, float Radius,
 	FHitResult& OutHit, ECollisionChannel TraceChannel, const AActor* IgnoreActor) const
 {
+	++PendingSweepQueries;
 	if (MaxDist <= 0.0f || Radius < 0.0f)
 	{
 		return false;

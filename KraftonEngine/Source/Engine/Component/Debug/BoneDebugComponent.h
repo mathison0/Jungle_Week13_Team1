@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Component/PrimitiveComponent.h"
+#include "Render/Types/ViewTypes.h"
 
 #include "Source/Engine/Component/Debug/BoneDebugComponent.generated.h"
 class USkeletalMeshComponent;
@@ -40,12 +41,28 @@ public:
 		MarkRenderStateDirty();
 	}
 
-	bool ShouldDrawPhysicsAssetSolid() const { return bDrawPhysicsAssetSolid; }
+	EPhysicsAssetBodyShowMode GetPhysicsAssetBodyShowMode() const { return PhysicsAssetBodyShowMode; }
+	void SetPhysicsAssetBodyShowMode(EPhysicsAssetBodyShowMode InMode)
+	{
+		if (PhysicsAssetBodyShowMode == InMode) return;
+		PhysicsAssetBodyShowMode = InMode;
+		MarkRenderStateDirty();
+	}
+
+	EPhysicsAssetConstraintShowMode GetPhysicsAssetConstraintShowMode() const { return PhysicsAssetConstraintShowMode; }
+	void SetPhysicsAssetConstraintShowMode(EPhysicsAssetConstraintShowMode InMode)
+	{
+		if (PhysicsAssetConstraintShowMode == InMode) return;
+		PhysicsAssetConstraintShowMode = InMode;
+		MarkRenderStateDirty();
+	}
+
+	bool ShouldDrawPhysicsAssetSolid() const { return PhysicsAssetBodyShowMode == EPhysicsAssetBodyShowMode::Solid; }
 	void SetDrawPhysicsAssetSolid(bool bInDrawPhysicsAssetSolid)
 	{
-		if (bDrawPhysicsAssetSolid == bInDrawPhysicsAssetSolid) return;
-		bDrawPhysicsAssetSolid = bInDrawPhysicsAssetSolid;
-		MarkRenderStateDirty();
+		SetPhysicsAssetBodyShowMode(bInDrawPhysicsAssetSolid
+			? EPhysicsAssetBodyShowMode::Solid
+			: EPhysicsAssetBodyShowMode::Wireframe);
 	}
 
 	UBodySetup* GetSelectedPhysicsBodySetup() const { return SelectedPhysicsBodySetup; }
@@ -71,5 +88,6 @@ private:
 	int32 SelectedBoneIndex = -1;
 	EBoneDebugDrawMode DrawMode = EBoneDebugDrawMode::SelectedOnly;
 	bool bDrawPhysicsAsset = false;
-	bool bDrawPhysicsAssetSolid = true;
+	EPhysicsAssetBodyShowMode PhysicsAssetBodyShowMode = EPhysicsAssetBodyShowMode::Solid;
+	EPhysicsAssetConstraintShowMode PhysicsAssetConstraintShowMode = EPhysicsAssetConstraintShowMode::Solid;
 };

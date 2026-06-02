@@ -34,6 +34,19 @@ enum class ESkinningMode : uint32
 	GPU = 1,
 };
 
+enum class EPhysicsAssetBodyShowMode : uint32
+{
+	Solid = 0,
+	Wireframe,
+	None
+};
+
+enum class EPhysicsAssetConstraintShowMode : uint32
+{
+	Solid = 0,
+	None
+};
+
 namespace SkinningModeRuntime
 {
 	inline ESkinningMode Current = ESkinningMode::GPU;
@@ -124,5 +137,6 @@ struct FViewportRenderOptions
 	// Mesh editor bone weight visualization
 	bool bWeightBoneHeatMap = false;
 	int32 WeightBoneHeatMapBoneIndex = -1;
-	bool bShowPhysicsAssetSolid = true;
+	EPhysicsAssetBodyShowMode PhysicsAssetBodyShowMode = EPhysicsAssetBodyShowMode::Solid;
+	EPhysicsAssetConstraintShowMode PhysicsAssetConstraintShowMode = EPhysicsAssetConstraintShowMode::Solid;
 };

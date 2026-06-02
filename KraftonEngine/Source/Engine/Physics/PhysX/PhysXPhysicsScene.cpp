@@ -19,6 +19,7 @@
 #include <PxPhysicsAPI.h>
 
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -46,6 +47,7 @@ static void ApplyRootMassAndCOM(PxRigidDynamic* Dyn, UPrimitiveComponent* Root)
 void FPhysXPhysicsScene::Initialize(UWorld* InWorld)
 {
 	World = InWorld;
+	PhysicsTimeAccumulator = 0.0f;
 
 	// Foundation / Physics — 프로세스 싱글턴 공유
 #ifdef _DEBUG
@@ -168,6 +170,7 @@ void FPhysXPhysicsScene::Shutdown()
 	FPhysXCore::Release();
 
 	World = nullptr;
+	PhysicsTimeAccumulator = 0.0f;
 
 	UE_LOG("[PhysX] Scene shutdown complete.");
 }
@@ -407,15 +410,27 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 {
 	if (!Scene || DeltaTime <= 0.0f) return;
 
-	// 어떤 이유로든 frame hitch (씬 로드 / 큰 OBJ 동기 로딩 / Alt-Tab / OS 스파이크) 가
-	// 발생해도 PhysX 가 큰 dt 한 번에 적분해 차량·메테오가 콜리전을 뚫는 tunneling 사고를
-	// 막기 위한 클램프. 0.1s 는 60 m/s 차량이 한 step 에 6m 이동 — 충돌 박스 내에서 풀림
-	// 가능한 수준이고, 그 이상 hitch 면 게임을 느리게 진행시키더라도 안전이 우선.
+	// 랙돌/동적 바디 안정화:
+	// 기존처럼 frame DeltaTime을 그대로 simulate()에 넣으면 같은 관절 오차/관통 오차라도
+	// FPS에 따라 solver 보정 속도와 contact impulse가 달라진다. 특히 Release처럼 dt가 작을 때
+	// 같은 위치 오차를 더 짧은 시간에 풀려고 하면서 랙돌이 위로 튀는 증상이 커질 수 있다.
+	// 그래서 PhysX 적분은 60Hz fixed timestep으로만 진행해 Debug/Release의 물리 결과 차이를 줄인다.
+	constexpr float FixedPhysicsDeltaTime = 1.0f / 60.0f;
+	constexpr int32 MaxPhysicsSubsteps = 4;
 	constexpr float MaxPhysicsDeltaTime = 0.1f;
+	constexpr float MaxAccumulatedPhysicsTime = FixedPhysicsDeltaTime * MaxPhysicsSubsteps;
+
+	// 큰 hitch가 들어와도 무한히 따라잡으려 하지 않는다.
+	// frame dt는 기존 안전값(0.1s)으로 먼저 자르고, 누적 시간은 max substep까지만 보관한다.
+	// 초과 시간은 버려 spiral of death와 한 프레임 다중 폭주를 막는다.
 	if (DeltaTime > MaxPhysicsDeltaTime)
 	{
 		DeltaTime = MaxPhysicsDeltaTime;
 	}
+
+	PhysicsTimeAccumulator = std::min(
+		PhysicsTimeAccumulator + DeltaTime,
+		MaxAccumulatedPhysicsTime);
 
 	// ── Pre-simulate: Engine → PhysX Transform 동기화 ──
 	// 한 PxActor가 여러 컴포넌트를 가지므로 RootComp 기준으로만 한 번 동기화.
@@ -474,33 +489,74 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	// SyncPhysicsAssetBodiesToBones가 body→bone 반대 방향으로 처리하므로 여기선 건너뛴다.)
 	SyncKinematicPhysicsAssetBodiesToBones();
 
-	// ── Vehicle: 입력 보간 + 서스펜션 raycast + 힘 적용 (반드시 simulate 직전) ──
-	if (ActiveVehicle)
+	// ── Vehicle: 입력 보간 + 서스펜션 raycast + 힘 적용 ──
+	// 차량 튜닝은 이번 랙돌/바디 안정화 대상이 아니므로 fixed substep dt를 먹이지 않는다.
+	// 기존 경로처럼 클램프된 frame DeltaTime 기준으로 한 번만 처리한다.
+	if (ActiveVehicle && PhysicsTimeAccumulator >= FixedPhysicsDeltaTime)
 	{
 		ActiveVehicle->Simulate(DeltaTime);
 	}
 
+	float SimulatedDeltaTime = 0.0f;
+	int32 StepCount = 0;
+
 	// ── Simulate ──
-	Scene->simulate(DeltaTime);
-	Scene->fetchResults(true);
+	// 통계 기능도 유지하기 위해 fixed substep 전체 실행 시간을 측정한다.
+	// StepCount가 0이면 이번 Tick에는 누적 시간이 부족해 simulate를 돌리지 않은 상태다.
+	const auto PhysicsStartTime = std::chrono::high_resolution_clock::now();
+	while (PhysicsTimeAccumulator >= FixedPhysicsDeltaTime && StepCount < MaxPhysicsSubsteps)
+	{
+		// ── Simulate: 랙돌/동적 바디는 항상 고정 dt로 적분 ──
+		Scene->simulate(FixedPhysicsDeltaTime);
+		Scene->fetchResults(true);
+
+		PhysicsTimeAccumulator -= FixedPhysicsDeltaTime;
+		SimulatedDeltaTime += FixedPhysicsDeltaTime;
+		++StepCount;
+	}
+
+	if (StepCount == MaxPhysicsSubsteps && PhysicsTimeAccumulator >= FixedPhysicsDeltaTime)
+	{
+		PhysicsTimeAccumulator = 0.0f;
+	}
+	const auto PhysicsEndTime = std::chrono::high_resolution_clock::now();
+
+	PxSimulationStatistics SimulationStats;
+	Scene->getSimulationStatistics(SimulationStats);
+	LastStats.PhysicsTimeMs = StepCount > 0
+		? std::chrono::duration<double, std::milli>(PhysicsEndTime - PhysicsStartTime).count()
+		: 0.0;
+	LastStats.RigidBodiesTotal = SimulationStats.nbStaticBodies + SimulationStats.nbDynamicBodies;
+	LastStats.RigidBodiesActive = SimulationStats.nbActiveDynamicBodies + SimulationStats.nbActiveKinematicBodies;
+	LastStats.JointsCount = Scene->getNbConstraints();
+	LastStats.ContactPairs = SimulationStats.nbDiscreteContactPairsTotal;
+	LastStats.RaycastQueries = PendingRaycastQueries;
+	LastStats.SweepQueries = PendingSweepQueries;
+	PendingRaycastQueries = 0;
+	PendingSweepQueries = 0;
 
 	// ── Post-simulate: PhysX → Engine Transform 동기화 ──
 	// RootComp에만 transform 적용 → 자식 컴포넌트는 attach로 자동 따라감.
-	for (FBodyInstance* Host : Bodies)
+	if (SimulatedDeltaTime > 0.0f)
 	{
-		if (!Host || !Host->GetOwnerComponent()) continue;
-		if (!Host->IsDynamic()) continue;
-		if (Host->IsKinematic()) continue;
-		if (Host->IsInstanceSleeping()) continue;
+		for (FBodyInstance* Host : Bodies)
+		{
+			if (!Host || !Host->GetOwnerComponent()) continue;
+			if (!Host->IsDynamic()) continue;
+			if (Host->IsKinematic()) continue;
+			if (Host->IsInstanceSleeping()) continue;
 
-		FVector NewPos = Host->GetEngineWorldLocation();
-		FQuat NewRot = Host->GetEngineWorldRotation();
+			FVector NewPos = Host->GetEngineWorldLocation();
+			FQuat NewRot = Host->GetEngineWorldRotation();
 
-		Host->GetOwnerComponent()->SetWorldLocation(NewPos);
-		Host->GetOwnerComponent()->SetRelativeRotation(NewRot);
+			Host->GetOwnerComponent()->SetWorldLocation(NewPos);
+			Host->GetOwnerComponent()->SetRelativeRotation(NewRot);
+		}
+
+		// 여러 substep을 돈 경우 실제로 적분한 물리 시간만큼 body→bone 동기화를 진행한다.
+		// render DeltaTime을 그대로 넘기면 랙돌 블렌드/보정도 다시 FPS 영향을 받는다.
+		SyncPhysicsAssetBodiesToBones(SimulatedDeltaTime);
 	}
-
-	SyncPhysicsAssetBodiesToBones(DeltaTime);
 
 	// ── Dispatch deferred contact/trigger events ──
 	// onContact / onTrigger 는 fetchResults 안에서 fire 되므로 거기서 직접 게임 핸들러를

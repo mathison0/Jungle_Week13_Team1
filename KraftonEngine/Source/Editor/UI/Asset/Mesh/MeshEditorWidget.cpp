@@ -437,6 +437,7 @@ void FMeshEditorWidget::Open(UObject* Object)
 	ViewportClient.SetOnPhysicsAssetModified([this]()
 		{
 			MarkDirty();
+			ViewportClient.RefreshPhysicsAssetDebugDraw();
 		});
 
 	WorldContext.World->SetEditorPOVProvider(&ViewportClient);
@@ -836,9 +837,14 @@ void FMeshEditorWidget::Render(float DeltaTime)
 
 	RenderTabBar();
 	ImGui::Separator();
+	// Physical Asset 탭에서만 preview용 PhysicsAsset 디버그 렌더링을 켭니다.
 	ViewportClient.SetPhysicsAssetDebugDrawEnabled(ActiveTab == EMeshEditorTab::PhysicalAsset);
-	ViewportClient.SetPhysicsAssetSolidDebugDrawEnabled(
-		ActiveTab == EMeshEditorTab::PhysicalAsset && ViewportClient.GetRenderOptions().bShowPhysicsAssetSolid);
+	ViewportClient.SetPhysicsAssetBodyShowMode(ActiveTab == EMeshEditorTab::PhysicalAsset
+		? ViewportClient.GetRenderOptions().PhysicsAssetBodyShowMode
+		: EPhysicsAssetBodyShowMode::None);
+	ViewportClient.SetPhysicsAssetConstraintShowMode(ActiveTab == EMeshEditorTab::PhysicalAsset
+		? ViewportClient.GetRenderOptions().PhysicsAssetConstraintShowMode
+		: EPhysicsAssetConstraintShowMode::None);
 	ViewportClient.SetSelectedPhysicsConstraintIndex(ActiveTab == EMeshEditorTab::PhysicalAsset ? SelectedConstraintIndex : -1);
 
 	const float AvailableHeight = ImGui::GetContentRegionAvail().y;
@@ -966,6 +972,7 @@ void FMeshEditorWidget::RenderViewportPanel(ImVec2 Size)
 
 	VP->RequestResize(static_cast<uint32>(Size.x), static_cast<uint32>(Size.y));
 
+	// Mesh editor viewport의 렌더 타겟을 ImGui 이미지로 붙입니다.
 	if (VP->GetSRV())
 	{
 		ImGui::Image((ImTextureID)VP->GetSRV(), Size);
@@ -1032,7 +1039,21 @@ void FMeshEditorWidget::RenderViewportPanel(ImVec2 Size)
 
 			if (ActiveTab == EMeshEditorTab::PhysicalAsset)
 			{
-				ImGui::Checkbox("Physics Body Solid", &RenderOptions.bShowPhysicsAssetSolid);
+				// PhysicsAsset body 표시 방식은 preview용 BoneDebugComponent로 전달됩니다.
+				const char* BodyShowItems[] = { "Solid", "Wireframe", "None" };
+				int32 BodyShowMode = static_cast<int32>(RenderOptions.PhysicsAssetBodyShowMode);
+				if (ImGui::Combo("Physics Body", &BodyShowMode, BodyShowItems, IM_ARRAYSIZE(BodyShowItems)))
+				{
+					RenderOptions.PhysicsAssetBodyShowMode = static_cast<EPhysicsAssetBodyShowMode>(BodyShowMode);
+				}
+
+				// Constraint 표시는 solid limit 시각화만 지원합니다.
+				const char* ConstraintShowItems[] = { "Solid", "None" };
+				int32 ConstraintShowMode = static_cast<int32>(RenderOptions.PhysicsAssetConstraintShowMode);
+				if (ImGui::Combo("Physics Constraint", &ConstraintShowMode, ConstraintShowItems, IM_ARRAYSIZE(ConstraintShowItems)))
+				{
+					RenderOptions.PhysicsAssetConstraintShowMode = static_cast<EPhysicsAssetConstraintShowMode>(ConstraintShowMode);
+				}
 			}
 		};
 
