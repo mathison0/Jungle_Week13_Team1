@@ -264,7 +264,179 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 		return -1;
 	}
 
-	float GetDefaultManualBodySize(const FSkeletalMesh* Asset, int32 BoneIndex)
+	struct FManualPhysicsBodyMetrics
+	{
+		FVector Center = FVector::ZeroVector;
+		FVector CapsuleCenter = FVector::ZeroVector;
+		FVector BoxExtent = FVector(0.1f, 0.1f, 0.1f);
+		float SphereRadius = 0.1f;
+		float CapsuleRadius = 0.05f;
+		float CapsuleLength = 0.2f;
+		FQuat CapsuleRotation = FQuat::Identity;
+	};
+
+	struct FManualBoneVertexSample
+	{
+		FVector LocalPosition = FVector::ZeroVector;
+	};
+
+	bool IsManualBodyFiniteVector(const FVector& Value)
+	{
+		return std::isfinite(Value.X) && std::isfinite(Value.Y) && std::isfinite(Value.Z);
+	}
+
+	float ManualBodyPercentile(TArray<float> Values, float Alpha)
+	{
+		if (Values.empty())
+		{
+			return 0.0f;
+		}
+
+		std::sort(Values.begin(), Values.end());
+
+		const float ClampedAlpha = std::clamp(Alpha, 0.0f, 1.0f);
+		const float ScaledIndex = ClampedAlpha * static_cast<float>(Values.size() - 1);
+		const int32 LowerIndex = static_cast<int32>(std::floor(ScaledIndex));
+		const int32 UpperIndex = static_cast<int32>(std::ceil(ScaledIndex));
+		const float Blend = ScaledIndex - static_cast<float>(LowerIndex);
+
+		if (LowerIndex == UpperIndex)
+		{
+			return Values[LowerIndex];
+		}
+		return Values[LowerIndex] + (Values[UpperIndex] - Values[LowerIndex]) * Blend;
+	}
+
+	FVector ManualBodyMaxVector(const FVector& Value, float MinValue)
+	{
+		return FVector(
+			std::max(Value.X, MinValue),
+			std::max(Value.Y, MinValue),
+			std::max(Value.Z, MinValue));
+	}
+
+	FVector ComputeManualBodySampleExtent(const TArray<FVector>& Points)
+	{
+		if (Points.empty())
+		{
+			return FVector::ZeroVector;
+		}
+
+		FVector Min = Points[0];
+		FVector Max = Points[0];
+		for (const FVector& Point : Points)
+		{
+			Min.X = std::min(Min.X, Point.X);
+			Min.Y = std::min(Min.Y, Point.Y);
+			Min.Z = std::min(Min.Z, Point.Z);
+			Max.X = std::max(Max.X, Point.X);
+			Max.Y = std::max(Max.Y, Point.Y);
+			Max.Z = std::max(Max.Z, Point.Z);
+		}
+		return Max - Min;
+	}
+
+	void BuildManualBodyPercentileBounds(
+		const TArray<FManualBoneVertexSample>& Samples,
+		float LowerPercentile,
+		float UpperPercentile,
+		FVector& OutMin,
+		FVector& OutMax)
+	{
+		TArray<float> Xs;
+		TArray<float> Ys;
+		TArray<float> Zs;
+		Xs.reserve(Samples.size());
+		Ys.reserve(Samples.size());
+		Zs.reserve(Samples.size());
+
+		for (const FManualBoneVertexSample& Sample : Samples)
+		{
+			Xs.push_back(Sample.LocalPosition.X);
+			Ys.push_back(Sample.LocalPosition.Y);
+			Zs.push_back(Sample.LocalPosition.Z);
+		}
+
+		OutMin = FVector(
+			ManualBodyPercentile(Xs, LowerPercentile),
+			ManualBodyPercentile(Ys, LowerPercentile),
+			ManualBodyPercentile(Zs, LowerPercentile));
+		OutMax = FVector(
+			ManualBodyPercentile(Xs, UpperPercentile),
+			ManualBodyPercentile(Ys, UpperPercentile),
+			ManualBodyPercentile(Zs, UpperPercentile));
+	}
+
+	FVector GetManualBodyLongestLocalAxis(const FVector& Extent)
+	{
+		if (Extent.X >= Extent.Y && Extent.X >= Extent.Z)
+		{
+			return FVector::XAxisVector;
+		}
+		if (Extent.Y >= Extent.X && Extent.Y >= Extent.Z)
+		{
+			return FVector::YAxisVector;
+		}
+		return FVector::ZAxisVector;
+	}
+
+	FQuat MakeManualBodyQuatFromZAxis(const FVector& InAxis)
+	{
+		FVector Axis = InAxis;
+		if (Axis.IsNearlyZero())
+		{
+			return FQuat::Identity;
+		}
+		Axis.Normalize();
+
+		const FVector From = FVector::ZAxisVector;
+		const float Dot = std::clamp(From.Dot(Axis), -1.0f, 1.0f);
+		if (Dot > 0.9999f)
+		{
+			return FQuat::Identity;
+		}
+		if (Dot < -0.9999f)
+		{
+			return FQuat::FromAxisAngle(FVector::XAxisVector, 3.14159265358979323846f);
+		}
+
+		FVector RotationAxis = From.Cross(Axis);
+		RotationAxis.Normalize();
+
+		FQuat Result = FQuat::FromAxisAngle(RotationAxis, std::acos(Dot));
+		Result.Normalize();
+		return Result;
+	}
+
+	int32 FindManualBodyBestChildBone(
+		const FSkeletalMesh& Mesh,
+		const TArray<TArray<int32>>& ChildrenByBone,
+		int32 BoneIndex)
+	{
+		int32 BestChild = -1;
+		float BestDistanceSq = 0.0f;
+
+		const FMatrix BoneBindInverse = Mesh.Bones[BoneIndex].GetInverseBindPose();
+		for (const int32 ChildIndex : ChildrenByBone[BoneIndex])
+		{
+			if (ChildIndex < 0 || ChildIndex >= static_cast<int32>(Mesh.Bones.size()))
+			{
+				continue;
+			}
+
+			const FVector ChildLocal = Mesh.Bones[ChildIndex].GetSkinBindGlobalPose().GetLocation() * BoneBindInverse;
+			const float DistanceSq = ChildLocal.LengthSquared();
+			if (DistanceSq > BestDistanceSq)
+			{
+				BestDistanceSq = DistanceSq;
+				BestChild = ChildIndex;
+			}
+		}
+
+		return BestChild;
+	}
+
+	float GetFallbackManualBodySize(const FSkeletalMesh* Asset, int32 BoneIndex)
 	{
 		if (!Asset || BoneIndex < 0 || BoneIndex >= static_cast<int32>(Asset->Bones.size()))
 		{
@@ -290,7 +462,434 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 		return std::max(0.04f, BestChildDistance > 0.0f ? BestChildDistance * 0.25f : 0.1f);
 	}
 
-	UBodySetup* AddManualPhysicsBodyForBone(USkeletalMesh* SkeletalMesh, int32 BoneIndex, EManualPhysicsBodyShape Shape)
+	bool CollectDirectManualBodySamples(
+		const FSkeletalMesh& Mesh,
+		int32 BoneIndex,
+		const FPhysicsAssetAutoGenerateSettings& Settings,
+		TArray<FManualBoneVertexSample>& OutSamples)
+	{
+		const int32 BoneCount = static_cast<int32>(Mesh.Bones.size());
+		const FMatrix& BoneBindInverse = Mesh.Bones[BoneIndex].GetInverseBindPose();
+		OutSamples.clear();
+		OutSamples.reserve(Mesh.Vertices.size());
+
+		for (const FVertexPNCTBW& Vertex : Mesh.Vertices)
+		{
+			if (!IsManualBodyFiniteVector(Vertex.Position))
+			{
+				continue;
+			}
+
+			int32 BestBoneIndex = -1;
+			float BestWeight = 0.0f;
+			for (int32 InfluenceIndex = 0; InfluenceIndex < 4; ++InfluenceIndex)
+			{
+				const int32 InfluencedBoneIndex = Vertex.BoneIndices[InfluenceIndex];
+				const float Weight = Vertex.BoneWeights[InfluenceIndex];
+				if (InfluencedBoneIndex >= 0 && InfluencedBoneIndex < BoneCount && Weight > BestWeight)
+				{
+					BestBoneIndex = InfluencedBoneIndex;
+					BestWeight = Weight;
+				}
+			}
+
+			if (BestBoneIndex == BoneIndex && BestWeight >= Settings.MinBoneWeight)
+			{
+				OutSamples.push_back({ Vertex.Position * BoneBindInverse });
+			}
+		}
+
+		const int32 RequiredMinVertexCount = std::max(Settings.MinVertexCount, 1);
+		if (static_cast<int32>(OutSamples.size()) >= RequiredMinVertexCount)
+		{
+			return true;
+		}
+
+		OutSamples.clear();
+		for (const FVertexPNCTBW& Vertex : Mesh.Vertices)
+		{
+			if (!IsManualBodyFiniteVector(Vertex.Position))
+			{
+				continue;
+			}
+
+			for (int32 InfluenceIndex = 0; InfluenceIndex < 4; ++InfluenceIndex)
+			{
+				if (Vertex.BoneIndices[InfluenceIndex] == BoneIndex
+					&& Vertex.BoneWeights[InfluenceIndex] >= Settings.MinBoneWeight)
+				{
+					OutSamples.push_back({ Vertex.Position * BoneBindInverse });
+					break;
+				}
+			}
+		}
+
+		return static_cast<int32>(OutSamples.size()) >= RequiredMinVertexCount;
+	}
+
+	bool CollectAutoGenerateLikeManualBodySamples(
+		const FSkeletalMesh& Mesh,
+		int32 TargetBoneIndex,
+		const FPhysicsAssetAutoGenerateSettings& Settings,
+		TArray<FManualBoneVertexSample>& OutSamples,
+		TArray<TArray<int32>>& OutChildrenByBone)
+	{
+		const int32 BoneCount = static_cast<int32>(Mesh.Bones.size());
+		if (BoneCount <= 0 || Mesh.Vertices.empty())
+		{
+			return false;
+		}
+
+		const float MinBoneSizeRatio = std::max(Settings.MinBoneSizeRatio, 0.0f);
+		const int32 RequiredMinVertexCount = std::max(Settings.MinVertexCount, 1);
+
+		TArray<FMatrix> BoneBindInverse;
+		BoneBindInverse.resize(BoneCount);
+		for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
+		{
+			BoneBindInverse[BoneIndex] = Mesh.Bones[BoneIndex].GetInverseBindPose();
+		}
+
+		OutChildrenByBone.clear();
+		OutChildrenByBone.resize(BoneCount);
+		for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
+		{
+			const int32 ParentIndex = Mesh.Bones[BoneIndex].ParentIndex;
+			if (ParentIndex >= 0 && ParentIndex < BoneCount)
+			{
+				OutChildrenByBone[ParentIndex].push_back(BoneIndex);
+			}
+		}
+
+		TArray<TArray<FVector>> CompSamplesByBone;
+		CompSamplesByBone.resize(BoneCount);
+
+		FVector MeshMin = FVector::ZeroVector;
+		FVector MeshMax = FVector::ZeroVector;
+		bool bMeshBoundsValid = false;
+
+		for (const FVertexPNCTBW& Vertex : Mesh.Vertices)
+		{
+			if (!IsManualBodyFiniteVector(Vertex.Position))
+			{
+				continue;
+			}
+
+			if (!bMeshBoundsValid)
+			{
+				MeshMin = Vertex.Position;
+				MeshMax = Vertex.Position;
+				bMeshBoundsValid = true;
+			}
+			else
+			{
+				MeshMin.X = std::min(MeshMin.X, Vertex.Position.X);
+				MeshMin.Y = std::min(MeshMin.Y, Vertex.Position.Y);
+				MeshMin.Z = std::min(MeshMin.Z, Vertex.Position.Z);
+				MeshMax.X = std::max(MeshMax.X, Vertex.Position.X);
+				MeshMax.Y = std::max(MeshMax.Y, Vertex.Position.Y);
+				MeshMax.Z = std::max(MeshMax.Z, Vertex.Position.Z);
+			}
+
+			if (Settings.bUseDominantBoneOnly)
+			{
+				int32 BestBoneIndex = -1;
+				float BestWeight = 0.0f;
+				for (int32 InfluenceIndex = 0; InfluenceIndex < 4; ++InfluenceIndex)
+				{
+					const int32 InfluencedBoneIndex = Vertex.BoneIndices[InfluenceIndex];
+					const float Weight = Vertex.BoneWeights[InfluenceIndex];
+					if (InfluencedBoneIndex >= 0 && InfluencedBoneIndex < BoneCount && Weight > BestWeight)
+					{
+						BestBoneIndex = InfluencedBoneIndex;
+						BestWeight = Weight;
+					}
+				}
+
+				if (BestBoneIndex >= 0 && BestWeight >= Settings.MinBoneWeight)
+				{
+					CompSamplesByBone[BestBoneIndex].push_back(Vertex.Position);
+				}
+			}
+			else
+			{
+				for (int32 InfluenceIndex = 0; InfluenceIndex < 4; ++InfluenceIndex)
+				{
+					const int32 InfluencedBoneIndex = Vertex.BoneIndices[InfluenceIndex];
+					const float Weight = Vertex.BoneWeights[InfluenceIndex];
+					if (InfluencedBoneIndex >= 0 && InfluencedBoneIndex < BoneCount && Weight >= Settings.MinBoneWeight)
+					{
+						CompSamplesByBone[InfluencedBoneIndex].push_back(Vertex.Position);
+					}
+				}
+			}
+		}
+
+		const FVector MeshSize = bMeshBoundsValid ? (MeshMax - MeshMin) : FVector::ZeroVector;
+		const float MeshExtentMax = std::max({ MeshSize.X, MeshSize.Y, MeshSize.Z });
+
+		TArray<int32> BoneDepth;
+		BoneDepth.resize(BoneCount, 0);
+		for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
+		{
+			const int32 Parent = Mesh.Bones[BoneIndex].ParentIndex;
+			BoneDepth[BoneIndex] = (Parent >= 0 && Parent < BoneIndex) ? BoneDepth[Parent] + 1 : 0;
+		}
+
+		TArray<bool> bGetsBody;
+		bGetsBody.resize(BoneCount, false);
+		for (int32 BoneIndex = BoneCount - 1; BoneIndex >= 0; --BoneIndex)
+		{
+			const FBone& Bone = Mesh.Bones[BoneIndex];
+			const int32 Parent = Bone.ParentIndex;
+
+			const FVector SampleSize = ComputeManualBodySampleExtent(CompSamplesByBone[BoneIndex]);
+			const float SampleExtentMax = std::max({ SampleSize.X, SampleSize.Y, SampleSize.Z });
+			const float SizeRatio = (MeshExtentMax > 1.0e-6f) ? (SampleExtentMax / MeshExtentMax) : 0.0f;
+
+			const bool bTooSmall = SizeRatio < MinBoneSizeRatio;
+			const bool bTooDeep = Settings.MaxBoneDepth > 0 && BoneDepth[BoneIndex] > Settings.MaxBoneDepth;
+			const bool bTooFew = CompSamplesByBone[BoneIndex].size() < static_cast<size_t>(RequiredMinVertexCount);
+
+			if (Parent >= 0 && (bTooSmall || bTooDeep || bTooFew))
+			{
+				TArray<FVector>& ParentSamples = CompSamplesByBone[Parent];
+				ParentSamples.insert(ParentSamples.end(), CompSamplesByBone[BoneIndex].begin(), CompSamplesByBone[BoneIndex].end());
+				continue;
+			}
+
+			bGetsBody[BoneIndex] = true;
+		}
+
+		if (Settings.MaxBodyCount > 0)
+		{
+			struct FBodyCandidate { int32 BoneIndex; float Volume; };
+			TArray<FBodyCandidate> Candidates;
+			for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
+			{
+				if (!bGetsBody[BoneIndex])
+				{
+					continue;
+				}
+				const FVector Size = ComputeManualBodySampleExtent(CompSamplesByBone[BoneIndex]);
+				Candidates.push_back({ BoneIndex, Size.X * Size.Y * Size.Z });
+			}
+
+			if (static_cast<int32>(Candidates.size()) > Settings.MaxBodyCount)
+			{
+				std::sort(Candidates.begin(), Candidates.end(),
+					[](const FBodyCandidate& A, const FBodyCandidate& B) { return A.Volume < B.Volume; });
+
+				const int32 DemoteCount = static_cast<int32>(Candidates.size()) - Settings.MaxBodyCount;
+				for (int32 i = 0; i < DemoteCount; ++i)
+				{
+					const int32 BoneIndex = Candidates[i].BoneIndex;
+					int32 Ancestor = Mesh.Bones[BoneIndex].ParentIndex;
+					while (Ancestor >= 0 && !bGetsBody[Ancestor])
+					{
+						Ancestor = Mesh.Bones[Ancestor].ParentIndex;
+					}
+
+					bGetsBody[BoneIndex] = false;
+					if (Ancestor >= 0)
+					{
+						TArray<FVector>& Dst = CompSamplesByBone[Ancestor];
+						Dst.insert(Dst.end(), CompSamplesByBone[BoneIndex].begin(), CompSamplesByBone[BoneIndex].end());
+					}
+				}
+			}
+		}
+
+		if (TargetBoneIndex < 0 || TargetBoneIndex >= BoneCount || !bGetsBody[TargetBoneIndex])
+		{
+			return false;
+		}
+
+		OutSamples.clear();
+		OutSamples.reserve(CompSamplesByBone[TargetBoneIndex].size());
+		const FMatrix& InvBind = BoneBindInverse[TargetBoneIndex];
+		for (const FVector& Position : CompSamplesByBone[TargetBoneIndex])
+		{
+			OutSamples.push_back({ Position * InvBind });
+		}
+		return static_cast<int32>(OutSamples.size()) >= RequiredMinVertexCount;
+	}
+
+	FManualPhysicsBodyMetrics BuildManualPhysicsBodyMetricsFromSamples(
+		const FSkeletalMesh& Mesh,
+		int32 BoneIndex,
+		EManualPhysicsBodyShape Shape,
+		const TArray<FManualBoneVertexSample>& Samples,
+		const TArray<TArray<int32>>& ChildrenByBone,
+		const FPhysicsAssetAutoGenerateSettings& Settings)
+	{
+		FManualPhysicsBodyMetrics Metrics;
+		const float LowerPercentile = std::clamp(Settings.LowerPercentile, 0.0f, 0.49f);
+		const float UpperPercentile = std::clamp(Settings.UpperPercentile, LowerPercentile + 0.01f, 1.0f);
+		const float MinShapeSize = std::max(Settings.MinShapeSize, 0.001f);
+		const float ShapePadding = std::max(Settings.ShapePadding, 1.0f);
+
+		FVector LocalMin;
+		FVector LocalMax;
+		BuildManualBodyPercentileBounds(Samples, LowerPercentile, UpperPercentile, LocalMin, LocalMax);
+
+		const FVector Center = (LocalMin + LocalMax) * 0.5f;
+		const FVector Extent = ManualBodyMaxVector((LocalMax - LocalMin) * (0.5f * ShapePadding), MinShapeSize);
+		if (!IsManualBodyFiniteVector(Center) || !IsManualBodyFiniteVector(Extent))
+		{
+			return Metrics;
+		}
+
+		Metrics.Center = Center;
+		Metrics.BoxExtent = Extent;
+
+		if (Shape == EManualPhysicsBodyShape::Sphere)
+		{
+			TArray<float> Distances;
+			Distances.reserve(Samples.size());
+			for (const FManualBoneVertexSample& Sample : Samples)
+			{
+				Distances.push_back((Sample.LocalPosition - Center).Length());
+			}
+			Metrics.SphereRadius = std::max(ManualBodyPercentile(Distances, UpperPercentile) * ShapePadding, MinShapeSize);
+			return Metrics;
+		}
+
+		if (Shape != EManualPhysicsBodyShape::Capsule)
+		{
+			return Metrics;
+		}
+
+		const FMatrix& BoneBindInverse = Mesh.Bones[BoneIndex].GetInverseBindPose();
+		const int32 ChildIndex = FindManualBodyBestChildBone(Mesh, ChildrenByBone, BoneIndex);
+		FVector CapsuleAxis = GetManualBodyLongestLocalAxis(Extent);
+		bool bHasUsableAxis = false;
+		if (ChildIndex >= 0)
+		{
+			CapsuleAxis = Mesh.Bones[ChildIndex].GetSkinBindGlobalPose().GetLocation() * BoneBindInverse;
+			bHasUsableAxis = !CapsuleAxis.IsNearlyZero(MinShapeSize);
+			if (bHasUsableAxis)
+			{
+				CapsuleAxis.Normalize();
+			}
+		}
+		else
+		{
+			bHasUsableAxis = !CapsuleAxis.IsNearlyZero();
+			if (bHasUsableAxis)
+			{
+				CapsuleAxis.Normalize();
+			}
+		}
+
+		if (!bHasUsableAxis)
+		{
+			CapsuleAxis = FVector::ZAxisVector;
+		}
+
+		TArray<float> Projections;
+		Projections.reserve(Samples.size());
+		for (const FManualBoneVertexSample& Sample : Samples)
+		{
+			Projections.push_back(Sample.LocalPosition.Dot(CapsuleAxis));
+		}
+
+		const float MinProjection = ManualBodyPercentile(Projections, LowerPercentile);
+		const float MaxProjection = ManualBodyPercentile(Projections, UpperPercentile);
+		const float CenterProjection = (MinProjection + MaxProjection) * 0.5f;
+
+		FVector PerpCenter = FVector::ZeroVector;
+		int32 PerpCount = 0;
+		for (const FManualBoneVertexSample& Sample : Samples)
+		{
+			const float Projection = Sample.LocalPosition.Dot(CapsuleAxis);
+			if (Projection < MinProjection || Projection > MaxProjection)
+			{
+				continue;
+			}
+			PerpCenter += Sample.LocalPosition - CapsuleAxis * Projection;
+			++PerpCount;
+		}
+		if (PerpCount > 0)
+		{
+			PerpCenter /= static_cast<float>(PerpCount);
+		}
+
+		TArray<float> Radii;
+		Radii.reserve(Samples.size());
+		for (const FManualBoneVertexSample& Sample : Samples)
+		{
+			const float Projection = Sample.LocalPosition.Dot(CapsuleAxis);
+			if (Projection < MinProjection || Projection > MaxProjection)
+			{
+				continue;
+			}
+			const FVector AxisPoint = PerpCenter + CapsuleAxis * Projection;
+			Radii.push_back((Sample.LocalPosition - AxisPoint).Length());
+		}
+
+		const float Radius = std::max(ManualBodyPercentile(Radii, UpperPercentile) * ShapePadding, MinShapeSize);
+		const float ProjectionSpan = std::max(MaxProjection - MinProjection, MinShapeSize);
+		Metrics.CapsuleRadius = Radius;
+		Metrics.CapsuleLength = std::max(ProjectionSpan - Radius * 2.0f, MinShapeSize);
+		Metrics.CapsuleCenter = PerpCenter + CapsuleAxis * CenterProjection;
+		Metrics.CapsuleRotation = MakeManualBodyQuatFromZAxis(CapsuleAxis);
+		return Metrics;
+	}
+
+	FManualPhysicsBodyMetrics BuildManualPhysicsBodyMetricsFromAutoGenerateFormula(
+		const FSkeletalMesh* Asset,
+		int32 BoneIndex,
+		EManualPhysicsBodyShape Shape,
+		const FPhysicsAssetAutoGenerateSettings& Settings)
+	{
+		FManualPhysicsBodyMetrics Metrics;
+		if (!Asset || BoneIndex < 0 || BoneIndex >= static_cast<int32>(Asset->Bones.size()) || Asset->Vertices.empty())
+		{
+			const float FallbackSize = GetFallbackManualBodySize(Asset, BoneIndex);
+			Metrics.BoxExtent = FVector(FallbackSize, FallbackSize, FallbackSize);
+			Metrics.SphereRadius = FallbackSize;
+			Metrics.CapsuleRadius = FallbackSize * 0.5f;
+			Metrics.CapsuleLength = FallbackSize * 2.0f;
+			return Metrics;
+		}
+
+		TArray<TArray<int32>> ChildrenByBone;
+		TArray<FManualBoneVertexSample> Samples;
+		const bool bHasAutoGenerateSamples = CollectAutoGenerateLikeManualBodySamples(*Asset, BoneIndex, Settings, Samples, ChildrenByBone);
+		if (!bHasAutoGenerateSamples)
+		{
+			ChildrenByBone.clear();
+			ChildrenByBone.resize(Asset->Bones.size());
+			for (int32 ChildIndex = 0; ChildIndex < static_cast<int32>(Asset->Bones.size()); ++ChildIndex)
+			{
+				const int32 ParentIndex = Asset->Bones[ChildIndex].ParentIndex;
+				if (ParentIndex >= 0 && ParentIndex < static_cast<int32>(Asset->Bones.size()))
+				{
+					ChildrenByBone[ParentIndex].push_back(ChildIndex);
+				}
+			}
+			CollectDirectManualBodySamples(*Asset, BoneIndex, Settings, Samples);
+		}
+
+		if (static_cast<int32>(Samples.size()) < std::max(Settings.MinVertexCount, 1))
+		{
+			const float FallbackSize = GetFallbackManualBodySize(Asset, BoneIndex);
+			Metrics.BoxExtent = FVector(FallbackSize, FallbackSize, FallbackSize);
+			Metrics.SphereRadius = FallbackSize;
+			Metrics.CapsuleRadius = FallbackSize * 0.5f;
+			Metrics.CapsuleLength = FallbackSize * 2.0f;
+			return Metrics;
+		}
+
+		return BuildManualPhysicsBodyMetricsFromSamples(*Asset, BoneIndex, Shape, Samples, ChildrenByBone, Settings);
+	}
+
+	UBodySetup* AddManualPhysicsBodyForBone(
+		USkeletalMesh* SkeletalMesh,
+		int32 BoneIndex,
+		EManualPhysicsBodyShape Shape,
+		const FPhysicsAssetAutoGenerateSettings& Settings)
 	{
 		FSkeletalMesh* Asset = SkeletalMesh ? SkeletalMesh->GetSkeletalMeshAsset() : nullptr;
 		UPhysicsAsset* PhysAsset = SkeletalMesh ? SkeletalMesh->EnsurePhysicsAsset() : nullptr;
@@ -308,7 +907,7 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 			return nullptr;
 		}
 
-		const float Size = GetDefaultManualBodySize(Asset, BoneIndex);
+		const FManualPhysicsBodyMetrics Metrics = BuildManualPhysicsBodyMetricsFromAutoGenerateFormula(Asset, BoneIndex, Shape, Settings);
 		const int32 BodyOrdinal = static_cast<int32>(PhysAsset->BodySetups.size());
 		BodySetup->SetBoneName(BoneName);
 		BodySetup->SetFName(FName(Bone.Name + "_BodySetup_" + std::to_string(BodyOrdinal)));
@@ -318,8 +917,8 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 		{
 			FKSphereElem Sphere;
 			Sphere.Name = Bone.Name + "_SphereBody_" + std::to_string(BodyOrdinal);
-			Sphere.Radius = Size;
-			Sphere.Transform.Location = FVector::ZeroVector;
+			Sphere.Radius = Metrics.SphereRadius;
+			Sphere.Transform.Location = Metrics.Center;
 			Sphere.Transform.Rotation = FQuat::Identity;
 			Sphere.Transform.Scale = FVector::OneVector;
 			AggGeom.SphereElems.push_back(Sphere);
@@ -328,10 +927,10 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 		{
 			FKSphylElem Capsule;
 			Capsule.Name = Bone.Name + "_CapsuleBody_" + std::to_string(BodyOrdinal);
-			Capsule.Radius = Size * 0.5f;
-			Capsule.Length = Size * 2.0f;
-			Capsule.Transform.Location = FVector::ZeroVector;
-			Capsule.Transform.Rotation = FQuat::Identity;
+			Capsule.Radius = Metrics.CapsuleRadius;
+			Capsule.Length = Metrics.CapsuleLength;
+			Capsule.Transform.Location = Metrics.CapsuleCenter;
+			Capsule.Transform.Rotation = Metrics.CapsuleRotation;
 			Capsule.Transform.Scale = FVector::OneVector;
 			AggGeom.SphylElems.push_back(Capsule);
 		}
@@ -339,8 +938,8 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 		{
 			FKBoxElem Box;
 			Box.Name = Bone.Name + "_BoxBody_" + std::to_string(BodyOrdinal);
-			Box.Extent = FVector(Size, Size, Size);
-			Box.Transform.Location = FVector::ZeroVector;
+			Box.Extent = Metrics.BoxExtent;
+			Box.Transform.Location = Metrics.Center;
 			Box.Transform.Rotation = FQuat::Identity;
 			Box.Transform.Scale = FVector::OneVector;
 			AggGeom.BoxElems.push_back(Box);
@@ -1083,7 +1682,22 @@ void FMeshEditorWidget::RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asse
 			{
 				if (ImGui::MenuItem(Label))
 				{
-					if (UBodySetup* NewBody = AddManualPhysicsBodyForBone(SkeletalMesh, Index, Shape))
+					FPhysicsAssetAutoGenerateSettings Settings;
+					Settings.bReplaceExisting = false;
+					Settings.bCreateConstraints = false;
+					Settings.bUseDominantBoneOnly = true;
+					Settings.bUseDefaultNameFilters = true;
+					Settings.MinBoneWeight = 0.25f;
+					Settings.LowerPercentile = 0.05f;
+					Settings.UpperPercentile = 0.95f;
+					Settings.ShapePadding = 1.10f;
+					Settings.MinShapeSize = 0.01f;
+					Settings.MinVertexCount = 12;
+					Settings.MinBoneSizeRatio = AutoGenMinBoneSizeRatio;
+					Settings.MaxBoneDepth = AutoGenMaxBoneDepth;
+					Settings.MaxBodyCount = AutoGenMaxBodyCount;
+
+					if (UBodySetup* NewBody = AddManualPhysicsBodyForBone(SkeletalMesh, Index, Shape, Settings))
 					{
 						SelectedBoneIndex = Index;
 						SelectedBodySetup = NewBody;
