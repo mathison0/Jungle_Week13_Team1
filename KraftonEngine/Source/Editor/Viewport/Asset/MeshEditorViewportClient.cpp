@@ -767,6 +767,7 @@ void FMeshEditorViewportClient::SetBoneDebugDrawMode(EBoneDebugDrawMode InDrawMo
 
 void FMeshEditorViewportClient::SetPhysicsAssetDebugDrawEnabled(bool bEnabled)
 {
+	bPhysicsAssetDebugDrawEnabled = bEnabled;
 	if (BoneDebugComponent)
 	{
 		BoneDebugComponent->SetDrawPhysicsAsset(bEnabled);
@@ -1062,7 +1063,20 @@ void FMeshEditorViewportClient::HandleDragStart(const FRay& Ray)
 		return;
 	}
 
-	TryPickPhysicsAssetBody(Ray);
+	if (TryPickPhysicsAssetBody(Ray))
+	{
+		return;
+	}
+
+	if (bPhysicsAssetDebugDrawEnabled)
+	{
+		USkeletalMesh* Mesh = PreviewMeshComponent ? PreviewMeshComponent->GetSkeletalMesh() : nullptr;
+		SetSelectedBone(Mesh, -1);
+		if (OnPhysicsAssetPickMissed)
+		{
+			OnPhysicsAssetPickMissed();
+		}
+	}
 }
 
 bool FMeshEditorViewportClient::TryPickPhysicsAssetConstraint(const FRay& Ray)

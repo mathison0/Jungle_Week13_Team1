@@ -108,6 +108,12 @@ private:
 	void RenderBoneTreeWithPhysicsAsset(const FSkeletalMesh* Asset, const TArray<UBodySetup*>& Bodies, int32 Index);
 	void RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset);
 	bool RenderConstraintCandidateMenu(USkeletalMesh* SkeletalMesh, UPhysicsAsset* PhysAsset, UBodySetup* SourceBody);
+	void CapturePhysicsAssetBaseline();
+	void RestorePhysicsAssetBaseline();
+	bool SaveCurrentPhysicsAsset();
+	bool HasUnsavedPhysicsAssetChanges() const;
+	void RequestClose();
+	void RenderUnsavedPhysicsAssetModal();
 
 private:
 	FMeshEditorViewportClient ViewportClient;
@@ -129,6 +135,10 @@ private:
 	bool bPhysicsGraphCapturingMouse = false;
 	bool bPhysicsAssetSimulationRunning = false;
 	float PhysicsAssetSimulationTimeScale = 1.0f;
+	UPhysicsAsset* PhysicsAssetBaselineAsset = nullptr;
+	TArray<uint8> PhysicsAssetBaselineSnapshot;
+	bool bPhysicsAssetBaselineHadAsset = false;
+	bool bPhysicsAssetCloseConfirmOpen = false;
 	float HierarchyWidth    = 250.0f;
 	float DetailsWidth      = 300.0f;
 

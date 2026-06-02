@@ -43,6 +43,7 @@
 #include "Physics/PhysicsGeometry.h"
 #include "Physics/IPhysicsScene.h"
 #include "Mesh/MeshManager.h"
+#include "Serialization/MemoryArchive.h"
 
 #include <imgui.h>
 #include <algorithm>
@@ -426,6 +427,13 @@ void FMeshEditorWidget::Open(UObject* Object)
 				}
 			}
 		});
+	ViewportClient.SetOnPhysicsAssetPickMissed([this]()
+		{
+			SelectedBoneIndex = -1;
+			SelectedBodySetup = nullptr;
+			PhysicsGraphFocusBodySetup = nullptr;
+			SelectedConstraintIndex = -1;
+		});
 	ViewportClient.SetOnPhysicsAssetModified([this]()
 		{
 			MarkDirty();
@@ -447,6 +455,7 @@ void FMeshEditorWidget::Open(UObject* Object)
 	PhysicsGraphFocusBodySetup = nullptr;
 	SelectedConstraintIndex = -1;
 	PhysicsGraphNodePositions.clear();
+	CapturePhysicsAssetBaseline();
 }
 
 void FMeshEditorWidget::FocusObject(UObject* Object)
@@ -459,8 +468,203 @@ void FMeshEditorWidget::FocusObject(UObject* Object)
 	RequestFocus();
 }
 
+void FMeshEditorWidget::CapturePhysicsAssetBaseline()
+{
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(EditedObject);
+	UPhysicsAsset* PhysAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
+
+	PhysicsAssetBaselineAsset = PhysAsset;
+	PhysicsAssetBaselineSnapshot.clear();
+	bPhysicsAssetBaselineHadAsset = PhysAsset != nullptr;
+
+	if (!PhysAsset)
+	{
+		return;
+	}
+
+	FMemoryArchive Writer(/*bInIsSaving=*/true);
+	PhysAsset->Serialize(Writer);
+	PhysicsAssetBaselineSnapshot = Writer.GetBuffer();
+}
+
+void FMeshEditorWidget::RestorePhysicsAssetBaseline()
+{
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(EditedObject);
+	if (!SkeletalMesh)
+	{
+		return;
+	}
+
+	StopPhysicsAssetSimulation(true);
+
+	UPhysicsAsset* CurrentPhysAsset = SkeletalMesh->GetPhysicsAsset();
+	if (!bPhysicsAssetBaselineHadAsset)
+	{
+		if (CurrentPhysAsset)
+		{
+			for (UBodySetup* BodySetup : CurrentPhysAsset->BodySetups)
+			{
+				if (BodySetup)
+				{
+					UObjectManager::Get().DestroyObject(BodySetup);
+				}
+			}
+			CurrentPhysAsset->BodySetups.clear();
+			CurrentPhysAsset->ConstraintSetups.clear();
+
+			if (CurrentPhysAsset->GetAssetPathFileName().empty() || CurrentPhysAsset->GetAssetPathFileName() == "None")
+			{
+				UObjectManager::Get().DestroyObject(CurrentPhysAsset);
+			}
+		}
+
+		SkeletalMesh->SetPhysicsAsset(nullptr);
+	}
+	else if (PhysicsAssetBaselineAsset && !PhysicsAssetBaselineSnapshot.empty())
+	{
+		if (CurrentPhysAsset && CurrentPhysAsset != PhysicsAssetBaselineAsset
+			&& (CurrentPhysAsset->GetAssetPathFileName().empty() || CurrentPhysAsset->GetAssetPathFileName() == "None"))
+		{
+			for (UBodySetup* BodySetup : CurrentPhysAsset->BodySetups)
+			{
+				if (BodySetup)
+				{
+					UObjectManager::Get().DestroyObject(BodySetup);
+				}
+			}
+			UObjectManager::Get().DestroyObject(CurrentPhysAsset);
+		}
+
+		for (UBodySetup* BodySetup : PhysicsAssetBaselineAsset->BodySetups)
+		{
+			if (BodySetup)
+			{
+				UObjectManager::Get().DestroyObject(BodySetup);
+			}
+		}
+		PhysicsAssetBaselineAsset->BodySetups.clear();
+		PhysicsAssetBaselineAsset->ConstraintSetups.clear();
+
+		FMemoryArchive Reader(PhysicsAssetBaselineSnapshot, /*bInIsSaving=*/false);
+		PhysicsAssetBaselineAsset->Serialize(Reader);
+		SkeletalMesh->SetPhysicsAsset(PhysicsAssetBaselineAsset);
+	}
+
+	SelectedBodySetup = nullptr;
+	PhysicsGraphFocusBodySetup = nullptr;
+	SelectedConstraintIndex = -1;
+	PhysicsGraphNodePositions.clear();
+	ViewportClient.SetSelectedBone(SkeletalMesh, -1);
+	ClearDirty();
+}
+
+bool FMeshEditorWidget::SaveCurrentPhysicsAsset()
+{
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(EditedObject);
+	UPhysicsAsset* PhysAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
+	if (!SkeletalMesh || !PhysAsset)
+	{
+		return false;
+	}
+
+	const FString MeshPackagePath = SkeletalMesh->GetAssetPathFileName();
+	FString PhysicsAssetPath = PhysAsset->GetAssetPathFileName();
+	if ((PhysicsAssetPath.empty() || PhysicsAssetPath == "None")
+		&& !MeshPackagePath.empty() && MeshPackagePath != "None")
+	{
+		PhysicsAssetPath = FPhysicsAssetManager::GetPhysicsAssetPackagePath(MeshPackagePath);
+		PhysAsset->SetAssetPathFileName(PhysicsAssetPath);
+		SkeletalMesh->SetPhysicsAsset(PhysAsset);
+	}
+
+	const FSkeletalMesh* MeshAsset = SkeletalMesh->GetSkeletalMeshAsset();
+	const FString SourcePath = MeshAsset ? MeshAsset->PathFileName : FString();
+	if (!FPhysicsAssetManager::Get().Save(PhysAsset, SourcePath)
+		|| !FMeshManager::SaveSkeletalMesh(SkeletalMesh))
+	{
+		return false;
+	}
+
+	ClearDirty();
+	CapturePhysicsAssetBaseline();
+	return true;
+}
+
+bool FMeshEditorWidget::HasUnsavedPhysicsAssetChanges() const
+{
+	const USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(EditedObject);
+	const UPhysicsAsset* PhysAsset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
+	return IsDirty() && (PhysAsset || bPhysicsAssetBaselineHadAsset);
+}
+
+void FMeshEditorWidget::RequestClose()
+{
+	if (bPhysicsAssetCloseConfirmOpen)
+	{
+		return;
+	}
+
+	if (HasUnsavedPhysicsAssetChanges())
+	{
+		bPhysicsAssetCloseConfirmOpen = true;
+		RequestFocus();
+		return;
+	}
+
+	bPendingClose = true;
+}
+
+void FMeshEditorWidget::RenderUnsavedPhysicsAssetModal()
+{
+	if (!bPhysicsAssetCloseConfirmOpen)
+	{
+		return;
+	}
+
+	const char* PopupId = "Unsaved Physics Asset Changes";
+	ImGui::OpenPopup(PopupId);
+	if (ImGui::BeginPopupModal(PopupId, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::TextUnformatted("Physics Asset has unsaved changes.");
+		ImGui::TextUnformatted("Save changes before closing?");
+		ImGui::Dummy(ImVec2(0.0f, 8.0f));
+
+		if (ImGui::Button("Save", ImVec2(90.0f, 0.0f)))
+		{
+			if (SaveCurrentPhysicsAsset())
+			{
+				bPhysicsAssetCloseConfirmOpen = false;
+				bPendingClose = true;
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Discard", ImVec2(90.0f, 0.0f)))
+		{
+			RestorePhysicsAssetBaseline();
+			bPhysicsAssetCloseConfirmOpen = false;
+			bPendingClose = true;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(90.0f, 0.0f)))
+		{
+			bPhysicsAssetCloseConfirmOpen = false;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+}
+
 void FMeshEditorWidget::Close()
 {
+	if (!bPendingClose && HasUnsavedPhysicsAssetChanges())
+	{
+		RequestClose();
+		return;
+	}
+
 	StopPhysicsAssetSimulation(false);
 
 	FAssetEditorWidget::Close();
@@ -481,12 +685,17 @@ void FMeshEditorWidget::Close()
 	ViewportClient.Release();
 	ViewportClient.SetOnPhysicsBodyPicked(nullptr);
 	ViewportClient.SetOnPhysicsConstraintPicked(nullptr);
+	ViewportClient.SetOnPhysicsAssetPickMissed(nullptr);
 	ViewportClient.SetOnPhysicsAssetModified(nullptr);
 	SelectedBodySetup = nullptr;
 	PhysicsGraphFocusBodySetup = nullptr;
 	SelectedConstraintIndex = -1;
 	PhysicsGraphNodePositions.clear();
 	bPhysicsAssetSimulationRunning = false;
+	PhysicsAssetBaselineAsset = nullptr;
+	PhysicsAssetBaselineSnapshot.clear();
+	bPhysicsAssetBaselineHadAsset = false;
+	bPhysicsAssetCloseConfirmOpen = false;
 }
 
 // ViewportClient의 Tick에서 애니메이션 업데이트와 물리 시뮬레이션을 처리한다. 애니메이션 탭이 활성화된 경우에만 애니메이션을 업데이트한다.
@@ -615,7 +824,7 @@ void FMeshEditorWidget::Render(float DeltaTime)
 		ImGui::End();
 		if (!bWindowOpen)
 		{
-			Close();
+			RequestClose();
 		}
 		return;
 	}
@@ -650,11 +859,13 @@ void FMeshEditorWidget::Render(float DeltaTime)
 		break;
 	}
 
+	RenderUnsavedPhysicsAssetModal();
+
 	ImGui::End();
 
 	if (!bWindowOpen)
 	{
-		bPendingClose = true;
+		RequestClose();
 	}
 }
 
