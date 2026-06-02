@@ -41,9 +41,7 @@
 
 namespace
 {
-	constexpr float PropertyNameColumnWidth = 275.0f;
 	constexpr float StructChildIndentWidth = 16.0f;
-	constexpr float ScalarInputWidth = 124.0f;
 
 	bool IsFbxFilePath(const FString& Path)
 	{
@@ -274,6 +272,7 @@ namespace
 	{
 		const ImGuiTableFlags Flags =
 			ImGuiTableFlags_SizingStretchProp |
+			ImGuiTableFlags_Resizable |
 			ImGuiTableFlags_BordersInnerV |
 			ImGuiTableFlags_PadOuterX |
 			ImGuiTableFlags_RowBg;
@@ -283,8 +282,11 @@ namespace
 			return false;
 		}
 
-		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, PropertyNameColumnWidth);
-		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+		const float TableWidth = ImGui::GetContentRegionAvail().x;
+		const float NameColumnWeight = TableWidth < 420.0f ? 0.5f : 0.42f;
+		const float ValueColumnWeight = 1.0f - NameColumnWeight;
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, NameColumnWeight);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, ValueColumnWeight);
 		ImGui::PushStyleColor(ImGuiCol_TableRowBg, ImVec4(0.13f, 0.13f, 0.13f, 1.0f));
 		ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(0.145f, 0.145f, 0.145f, 1.0f));
 		return true;
@@ -357,7 +359,7 @@ namespace
 			DrawPropertyTableLabel(Labels[ComponentIndex], IndentLevel + 1);
 
 			ImGui::TableSetColumnIndex(1);
-			ImGui::SetNextItemWidth(ScalarInputWidth);
+			ImGui::SetNextItemWidth(-1.0f);
 			bChanged |= ImGui::DragFloat("##ComponentValue", &Values[ComponentIndex], Speed);
 			ImGui::PopID();
 		}
@@ -1000,7 +1002,7 @@ bool FEditorPropertyRenderer::RenderEnumPropertyWidget(FPropertyValue& Prop)
 	int32 Val = 0;
 	memcpy(&Val, Prop.GetValuePtr(), EnumSize);
 	const char* Preview = ((uint32)Val < EnumCount) ? EnumNames[Val] : "Unknown";
-	ImGui::SetNextItemWidth(ScalarInputWidth);
+	ImGui::SetNextItemWidth(-1.0f);
 	if (ImGui::BeginCombo("##Value", Preview))
 	{
 		for (uint32 i = 0; i < EnumCount; ++i)
@@ -1337,7 +1339,7 @@ bool FEditorPropertyRenderer::RenderPropertyWidget(TArray<FPropertyValue>& Props
 		const float Min = NumericProperty ? NumericProperty->GetMin() : Prop.GetMin();
 		const float Max = NumericProperty ? NumericProperty->GetMax() : Prop.GetMax();
 		const float Speed = NumericProperty ? NumericProperty->GetSpeed() : Prop.GetSpeed();
-		ImGui::SetNextItemWidth(ScalarInputWidth);
+		ImGui::SetNextItemWidth(-1.0f);
 		if (Min != 0.0f || Max != 0.0f)
 		{
 			bChanged = ImGui::DragInt("##Value", Val, Speed, (int32)Min, (int32)Max);
@@ -1355,7 +1357,7 @@ bool FEditorPropertyRenderer::RenderPropertyWidget(TArray<FPropertyValue>& Props
 		const float Min = NumericProperty ? NumericProperty->GetMin() : Prop.GetMin();
 		const float Max = NumericProperty ? NumericProperty->GetMax() : Prop.GetMax();
 		const float Speed = NumericProperty ? NumericProperty->GetSpeed() : Prop.GetSpeed();
-		ImGui::SetNextItemWidth(ScalarInputWidth);
+		ImGui::SetNextItemWidth(-1.0f);
 		if (Min != 0.0f || Max != 0.0f)
 		{
 			bChanged = ImGui::DragFloat("##Value", Val, Speed, Min, Max, "%.4f");
