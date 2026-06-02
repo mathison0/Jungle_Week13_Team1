@@ -19,6 +19,7 @@
 #include <PxPhysicsAPI.h>
 
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -498,6 +499,11 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 
 	float SimulatedDeltaTime = 0.0f;
 	int32 StepCount = 0;
+
+	// ── Simulate ──
+	// 통계 기능도 유지하기 위해 fixed substep 전체 실행 시간을 측정한다.
+	// StepCount가 0이면 이번 Tick에는 누적 시간이 부족해 simulate를 돌리지 않은 상태다.
+	const auto PhysicsStartTime = std::chrono::high_resolution_clock::now();
 	while (PhysicsTimeAccumulator >= FixedPhysicsDeltaTime && StepCount < MaxPhysicsSubsteps)
 	{
 		// ── Simulate: 랙돌/동적 바디는 항상 고정 dt로 적분 ──
@@ -513,6 +519,21 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	{
 		PhysicsTimeAccumulator = 0.0f;
 	}
+	const auto PhysicsEndTime = std::chrono::high_resolution_clock::now();
+
+	PxSimulationStatistics SimulationStats;
+	Scene->getSimulationStatistics(SimulationStats);
+	LastStats.PhysicsTimeMs = StepCount > 0
+		? std::chrono::duration<double, std::milli>(PhysicsEndTime - PhysicsStartTime).count()
+		: 0.0;
+	LastStats.RigidBodiesTotal = SimulationStats.nbStaticBodies + SimulationStats.nbDynamicBodies;
+	LastStats.RigidBodiesActive = SimulationStats.nbActiveDynamicBodies + SimulationStats.nbActiveKinematicBodies;
+	LastStats.JointsCount = Scene->getNbConstraints();
+	LastStats.ContactPairs = SimulationStats.nbDiscreteContactPairsTotal;
+	LastStats.RaycastQueries = PendingRaycastQueries;
+	LastStats.SweepQueries = PendingSweepQueries;
+	PendingRaycastQueries = 0;
+	PendingSweepQueries = 0;
 
 	// ── Post-simulate: PhysX → Engine Transform 동기화 ──
 	// RootComp에만 transform 적용 → 자식 컴포넌트는 attach로 자동 따라감.

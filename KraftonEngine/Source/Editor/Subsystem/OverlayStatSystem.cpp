@@ -7,6 +7,7 @@
 #include "Engine/Profiling/Stats/ShadowStats.h"
 #include "Engine/Profiling/Stats/Stats.h"
 #include "Engine/Profiling/GPUProfiler.h"
+#include "Physics/IPhysicsScene.h"
 #include "GameFramework/World.h"
 #include "Viewport/Level/LevelEditorViewportClient.h"
 #include "Slate/SWindow.h"
@@ -378,6 +379,38 @@ void FOverlayStatSystem::BuildClothLines(const UEditorEngine& Editor, TArray<FSt
 	OutLines.push_back(Buffer);
 }
 
+void FOverlayStatSystem::BuildPhysicsLines(const UEditorEngine& Editor, TArray<FString>& OutLines) const
+{
+	const UWorld* World = Editor.GetWorld();
+	const IPhysicsScene* PhysicsScene = World ? World->GetPhysicsScene() : nullptr;
+	if (!PhysicsScene)
+	{
+		OutLines.push_back(FString("No physics scene"));
+		return;
+	}
+
+	const FPhysicsSceneStats Stats = PhysicsScene->GetStats();
+	char Buffer[192] = {};
+	snprintf(Buffer, sizeof(Buffer), "Physics Time : %.3f ms", Stats.PhysicsTimeMs);
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Rigid Bodies : %u total / %u active",
+		Stats.RigidBodiesTotal,
+		Stats.RigidBodiesActive);
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Joints Count : %u", Stats.JointsCount);
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Contacts / Collisions : %u", Stats.ContactPairs);
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Queries : raycast %u / sweep %u",
+		Stats.RaycastQueries,
+		Stats.SweepQueries);
+	OutLines.push_back(Buffer);
+}
+
 void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlayStatLine>& OutLines) const
 {
 	OutLines.clear();
@@ -406,6 +439,10 @@ void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlay
 	if (bShowCloth)
 	{
 		EstimatedLineCount += 8;
+	}
+	if (bShowPhysics)
+	{
+		EstimatedLineCount += 5;
 	}
 	OutLines.reserve(EstimatedLineCount);
 
@@ -456,6 +493,13 @@ void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlay
 	{
 		Lines.clear();
 		BuildClothLines(Editor, Lines);
+		AppendGroup(Lines);
+	}
+
+	if (bShowPhysics)
+	{
+		Lines.clear();
+		BuildPhysicsLines(Editor, Lines);
 		AppendGroup(Lines);
 	}
 }
@@ -577,5 +621,12 @@ void FOverlayStatSystem::RenderImGui(const UEditorEngine& Editor, const FRect& V
 		Lines.clear();
 		BuildClothLines(Editor, Lines);
 		RenderWindow("##StatClothOverlay", "Stat Cloth", ImVec4(0.04f, 0.07f, 0.09f, 0.62f), Lines);
+	}
+
+	if (bShowPhysics)
+	{
+		Lines.clear();
+		BuildPhysicsLines(Editor, Lines);
+		RenderWindow("##StatPhysicsOverlay", "Stat Physics", ImVec4(0.07f, 0.07f, 0.11f, 0.62f), Lines);
 	}
 }

@@ -137,7 +137,10 @@ public:
 	void SetBoneDebugDrawMode(EBoneDebugDrawMode InDrawMode);
 	void SetPhysicsAssetDebugDrawEnabled(bool bEnabled);
 	void SetPhysicsAssetSolidDebugDrawEnabled(bool bEnabled);
+	void SetPhysicsAssetBodyShowMode(EPhysicsAssetBodyShowMode InMode);
+	void SetPhysicsAssetConstraintShowMode(EPhysicsAssetConstraintShowMode InMode);
 	void SetSelectedPhysicsConstraintIndex(int32 ConstraintIndex);
+	void RefreshPhysicsAssetDebugDraw();
 
 	void ApplyTransformSettingsToGizmo();
 

@@ -57,6 +57,8 @@ namespace Key
 	constexpr const char* LightCullingMode = "LightCullingMode";
 	constexpr const char* HeatMapMax = "HeatMapMax";
 	constexpr const char* Enable25DCulling = "Enable25DCulling";
+	constexpr const char* PhysicsAssetBodyShowMode = "PhysicsAssetBodyShowMode";
+	constexpr const char* PhysicsAssetConstraintShowMode = "PhysicsAssetConstraintShowMode";
 	constexpr const char* SkinningMode = "SkinningMode";
 
 	// Paths
@@ -192,6 +194,8 @@ json::JSON SaveRenderOptions(const FViewportRenderOptions& Opts)
 	Obj[Key::LightCullingMode] = static_cast<int32>(Opts.LightCullingMode);
 	Obj[Key::HeatMapMax] = Opts.HeatMapMax;
 	Obj[Key::Enable25DCulling] = Opts.Enable25DCulling;
+	Obj[Key::PhysicsAssetBodyShowMode] = static_cast<int32>(Opts.PhysicsAssetBodyShowMode);
+	Obj[Key::PhysicsAssetConstraintShowMode] = static_cast<int32>(Opts.PhysicsAssetConstraintShowMode);
 	return Obj;
 }
 
@@ -280,6 +284,24 @@ void LoadRenderOptions(json::JSON Obj, FViewportRenderOptions& Opts)
 		Opts.HeatMapMax = static_cast<float>(Obj[Key::HeatMapMax].ToFloat());
 	if (Obj.hasKey(Key::Enable25DCulling))
 		Opts.Enable25DCulling = Obj[Key::Enable25DCulling].ToBool();
+	if (Obj.hasKey(Key::PhysicsAssetBodyShowMode))
+	{
+		const int32 RawMode = Obj[Key::PhysicsAssetBodyShowMode].ToInt();
+		if (RawMode >= static_cast<int32>(EPhysicsAssetBodyShowMode::Solid)
+			&& RawMode <= static_cast<int32>(EPhysicsAssetBodyShowMode::None))
+		{
+			Opts.PhysicsAssetBodyShowMode = static_cast<EPhysicsAssetBodyShowMode>(RawMode);
+		}
+	}
+	if (Obj.hasKey(Key::PhysicsAssetConstraintShowMode))
+	{
+		const int32 RawMode = Obj[Key::PhysicsAssetConstraintShowMode].ToInt();
+		if (RawMode >= static_cast<int32>(EPhysicsAssetConstraintShowMode::Solid)
+			&& RawMode <= static_cast<int32>(EPhysicsAssetConstraintShowMode::None))
+		{
+			Opts.PhysicsAssetConstraintShowMode = static_cast<EPhysicsAssetConstraintShowMode>(RawMode);
+		}
+	}
 }
 
 json::JSON SaveGizmoSettings(const FGizmoToolSettings& Gizmo)

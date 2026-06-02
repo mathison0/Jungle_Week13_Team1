@@ -6,6 +6,7 @@
 #include "Mesh/Skeletal/SkeletalMesh.h"
 #include "Physics/BodySetup.h"
 #include "Physics/PhysicsAsset.h"
+#include "Render/Types/FrameContext.h"
 
 #include <algorithm>
 #include <cmath>
@@ -442,6 +443,18 @@ static void ExtractTransformAxes(const FMatrix& Matrix, FVector& OutCenter, FVec
 	OutScale.Z = NormalizeAxis(OutAxisZ);
 }
 
+static FMatrix BuildConstraintDisplayWorldMatrix(const FConstraintSetup& Constraint, const FTransform& ParentBoneWorldTransform, const FTransform& ChildBoneWorldTransform)
+{
+	const FTransform ParentFrameWorld(Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix());
+	const FTransform ChildFrameWorld(Constraint.ChildFrame.ToMatrix() * ChildBoneWorldTransform.ToMatrix());
+
+	const FTransform DisplayTransform(
+		FVector::Lerp(ParentFrameWorld.Location, ChildFrameWorld.Location, 0.5f),
+		FQuat::Slerp(ParentFrameWorld.Rotation.GetNormalized(), ChildFrameWorld.Rotation.GetNormalized(), 0.5f).GetNormalized(),
+		FVector::Lerp(ParentFrameWorld.Scale, ChildFrameWorld.Scale, 0.5f));
+	return DisplayTransform.ToMatrix();
+}
+
 #pragma endregion
 
 
@@ -474,8 +487,10 @@ void FBoneDebugSceneProxy::UpdateTransform()
 	RebuildLines();
 }
 
-void FBoneDebugSceneProxy::UpdatePerViewport(const FFrameContext& /*Frame*/)
+void FBoneDebugSceneProxy::UpdatePerViewport(const FFrameContext& Frame)
 {
+	ViewportPhysicsAssetBodyShowMode = Frame.RenderOptions.PhysicsAssetBodyShowMode;
+	ViewportPhysicsAssetConstraintShowMode = Frame.RenderOptions.PhysicsAssetConstraintShowMode;
 	RebuildLines(); // 매 뷰포트 업데이트마다 렌더 데이터를 갱신합니다.
 }
 
@@ -568,7 +583,28 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 	UPhysicsAsset* PhysicsAsset = Mesh ? Mesh->GetPhysicsAsset() : nullptr;
 	if (!PhysicsAsset) return;
 
-	const bool bDrawSolid = Comp->ShouldDrawPhysicsAssetSolid();
+	EPhysicsAssetBodyShowMode BodyShowMode = Comp->GetPhysicsAssetBodyShowMode();
+	if (BodyShowMode != EPhysicsAssetBodyShowMode::None)
+	{
+		if (ViewportPhysicsAssetBodyShowMode == EPhysicsAssetBodyShowMode::None)
+		{
+			BodyShowMode = EPhysicsAssetBodyShowMode::None;
+		}
+		else if (ViewportPhysicsAssetBodyShowMode == EPhysicsAssetBodyShowMode::Wireframe)
+		{
+			BodyShowMode = EPhysicsAssetBodyShowMode::Wireframe;
+		}
+	}
+
+	EPhysicsAssetConstraintShowMode ConstraintShowMode = Comp->GetPhysicsAssetConstraintShowMode();
+	if (ViewportPhysicsAssetConstraintShowMode == EPhysicsAssetConstraintShowMode::None)
+	{
+		ConstraintShowMode = EPhysicsAssetConstraintShowMode::None;
+	}
+	// Solid body 모드에서는 wire/debug line을 만들지 않습니다.
+	const bool bDrawBodyWireframe = BodyShowMode == EPhysicsAssetBodyShowMode::Wireframe;
+	const bool bDrawBodySolid = BodyShowMode == EPhysicsAssetBodyShowMode::Solid;
+	const bool bDrawConstraintSolid = ConstraintShowMode == EPhysicsAssetConstraintShowMode::Solid;
 	const FVector4 UnselectedSolidColor(0.56f, 0.58f, 0.60f, 0.30f);
 	const FVector4 SelectedSolidColor(0.25f, 0.76f, 1.00f, 0.30f); // 에디터에서 클릭된 바디는 파란색으로 하이라이트
 
@@ -600,8 +636,11 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 			ExtractTransformAxes(ShapeWorldMatrix, Center, AxisX, AxisY, AxisZ, Scale);
 			const float Radius = Sphere.Radius * std::max({ Scale.X, Scale.Y, Scale.Z });
 
-			BuildPhysicsSphereLines(CachedPhysicsAssetLines, Center, Radius);
-			if (bDrawSolid)
+			if (bDrawBodyWireframe)
+			{
+				BuildPhysicsSphereLines(CachedPhysicsAssetLines, Center, Radius);
+			}
+			if (bDrawBodySolid)
 			{
 				BuildPhysicsSphereSolid(CachedPhysicsAssetSolidVertices, CachedPhysicsAssetSolidIndices,
 					Center, Sphere.Radius * Scale.X, Sphere.Radius * Scale.Y, Sphere.Radius * Scale.Z,
@@ -616,8 +655,11 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 			ExtractTransformAxes(ShapeWorldMatrix, Center, AxisX, AxisY, AxisZ, Scale);
 			const FVector Extent(Box.Extent.X * Scale.X, Box.Extent.Y * Scale.Y, Box.Extent.Z * Scale.Z);
 
-			BuildPhysicsBoxLines(CachedPhysicsAssetLines, Center, Extent, AxisX, AxisY, AxisZ);
-			if (bDrawSolid)
+			if (bDrawBodyWireframe)
+			{
+				BuildPhysicsBoxLines(CachedPhysicsAssetLines, Center, Extent, AxisX, AxisY, AxisZ);
+			}
+			if (bDrawBodySolid)
 			{
 				BuildPhysicsBoxSolid(CachedPhysicsAssetSolidVertices, CachedPhysicsAssetSolidIndices, Center, Extent, AxisX, AxisY, AxisZ, SolidColor);
 			}
@@ -631,8 +673,11 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 			const float Radius = Sphyl.Radius * std::max(Scale.X, Scale.Y);
 			const float HalfHeight = Sphyl.Length * 0.5f * Scale.Z + Radius;
 
-			BuildPhysicsCapsuleLines(CachedPhysicsAssetLines, Center, Radius, HalfHeight, AxisX, AxisY, AxisZ);
-			if (bDrawSolid)
+			if (bDrawBodyWireframe)
+			{
+				BuildPhysicsCapsuleLines(CachedPhysicsAssetLines, Center, Radius, HalfHeight, AxisX, AxisY, AxisZ);
+			}
+			if (bDrawBodySolid)
 			{
 				BuildPhysicsCapsuleSolid(CachedPhysicsAssetSolidVertices, CachedPhysicsAssetSolidIndices, Center,
 					Sphyl.Radius * Scale.X, Sphyl.Radius * Scale.Y, Sphyl.Radius * Scale.Z,
@@ -662,8 +707,8 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 			continue;
 		}
 
-		// 제약 조건이 렌더링될 기준 프레임 계산 (부모 프레임 기준)
-		const FMatrix ConstraintWorldMatrix = Constraint.ParentFrame.ToMatrix() * ParentBoneWorldTransform.ToMatrix();
+		// Parent/Child constraint frame을 함께 반영해서 두 프레임 중 어느 쪽을 편집해도 시각화가 따라오도록 합니다.
+		const FMatrix ConstraintWorldMatrix = BuildConstraintDisplayWorldMatrix(Constraint, ParentBoneWorldTransform, ChildBoneWorldTransform);
 		FVector Center, AxisX, AxisY, AxisZ, Scale;
 		ExtractTransformAxes(ConstraintWorldMatrix, Center, AxisX, AxisY, AxisZ, Scale);
 
@@ -674,7 +719,7 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 		// 에디터에서 선택된 제약조건은 살짝 크게 렌더링하여 강조
 		const float Radius = AutoRadius * 0.3f * (ConstraintIndex == SelectedConstraintIndex ? 1.15f : 1.0f);
 
-		if (bDrawSolid)
+		if (bDrawConstraintSolid)
 		{
 			const float Swing1Degrees = GetConstraintVisualLimitDegrees(
 				Constraint.Option.Swing1Motion, Constraint.Option.Swing1LimitDegrees, 89.0f);
@@ -696,7 +741,10 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 		}
 
 		// 제약 조건 중심축과 자식 본의 위치를 연결하는 기준선
-		AddLine(CachedPhysicsAssetLines, Center, ChildBoneWorldTransform.Location);
+		if (bDrawConstraintSolid)
+		{
+			AddLine(CachedPhysicsAssetLines, Center, ChildBoneWorldTransform.Location);
+		}
 	}
 }
 

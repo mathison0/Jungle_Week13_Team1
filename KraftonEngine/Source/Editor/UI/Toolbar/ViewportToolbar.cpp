@@ -611,6 +611,21 @@ void FViewportToolbar::RenderShowFlags(const FToolbarRenderState& State)
 		ImGui::Checkbox("Show Collision Shape", &RenderOptions.ShowFlags.bShowCollisionShape);
 		ImGui::Checkbox("Particle", &RenderOptions.ShowFlags.bParticle);
 
+		ImGui::Separator();
+		const char* PhysicsBodyItems[] = { "Solid", "Wireframe", "None" };
+		int32 PhysicsBodyMode = static_cast<int32>(RenderOptions.PhysicsAssetBodyShowMode);
+		if (ImGui::Combo("Physics Body", &PhysicsBodyMode, PhysicsBodyItems, IM_ARRAYSIZE(PhysicsBodyItems)))
+		{
+			RenderOptions.PhysicsAssetBodyShowMode = static_cast<EPhysicsAssetBodyShowMode>(PhysicsBodyMode);
+		}
+
+		const char* PhysicsConstraintItems[] = { "Solid", "None" };
+		int32 PhysicsConstraintMode = static_cast<int32>(RenderOptions.PhysicsAssetConstraintShowMode);
+		if (ImGui::Combo("Physics Constraint", &PhysicsConstraintMode, PhysicsConstraintItems, IM_ARRAYSIZE(PhysicsConstraintItems)))
+		{
+			RenderOptions.PhysicsAssetConstraintShowMode = static_cast<EPhysicsAssetConstraintShowMode>(PhysicsConstraintMode);
+		}
+
 		ImGui::EndPopup();
 	}
 }
