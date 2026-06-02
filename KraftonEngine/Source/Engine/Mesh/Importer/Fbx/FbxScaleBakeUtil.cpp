@@ -81,13 +81,14 @@ namespace
 		Out.NewInverse.resize(N);
 		for (int32 b = 0; b < N; ++b)
 		{
-			Out.NewGlobal[b] = RemoveScaleKeepTranslation(Globals[b]);
+			Out.NewGlobal[b]  = RemoveScaleKeepTranslation(Globals[b]);
+			Out.NewInverse[b] = Out.NewGlobal[b].GetInverse();
 		}
 		for (int32 b = 0; b < N; ++b)
 		{
 			const int32 P = Parents[b];
-			Out.NewLocal[b]   = (P >= 0 && P < N) ? Out.NewGlobal[b] * Out.NewGlobal[P].GetInverse() : Out.NewGlobal[b];
-			Out.NewInverse[b] = Out.NewGlobal[b].GetInverse();
+			// 부모의 역행렬(NewInverse[P])을 재사용 — 본당 역행렬 1회로 부모 중복 계산 제거.
+			Out.NewLocal[b] = (P >= 0 && P < N) ? Out.NewGlobal[b] * Out.NewInverse[P] : Out.NewGlobal[b];
 		}
 		return Out;
 	}

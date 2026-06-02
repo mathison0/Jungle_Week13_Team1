@@ -1,6 +1,7 @@
 #include "Mesh/Importer/Fbx/FbxAnimationImporter.h"
 #include "Mesh/Importer/Fbx/FbxSceneQuery.h"
 #include "Mesh/Importer/Fbx/FbxTransformUtils.h"
+#include "Mesh/Importer/Fbx/FbxScaleBakeUtil.h"
 #include "Animation/AnimationRuntime.h"
 #include "Animation/Sequence/AnimDataModel.h"
 #include "Animation/Sequence/AnimSequence.h"
@@ -1501,6 +1502,15 @@ bool FFbxAnimationImporter::ImportAnimations(
 					? BoneNode->EvaluateGlobalTransform(Time)
 					: BakeResult.FinalMatrix;
 				BoneLocalTransforms[BoneIndex] = FAnimationRuntime::DecomposeMatrix(FFbxTransformUtils::ToEngineMatrix(FinalFbxMatrix));
+
+				// [스케일 베이크아웃] 스켈레톤을 베이크했으면 애니 키프레임도 같은 공간으로: scale→1, translation *= 부모 누적 스케일.
+				if (Context.bBindScaleBaked && BoneIndex < static_cast<int32>(Context.BindScaleAccum.size()))
+				{
+					const int32 ParentIndex = Context.Bones[BoneIndex].ParentIndex;
+					const float ParentScaleAccum = (ParentIndex >= 0 && ParentIndex < static_cast<int32>(Context.BindScaleAccum.size()))
+						? Context.BindScaleAccum[ParentIndex] : 1.0f;
+					BoneLocalTransforms[BoneIndex] = FbxScaleBakeUtil::BakeOutLocalTransform(BoneLocalTransforms[BoneIndex], ParentScaleAccum);
+				}
 			}
 
 			for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Context.Bones.size()); ++BoneIndex)

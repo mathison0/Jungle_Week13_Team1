@@ -46,11 +46,14 @@ namespace
 			return false;
 		}
 
-		// [Phase 1a] 본 bind scale 측정만(mutate 없음). Yeoul≈15.82 / Furina≈1.0 확인용. Phase 1b에서 실제 베이크로 전환.
+		// [Phase 1b] 본 bind scale을 베이크아웃(균등 & !=1일 때만 실제 적용). 결과를 Context에 보관해
+		// 애니 키프레임(FbxAnimationImporter)도 같은 scale-free 공간으로 맞춘다.
 		{
-			const FScaleBakeResult ScaleProbe = FbxScaleBakeUtil::BakeOutBindScale(Context.Bones, /*bApplyMutation*/ false);
-			UE_LOG("[ScaleBake] probe bones=%d maxScale=%.4f nonUniformity=%.4f wouldBake=%d",
-				static_cast<int32>(Context.Bones.size()), ScaleProbe.MaxScale, ScaleProbe.MaxNonUniformity, ScaleProbe.bBaked ? 1 : 0);
+			const FScaleBakeResult ScaleBake = FbxScaleBakeUtil::BakeOutBindScale(Context.Bones, /*bApplyMutation*/ true);
+			Context.bBindScaleBaked = ScaleBake.bBaked;
+			Context.BindScaleAccum  = ScaleBake.ScaleAccum;
+			UE_LOG("[ScaleBake] mesh bones=%d maxScale=%.4f nonUniformity=%.4f baked=%d",
+				static_cast<int32>(Context.Bones.size()), ScaleBake.MaxScale, ScaleBake.MaxNonUniformity, ScaleBake.bBaked ? 1 : 0);
 		}
 
 		// Skin import can refine inverse bind poses from FBX clusters, so rebuild the reference skeleton after skin data is processed.
