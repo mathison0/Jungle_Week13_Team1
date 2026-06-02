@@ -10,6 +10,8 @@ class AActor;
 class UPrimitiveComponent;
 class USkeletalMeshComponent;
 struct FHitResult;
+struct FClothCollisionData;
+struct FClothCollisionGatherDesc;
 
 // 물리 백엔드 선택
 enum class EPhysicsBackend : uint8
@@ -48,6 +50,9 @@ public:
 	virtual void DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp) {}
 	virtual bool SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComponent* Comp, bool bResetVelocity = true) { return false; }
 	virtual void SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* Comp, bool bSimulate) {}
+
+	// Cloth collision uses the physics backend's authoritative runtime shapes.
+	virtual void GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const {}
 
 	// --- 시뮬레이션 ---
 	virtual void Tick(float DeltaTime) = 0;

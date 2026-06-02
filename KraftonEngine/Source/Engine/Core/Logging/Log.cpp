@@ -6,7 +6,7 @@
 #include <algorithm>
 
 // ============================================================
-// FDebugOutputDevice — VS 출력창 (OutputDebugStringA)
+// FDebugOutputDevice - VS 출력 창(OutputDebugStringA)
 // ============================================================
 class FDebugOutputDevice : public ILogOutputDevice
 {
@@ -19,7 +19,7 @@ public:
 };
 
 // ============================================================
-// FFileOutputDevice — 파일 기록 (Logs/Engine.log)
+// FFileOutputDevice - 파일 로그(Logs/Engine.log)
 // ============================================================
 class FFileOutputDevice : public ILogOutputDevice
 {
@@ -28,7 +28,10 @@ public:
 	{
 		std::wstring LogPath = FPaths::LogDir() + L"Engine.log";
 		FPaths::CreateDir(FPaths::LogDir());
-		_wfopen_s(&File, LogPath.c_str(), L"w");
+		if (_wfopen_s(&File, LogPath.c_str(), L"w") != 0)
+		{
+			File = nullptr;
+		}
 	}
 
 	~FFileOutputDevice() override

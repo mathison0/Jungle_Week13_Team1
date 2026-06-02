@@ -123,6 +123,7 @@ INCLUDE_PATHS = [
     "ThirdParty\\fmod\\include",
     "ThirdParty\\fbx\\include",
     "$(PhysXIncludeDirectories)",
+    "$(NvClothIncludeDirectories)",
     ".",
 ]
 
@@ -138,6 +139,11 @@ FMOD_DEBUG_LIB = "fmodL_vc.lib"
 FMOD_RELEASE_LIB = "fmod_vc.lib"
 FMOD_DEBUG_DLL = "fmodL.dll"
 FMOD_RELEASE_DLL = "fmod.dll"
+
+NVCLOTH_ROOT = "ThirdParty\\NvCloth\\"
+NVCLOTH_BIN_PLATFORM = "win.x86_64.vc143.md"
+NVCLOTH_DEBUG_LIB = "NvClothDEBUG_x64.lib"
+NVCLOTH_RELEASE_LIB = "NvCloth_x64.lib"
 
 PHYSX_DEPENDENCIES = [
     "PhysXExtensions_static_64.lib",
@@ -206,6 +212,9 @@ def scan_files(project_dir: Path) -> dict[str, list[str]]:
                 ext = full.suffix.lower()
 
                 if rel_str.startswith(PHYSX_BROWSE_ONLY_PREFIX):
+                    continue
+                if rel_str.startswith(NVCLOTH_ROOT) and ext in SOURCE_EXTS:
+                    result["None"].append(rel_str)
                     continue
 
                 if ext in SOURCE_EXTS:
@@ -379,6 +388,18 @@ def generate_vcxproj(files: dict[str, list[str]]):
         f"$(PhysXRoot)physx\\bin\\{PHYSX_BIN_PLATFORM}\\$(PhysXBuildConfig)"
     )
     ET.SubElement(pg, "PhysXDependencies").text = ";".join(PHYSX_DEPENDENCIES) + ";"
+    ET.SubElement(pg, "NvClothRoot").text = f"$(ProjectDir){NVCLOTH_ROOT}"
+    ET.SubElement(pg, "NvClothIncludeDirectories").text = "$(NvClothRoot)include"
+    ET.SubElement(pg, "NvClothBuildConfig", Condition="'$(Configuration)'=='Debug'").text = "debug"
+    ET.SubElement(pg, "NvClothBuildConfig", Condition="'$(Configuration)'!='Debug'").text = "release"
+    ET.SubElement(pg, "NvClothLibDir").text = (
+        f"$(NvClothRoot)lib\\{NVCLOTH_BIN_PLATFORM}\\$(NvClothBuildConfig)"
+    )
+    ET.SubElement(pg, "NvClothBinDir").text = (
+        f"$(NvClothRoot)bin\\{NVCLOTH_BIN_PLATFORM}\\$(NvClothBuildConfig)"
+    )
+    ET.SubElement(pg, "NvClothDependency", Condition="'$(Configuration)'=='Debug'").text = NVCLOTH_DEBUG_LIB
+    ET.SubElement(pg, "NvClothDependency", Condition="'$(Configuration)'!='Debug'").text = NVCLOTH_RELEASE_LIB
 
     # OutDir, IntDir, IncludePath, LibraryPath, WorkingDirectory for all configurations
     include_path_value = ";".join(INCLUDE_PATHS) + ";$(IncludePath)"
@@ -389,6 +410,7 @@ def generate_vcxproj(files: dict[str, list[str]]):
         library_paths = [rmlui_dir] if is_x64 else []
         if is_x64:
             library_paths.append("$(PhysXLibDir)")
+            library_paths.append("$(NvClothLibDir)")
             library_paths.append(FMOD_LIB_DIR)
             library_paths.append(FBX_DEBUG_LIB_DIR if cfg == "Debug" else FBX_RELEASE_LIB_DIR)
         library_path_value = ";".join(library_paths) + ";$(LibraryPath)" if library_paths else "$(LibraryPath)"
@@ -426,6 +448,9 @@ def generate_vcxproj(files: dict[str, list[str]]):
         # 미정의 시 static 멤버(FbxSurfaceMaterial::sDiffuse 등)가 LNK2001로 실패한다.
         if is_x64:
             base_defs.append("FBXSDK_SHARED")
+            base_defs.append("WITH_NVCLOTH=1")
+        else:
+            base_defs.append("WITH_NVCLOTH=0")
         extra_defs = props.get("extra_defines", [])
         # WITH_EDITOR defaults to 1 unless explicitly overridden in extra_defines
         if not any(d.startswith("WITH_EDITOR=") for d in extra_defs):
@@ -439,10 +464,12 @@ def generate_vcxproj(files: dict[str, list[str]]):
 
         ET.SubElement(cl, "ConformanceMode").text = "true"
         # /bigobj — sol2 binding이 누적되며 LuaScriptManager.cpp가 섹션 한도를 넘어 필수화됨.
+        # /FS — /MP 병렬 컴파일 중 여러 cl.exe가 같은 PDB에 동시에 쓰며 C2471이 나는 것을 막는다.
         # 전역 적용으로 단일 파일 한정 옵션 관리 비용 회피.
-        ET.SubElement(cl, "AdditionalOptions").text = "/utf-8 /bigobj %(AdditionalOptions)"
+        ET.SubElement(cl, "AdditionalOptions").text = "/utf-8 /bigobj /FS %(AdditionalOptions)"
         ET.SubElement(cl, "ExceptionHandling").text = "Async"
         ET.SubElement(cl, "MultiProcessorCompilation").text = "true"
+        ET.SubElement(cl, "DebugInformationFormat").text = "OldStyle"
 
         if is_x64:
             ET.SubElement(cl, "LanguageStandard").text = "stdcpp20"
@@ -454,6 +481,7 @@ def generate_vcxproj(files: dict[str, list[str]]):
         additional_lib_dirs = list(ADDITIONAL_LIB_DIRS)
         if is_x64:
             additional_lib_dirs.append("$(PhysXLibDir)")
+            additional_lib_dirs.append("$(NvClothLibDir)")
         if additional_lib_dirs:
             ET.SubElement(link, "AdditionalLibraryDirectories").text = (
                 ";".join(additional_lib_dirs) + ";%(AdditionalLibraryDirectories)"
@@ -461,6 +489,7 @@ def generate_vcxproj(files: dict[str, list[str]]):
         all_deps = list(ADDITIONAL_DEPENDENCIES)
         if is_x64:
             all_deps.append("$(PhysXDependencies)")
+            all_deps.append("$(NvClothDependency)")
             all_deps.extend(RMLUI_DEPENDENCIES)
             # fmod: Debug면 logging 버전(fmodL_vc.lib), 그 외 release 버전(fmod_vc.lib)
             all_deps.append(FMOD_DEBUG_LIB if cfg == "Debug" else FMOD_RELEASE_LIB)
@@ -479,6 +508,7 @@ def generate_vcxproj(files: dict[str, list[str]]):
                 f'xcopy /Y "$(ProjectDir){rmlui_dir}\\*.dll" "$(OutDir)"\n'
                 f'xcopy /Y "$(ProjectDir){FMOD_LIB_DIR}\\{fmod_dll}" "$(OutDir)"\n'
                 f'xcopy /Y "$(PhysXLibDir)\\*.dll" "$(OutDir)"\n'
+                f'xcopy /Y "$(NvClothBinDir)\\*.dll" "$(OutDir)"\n'
                 f'xcopy /Y "$(ProjectDir){LUA_BIN_DIR}\\{LUA_DLL}" "$(OutDir)"\n'
                 f'xcopy /Y "$(ProjectDir){fbx_lib_dir}\\{FBX_DLL}" "$(OutDir)"'
             )

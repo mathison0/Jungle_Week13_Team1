@@ -20,12 +20,14 @@ class AActor;
 class USkeletalMesh;
 class USkeletalMeshComponent;
 class UBodySetup;
+class UPhysicsAsset;
 
 class FPhysicsBodyTransformGizmoTarget : public IGizmoTransformTarget
 {
 public:
 	void SetBody(USkeletalMeshComponent* InMeshComp, UBodySetup* InBodySetup);
 	void Clear();
+	void SetOnModified(std::function<void()> InCallback) { OnModified = std::move(InCallback); }
 
 	bool IsValid() const override;
 	UWorld* GetWorld() const override;
@@ -50,6 +52,41 @@ private:
 
 	USkeletalMeshComponent* MeshComponent = nullptr;
 	UBodySetup* BodySetup = nullptr;
+	std::function<void()> OnModified;
+};
+
+class FPhysicsConstraintTransformGizmoTarget : public IGizmoTransformTarget
+{
+public:
+	void SetConstraint(USkeletalMeshComponent* InMeshComp, UPhysicsAsset* InPhysicsAsset, int32 InConstraintIndex);
+	void Clear();
+	void SetOnModified(std::function<void()> InCallback) { OnModified = std::move(InCallback); }
+
+	bool IsValid() const override;
+	UWorld* GetWorld() const override;
+
+	FVector GetWorldLocation() const override;
+	FRotator GetWorldRotation() const override;
+	FQuat GetWorldQuat() const override;
+	FVector GetWorldScale() const override;
+
+	void SetWorldLocation(const FVector& NewLocation) override;
+	void SetWorldRotation(const FRotator& NewRotation) override;
+	void SetWorldRotation(const FQuat& NewQuat) override;
+	void SetWorldScale(const FVector& NewScale) override;
+
+	void AddWorldOffset(const FVector& Delta) override;
+	void AddWorldRotation(const FQuat& Delta, bool bWorldSpace) override;
+	void AddScaleDelta(const FVector& Delta) override;
+
+private:
+	bool GetConstraintWorldTransform(FTransform& OutTransform) const;
+	void SetConstraintWorldTransform(const FTransform& WorldTransform);
+
+	USkeletalMeshComponent* MeshComponent = nullptr;
+	UPhysicsAsset* PhysicsAsset = nullptr;
+	int32 ConstraintIndex = -1;
+	std::function<void()> OnModified;
 };
 
 class FMeshEditorViewportClient : public FViewportClient, public IEditorPreviewViewportClient
@@ -89,8 +126,11 @@ public:
 
 	void SetSelectedBone(USkeletalMesh* Mesh, int32 BoneIndex);
 	void SetSelectedPhysicsBody(USkeletalMesh* Mesh, int32 BoneIndex, UBodySetup* BodySetup);
+	void SetSelectedPhysicsConstraint(USkeletalMesh* Mesh, int32 ConstraintIndex);
 	const FBone* GetSelectedBone() const;
 	void SetOnPhysicsBodyPicked(std::function<void(int32, UBodySetup*)> InCallback) { OnPhysicsBodyPicked = std::move(InCallback); }
+	void SetOnPhysicsConstraintPicked(std::function<void(int32)> InCallback) { OnPhysicsConstraintPicked = std::move(InCallback); }
+	void SetOnPhysicsAssetModified(std::function<void()> InCallback);
 
 	EBoneDebugDrawMode GetBoneDebugDrawMode() const;
 	void SetBoneDebugDrawMode(EBoneDebugDrawMode InDrawMode);
@@ -110,12 +150,14 @@ private:
 	void SyncGizmo();
 
 	void HandleDragStart(const FRay& Ray);
+	bool TryPickPhysicsAssetConstraint(const FRay& Ray);
 	bool TryPickPhysicsAssetBody(const FRay& Ray);
 
 private:
 	USkeletalMesh* SelectedMesh = nullptr;
 	int32 SelectedBoneIndex = -1;
 	UBodySetup* SelectedPhysicsBodySetup = nullptr;
+	int32 SelectedPhysicsConstraintIndex = -1;
 
 	FViewport* Viewport = nullptr;
 	FWindowsWindow* Window = nullptr;
@@ -123,10 +165,13 @@ private:
 
 	FBoneTransformGizmoTarget BoneTarget;
 	FPhysicsBodyTransformGizmoTarget PhysicsBodyTarget;
+	FPhysicsConstraintTransformGizmoTarget PhysicsConstraintTarget;
 	UGizmoComponent* Gizmo = nullptr;
 	USkeletalMeshComponent* PreviewMeshComponent = nullptr;
 	UBoneDebugComponent* BoneDebugComponent = nullptr;
 	std::function<void(int32, UBodySetup*)> OnPhysicsBodyPicked;
+	std::function<void(int32)> OnPhysicsConstraintPicked;
+	std::function<void()> OnPhysicsAssetModified;
 
 	UWorld* PreviewWorld = nullptr;
 	AActor* PreviewActor = nullptr;

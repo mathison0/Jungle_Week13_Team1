@@ -65,11 +65,17 @@ bool FSkeletalMeshSceneProxy::PrepareDrawBuffer(ID3D11Device* Device, ID3D11Devi
 
 	if (bDynamicBufferNeedsCreate || !DynamicVertexBuffer.GetBuffer())
 	{
-		DynamicVertexBuffer.Create(Device, CachedDynamicVertexCount ? CachedDynamicVertexCount : VertexCount, sizeof(FVertexPNCTT));
+		if (!DynamicVertexBuffer.Create(Device, CachedDynamicVertexCount ? CachedDynamicVertexCount : VertexCount, sizeof(FVertexPNCTT)))
+		{
+			return false;
+		}
 		bDynamicBufferNeedsCreate = false;
 	}
 
-	DynamicVertexBuffer.EnsureCapacity(Device, VertexCount);
+	if (!DynamicVertexBuffer.EnsureCapacity(Device, VertexCount))
+	{
+		return false;
+	}
 
 	const uint64 CurrentRevision = SMC->GetSkinnedRevision();
 	if (UploadedSkinnedRevision != CurrentRevision)

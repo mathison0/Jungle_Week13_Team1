@@ -38,6 +38,8 @@ public:
 	FStaticMesh* GetStaticMeshAsset() const;
 	UBodySetup* GetBodySetup() const { return BodySetup; }
 	UBodySetup* EnsureBodySetup();
+	bool IsTriangleMeshCollisionEnabled() const { return bTriangleMeshCollisionEnabled; }
+	void SetTriangleMeshCollisionEnabled(bool bEnabled);
 	void SetStaticMaterials(TArray<FStaticMaterial>&& InMaterials);
 	const TArray<FStaticMaterial>& GetStaticMaterials() const;
 
@@ -58,6 +60,10 @@ private:
 	FStaticMesh* StaticMeshAsset = nullptr;
 	UPROPERTY(Edit, Save, Instanced, Category="Physics", DisplayName="Body Setup", Type=ObjectRef, AllowedClass=UBodySetup)
 	UBodySetup* BodySetup = nullptr;
+	// StaticMesh triangle collision은 모든 렌더 메시가 자동으로 갖지 않는다.
+	// StaticMesh Editor에서 사용자가 명시적으로 생성한 에셋만 BodySetup과 PhysX cooked binary를 저장한다.
+	UPROPERTY(Save, Category="Physics", DisplayName="Triangle Mesh Collision Enabled")
+	bool bTriangleMeshCollisionEnabled = false;
 	TArray<FStaticMaterial> StaticMaterials; // 슬롯 이름과 머티리얼 인터페이스를 묶어서 저장하는 배열
 	mutable FMeshTriangleBVH MeshTrianglePickingBVH; // 빠른 picking을 위해 메시 내부에 트리 형태로 만들어지는 자료구조
 

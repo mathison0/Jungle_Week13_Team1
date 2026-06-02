@@ -116,11 +116,11 @@ public:
 	FDynamicVertexBuffer(const FDynamicVertexBuffer&) = delete;
 	FDynamicVertexBuffer& operator=(const FDynamicVertexBuffer&) = delete;
 
-	void Create(ID3D11Device* InDevice, uint32 InMaxCount, uint32 InStride);
+	bool Create(ID3D11Device* InDevice, uint32 InMaxCount, uint32 InStride);
 	void Release();
 
 	// RequiredCount > MaxCount 이면 2배 확장 후 재생성
-	void EnsureCapacity(ID3D11Device* InDevice, uint32 RequiredCount);
+	bool EnsureCapacity(ID3D11Device* InDevice, uint32 RequiredCount);
 	// Map → memcpy → Unmap (WRITE_DISCARD)
 	bool Update(ID3D11DeviceContext* Context, const void* Data, uint32 Count);
 	// IASetVertexBuffers
@@ -145,10 +145,10 @@ public:
 	FDynamicIndexBuffer(const FDynamicIndexBuffer&) = delete;
 	FDynamicIndexBuffer& operator=(const FDynamicIndexBuffer&) = delete;
 
-	void Create(ID3D11Device* InDevice, uint32 InMaxCount);
+	bool Create(ID3D11Device* InDevice, uint32 InMaxCount);
 	void Release();
 
-	void EnsureCapacity(ID3D11Device* InDevice, uint32 RequiredCount);
+	bool EnsureCapacity(ID3D11Device* InDevice, uint32 RequiredCount);
 	bool Update(ID3D11DeviceContext* Context, const void* Data, uint32 Count);
 	// IASetIndexBuffer (DXGI_FORMAT_R32_UINT)
 	void Bind(ID3D11DeviceContext* Context);

@@ -1,5 +1,6 @@
 #include "Physics/NativePhysicsScene.h"
 #include "Collision/Math/CollisionMath.h"
+#include "Cloth/ClothCollisionBridge.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/ShapeComponent.h"
 #include "GameFramework/World.h"
@@ -102,6 +103,11 @@ void FNativePhysicsScene::UnregisterComponent(UPrimitiveComponent* Comp)
 	};
 	EraseFromSet(PreviousBlockPairs);
 	EraseFromSet(CurrentBlockPairs);
+}
+
+void FNativePhysicsScene::GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const
+{
+	FClothCollisionBridge::BuildWorldShapeCollision(World, Desc.ClothComponent, Desc.CollisionThickness, OutData);
 }
 
 void FNativePhysicsScene::Tick(float DeltaTime)

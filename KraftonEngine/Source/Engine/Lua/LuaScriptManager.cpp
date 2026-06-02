@@ -1278,6 +1278,9 @@ void FLuaScriptManager::RegisterActorBindings(sol::state& Lua)
 	Lua.new_usertype<USkeletalMeshComponent>("SkeletalMeshComponent",
 		sol::base_classes, sol::bases<USkinnedMeshComponent, UPrimitiveComponent, USceneComponent>(),
 
+		"SetSimulateRagdoll", &USkeletalMeshComponent::SetSimulateRagdoll,
+		"IsRagdollSimulating", &USkeletalMeshComponent::IsRagdollSimulating,
+
 		"GetBoneSocketLocation", [](USkeletalMeshComponent& C, const FString& BoneName, const FVector& LocalOffset)
 	{
 		FTransform SocketWorld;
@@ -1308,6 +1311,8 @@ void FLuaScriptManager::RegisterActorBindings(sol::state& Lua)
 	);
 
 	FLuaDocRegistry::Get().Type("SkeletalMeshComponent", "PrimitiveComponent")
+		.Method("---@param enabled boolean\nfunction SkeletalMeshComponent:SetSimulateRagdoll(enabled) end")
+		.Method("---@return boolean\nfunction SkeletalMeshComponent:IsRagdollSimulating() end")
 		.Method("---@param boneName string\n---@param localOffset Vector\n---@return Vector\nfunction SkeletalMeshComponent:GetBoneSocketLocation(boneName, localOffset) end")
 		.Method("---@param boneName string\n---@param localOffset Vector\n---@return Vector\nfunction SkeletalMeshComponent:GetBoneSocketRotation(boneName, localOffset) end");
 

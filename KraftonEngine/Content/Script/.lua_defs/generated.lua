@@ -398,6 +398,12 @@ function World.FindActorsByTag(tag) end
 ---@class SkeletalMeshComponent: PrimitiveComponent
 SkeletalMeshComponent = {}
 
+---@param enabled boolean
+function SkeletalMeshComponent:SetSimulateRagdoll(enabled) end
+
+---@return boolean
+function SkeletalMeshComponent:IsRagdollSimulating() end
+
 ---@param boneName string
 ---@param localOffset Vector
 ---@return Vector

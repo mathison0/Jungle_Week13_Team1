@@ -1,11 +1,13 @@
 ﻿#include "Editor/Subsystem/OverlayStatSystem.h"
 
+#include "Cloth/ClothScene.h"
 #include "Editor/EditorEngine.h"
 #include "Engine/Profiling/Time/Timer.h"
 #include "Engine/Profiling/Stats/MemoryStats.h"
 #include "Engine/Profiling/Stats/ShadowStats.h"
 #include "Engine/Profiling/Stats/Stats.h"
 #include "Engine/Profiling/GPUProfiler.h"
+#include "GameFramework/World.h"
 #include "Viewport/Level/LevelEditorViewportClient.h"
 #include "Slate/SWindow.h"
 #include "ImGui/imgui.h"
@@ -332,6 +334,50 @@ void FOverlayStatSystem::BuildParticleLines(const UEditorEngine& Editor,TArray<F
 	OutLines.push_back(Buffer);
 }
 
+void FOverlayStatSystem::BuildClothLines(const UEditorEngine& Editor, TArray<FString>& OutLines) const
+{
+	const UWorld* World = Editor.GetWorld();
+	const FClothScene* ClothScene = World ? World->GetClothScene() : nullptr;
+	if (!ClothScene)
+	{
+		OutLines.push_back(FString("No cloth scene"));
+		return;
+	}
+
+	const FNvClothContext& Context = ClothScene->GetNvClothContext();
+
+	char Buffer[192] = {};
+	snprintf(Buffer, sizeof(Buffer), "Backend : %s", Context.GetActiveBackendName());
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Fallback : %s", Context.GetFallbackStatus().c_str());
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Cloths : %u active / %u registered",
+		ClothScene->GetLastActiveInstanceCount(),
+		ClothScene->GetInstanceCount());
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Particles : %u simulated", ClothScene->GetLastParticleCount());
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Solver : %u solvers / %u instances",
+		ClothScene->GetLastActiveInstanceCount(),
+		ClothScene->GetInstanceCount());
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Collision : %u primitives", ClothScene->GetLastCollisionPrimitiveCount());
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Wind Sources : %u", ClothScene->GetWindSourceCount());
+	OutLines.push_back(Buffer);
+
+	snprintf(Buffer, sizeof(Buffer), "Sim Time : %.3f ms avg %.3f",
+		ClothScene->GetLastSimulationTimeMs(),
+		ClothScene->GetAverageSimulationTimeMs());
+	OutLines.push_back(Buffer);
+}
+
 void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlayStatLine>& OutLines) const
 {
 	OutLines.clear();
@@ -356,6 +402,10 @@ void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlay
 	if (bShowSkinning)
 	{
 		EstimatedLineCount += 4;
+	}
+	if (bShowCloth)
+	{
+		EstimatedLineCount += 8;
 	}
 	OutLines.reserve(EstimatedLineCount);
 
@@ -399,6 +449,13 @@ void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlay
 	{
 		Lines.clear();
 		BuildSkinningLines(Lines);
+		AppendGroup(Lines);
+	}
+
+	if (bShowCloth)
+	{
+		Lines.clear();
+		BuildClothLines(Editor, Lines);
 		AppendGroup(Lines);
 	}
 }
@@ -513,5 +570,12 @@ void FOverlayStatSystem::RenderImGui(const UEditorEngine& Editor, const FRect& V
 		Lines.clear();
 		BuildParticleLines(Editor, Lines);
 		RenderWindow("##StatParticlesOverlay", "Stat Particles", ImVec4(0.08f, 0.08f, 0.03f, 0.62f), Lines);
+	}
+
+	if (bShowCloth)
+	{
+		Lines.clear();
+		BuildClothLines(Editor, Lines);
+		RenderWindow("##StatClothOverlay", "Stat Cloth", ImVec4(0.04f, 0.07f, 0.09f, 0.62f), Lines);
 	}
 }

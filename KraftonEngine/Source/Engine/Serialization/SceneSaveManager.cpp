@@ -13,6 +13,7 @@
 #include "Component/Primitive/DecalComponent.h"
 #include "Component/Primitive/HeightFogComponent.h"
 #include "Component/Light/LightComponentBase.h"
+#include "Component/Physics/WindDirectionalSourceComponent.h"
 #include "Component/Camera/CameraComponent.h"
 #include "Object/Object.h"
 #include "Object/Reflection/ObjectFactory.h"
@@ -202,6 +203,10 @@ static void EnsureEditorBillboardMetadata(UActorComponent* Comp)
 	else if (UHeightFogComponent* HeightFogComponent = Cast<UHeightFogComponent>(Comp))
 	{
 		HeightFogComponent->EnsureEditorBillboard();
+	}
+	else if (UWindDirectionalSourceComponent* WindComponent = Cast<UWindDirectionalSourceComponent>(Comp))
+	{
+		WindComponent->EnsureEditorBillboard();
 	}
 	else if (UCameraComponent* CameraComponent = Cast<UCameraComponent>(Comp))
 	{

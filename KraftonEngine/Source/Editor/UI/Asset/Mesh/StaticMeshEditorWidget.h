@@ -7,6 +7,7 @@
 struct FStaticMesh;
 struct ImDrawList;
 struct ImVec2;
+class UStaticMesh;
 
 class FStaticMeshEditorWidget : public FAssetEditorWidget
 {
@@ -28,7 +29,7 @@ public:
 
 private:
 	void RenderMeshStatsOverlay(ImDrawList* DrawList, const ImVec2& ViewportPos) const;
-	void RenderDetailsPanel(FStaticMesh* Asset) const;
+	void RenderDetailsPanel(UStaticMesh* StaticMesh);
 
 private:
 	FStaticMeshEditorViewportClient ViewportClient;
