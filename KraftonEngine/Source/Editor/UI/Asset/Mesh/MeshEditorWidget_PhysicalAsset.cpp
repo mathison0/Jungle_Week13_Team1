@@ -193,32 +193,34 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 		TArray<FString> Lines;
 	};
 
-	FPhysicsGraphNodeVisual MakePhysicsGraphNodeVisual(const FString& PrimaryText, const FString& SecondaryText, float Width, float MinHeight)
+	FPhysicsGraphNodeVisual MakePhysicsGraphNodeVisual(const FString& PrimaryText, const FString& SecondaryText, float Width, float MinHeight, float TextScale = 1.0f)
 	{
 		const float TextPaddingX = 12.0f;
 		const float TextPaddingY = 7.0f;
 		const float LineGap = 2.0f;
 		const float TextWidth = std::max(16.0f, Width - TextPaddingX * 2.0f);
+		const float SafeTextScale = std::max(0.1f, TextScale);
 
 		FPhysicsGraphNodeVisual Visual;
-		TArray<FString> PrimaryLines = WrapPhysicsGraphText(PrimaryText, TextWidth, 2);
+		TArray<FString> PrimaryLines = WrapPhysicsGraphText(PrimaryText, TextWidth / SafeTextScale, 2);
 		for (const FString& Line : PrimaryLines)
 		{
 			Visual.Lines.push_back(Line);
 		}
 		if (!SecondaryText.empty())
 		{
-			Visual.Lines.push_back(TruncatePhysicsGraphTextToWidth(SecondaryText, TextWidth));
+			Visual.Lines.push_back(TruncatePhysicsGraphTextToWidth(SecondaryText, TextWidth / SafeTextScale));
 		}
 
-		const float LineHeight = ImGui::GetTextLineHeight();
+		const float LineHeight = ImGui::GetTextLineHeight() * SafeTextScale;
+		const float ScaledLineGap = LineGap * SafeTextScale;
 		const float TextHeight = static_cast<float>(Visual.Lines.size()) * LineHeight
-			+ std::max(0, static_cast<int32>(Visual.Lines.size()) - 1) * LineGap;
-		Visual.Size = ImVec2(Width, std::max(MinHeight, TextHeight + TextPaddingY * 2.0f));
+			+ std::max(0, static_cast<int32>(Visual.Lines.size()) - 1) * ScaledLineGap;
+		Visual.Size = ImVec2(Width, std::max(MinHeight, TextHeight + TextPaddingY * SafeTextScale * 2.0f));
 		return Visual;
 	}
 
-	void DrawCenteredPhysicsGraphText(ImDrawList* DrawList, const ImVec2& NodePos, const FPhysicsGraphNodeVisual& Visual, float Zoom, ImU32 PrimaryColor, ImU32 SecondaryColor)
+	void DrawCenteredPhysicsGraphText(ImDrawList* DrawList, const ImVec2& NodePos, const FPhysicsGraphNodeVisual& Visual, float Zoom, float TextScale, ImU32 PrimaryColor, ImU32 SecondaryColor)
 	{
 		if (!DrawList || Visual.Lines.empty())
 		{
@@ -226,9 +228,10 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 		}
 
 		ImFont* Font = ImGui::GetFont();
-		const float FontSize = ImGui::GetFontSize() * Zoom;
-		const float LineHeight = ImGui::GetTextLineHeight() * Zoom;
-		const float LineGap = 2.0f * Zoom;
+		const float EffectiveTextScale = Zoom * std::max(0.1f, TextScale);
+		const float FontSize = ImGui::GetFontSize() * EffectiveTextScale;
+		const float LineHeight = ImGui::GetTextLineHeight() * EffectiveTextScale;
+		const float LineGap = 2.0f * EffectiveTextScale;
 		const ImVec2 ScaledNodeSize(Visual.Size.x * Zoom, Visual.Size.y * Zoom);
 		const float TextHeight = static_cast<float>(Visual.Lines.size()) * LineHeight
 			+ std::max(0, static_cast<int32>(Visual.Lines.size()) - 1) * LineGap;
@@ -237,7 +240,7 @@ FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutSha
 		{
 			const FString& Line = Visual.Lines[LineIndex];
 			const ImVec2 TextSize = ImGui::CalcTextSize(Line.c_str());
-			const float X = NodePos.x + (ScaledNodeSize.x - TextSize.x * Zoom) * 0.5f;
+			const float X = NodePos.x + (ScaledNodeSize.x - TextSize.x * EffectiveTextScale) * 0.5f;
 			DrawList->AddText(Font, FontSize, ImVec2(X, Y), LineIndex == 0 ? PrimaryColor : SecondaryColor, Line.c_str());
 			Y += LineHeight + LineGap;
 		}
@@ -1434,8 +1437,9 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 		DrawList->AddLine(ImVec2(CanvasPos.x, Y), ImVec2(CanvasMax.x, Y), IM_COL32(42, 45, 52, 255));
 	}
 
-	constexpr float BodyNodeWidth = 128.0f;
-	constexpr float ConstraintNodeWidth = 132.0f;
+	constexpr float GraphNodeTextScale = 0.5f;
+	constexpr float BodyNodeWidth = 64.0f;
+	constexpr float ConstraintNodeWidth = 66.0f;
 	TMap<FString, ImVec2> NodeCenters;
 	TMap<FString, FPhysicsGraphNodeVisual> NodeVisuals;
 	bool bAnyGraphNodeHovered = false;
@@ -1451,7 +1455,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 
 		const FString BoneName = BodySetup->GetBoneName().ToString();
 		const FString NodeKey = MakeScopedBodyNodeKey(BodySetup);
-		const FPhysicsGraphNodeVisual NodeVisual = MakePhysicsGraphNodeVisual(BoneName, "Body", BodyNodeWidth, 42.0f);
+		const FPhysicsGraphNodeVisual NodeVisual = MakePhysicsGraphNodeVisual(BoneName, "Body", BodyNodeWidth, 21.0f, GraphNodeTextScale);
 		NodeVisuals[NodeKey] = NodeVisual;
 		if (PhysicsGraphNodePositions.find(NodeKey) == PhysicsGraphNodePositions.end())
 		{
@@ -1488,7 +1492,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 		}
 
 		const FString ConstraintNodeKey = MakeScopedConstraintNodeKey(ConstraintIndex);
-		const FPhysicsGraphNodeVisual ConstraintVisual = MakePhysicsGraphNodeVisual("Constraint", ParentName + " -> " + ChildName, ConstraintNodeWidth, 46.0f);
+		const FPhysicsGraphNodeVisual ConstraintVisual = MakePhysicsGraphNodeVisual("Constraint", ParentName + " -> " + ChildName, ConstraintNodeWidth, 23.0f, GraphNodeTextScale);
 		const ImVec2 Mid((ParentIt->second.x + ChildIt->second.x) * 0.5f, (ParentIt->second.y + ChildIt->second.y) * 0.5f);
 		if (PhysicsGraphNodePositions.find(ConstraintNodeKey) == PhysicsGraphNodePositions.end())
 		{
@@ -1566,7 +1570,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 		DrawList->AddRectFilled(ConstraintNodePos, ConstraintNodeMax, IM_COL32(144, 161, 83, 245), 4.0f);
 		DrawList->AddRect(ConstraintNodePos, ConstraintNodeMax,
 			ConstraintIndex == SelectedConstraintIndex ? IM_COL32(220, 235, 150, 255) : IM_COL32(185, 196, 130, 255), 4.0f);
-		DrawCenteredPhysicsGraphText(DrawList, ConstraintNodePos, ConstraintVisual, PhysicsGraphZoom, IM_COL32(245, 248, 230, 255), IM_COL32(218, 226, 186, 255));
+		DrawCenteredPhysicsGraphText(DrawList, ConstraintNodePos, ConstraintVisual, PhysicsGraphZoom, GraphNodeTextScale, IM_COL32(245, 248, 230, 255), IM_COL32(218, 226, 186, 255));
 		ImGui::PopID();
 	}
 
@@ -1581,7 +1585,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 		auto VisualIt = NodeVisuals.find(NodeKey);
 		const FPhysicsGraphNodeVisual NodeVisual = VisualIt != NodeVisuals.end()
 			? VisualIt->second
-			: MakePhysicsGraphNodeVisual(BodySetup->GetBoneName().ToString(), "Body", BodyNodeWidth, 42.0f);
+			: MakePhysicsGraphNodeVisual(BodySetup->GetBoneName().ToString(), "Body", BodyNodeWidth, 21.0f, GraphNodeTextScale);
 		FPhysicsGraphNodePosition& Position = PhysicsGraphNodePositions[NodeKey];
 		const ImVec2 NodePos = GraphToScreen(ImVec2(Position.X, Position.Y));
 		const ImVec2 NodeSize = GraphSizeToScreen(NodeVisual.Size);
@@ -1660,7 +1664,7 @@ void FMeshEditorWidget::RenderPhysicsAssetGraph(USkeletalMesh* SkeletalMesh, UPh
 
 		DrawList->AddRectFilled(NodePos, NodeMax, NodeColor, 4.0f);
 		DrawList->AddRect(NodePos, NodeMax, BorderColor, 4.0f);
-		DrawCenteredPhysicsGraphText(DrawList, NodePos, NodeVisual, PhysicsGraphZoom, IM_COL32(238, 240, 244, 255), IM_COL32(190, 196, 205, 255));
+		DrawCenteredPhysicsGraphText(DrawList, NodePos, NodeVisual, PhysicsGraphZoom, GraphNodeTextScale, IM_COL32(238, 240, 244, 255), IM_COL32(190, 196, 205, 255));
 		ImGui::PopID();
 	}
 
