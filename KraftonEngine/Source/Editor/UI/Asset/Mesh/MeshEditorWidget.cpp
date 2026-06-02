@@ -48,6 +48,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 
 // Paths.h가 끌어오는 Windows.h는 GetCurrentTime을 GetTickCount로 치환한다.
 #ifdef GetCurrentTime
@@ -68,6 +69,99 @@ namespace
 		const FString Path = FPaths::ToUtf8(
 			FPaths::Combine(FPaths::AssetDir(), L"Editor/Icons/", FileName));
 		return FEditorTextureManager::Get().GetOrLoadIcon(Path);
+	}
+
+	bool IsSameProjectPath(const FString& A, const FString& B)
+	{
+		return FPaths::MakeProjectRelative(A) == FPaths::MakeProjectRelative(B);
+	}
+
+	bool ProjectRegularFileExists(const FString& Path)
+	{
+		std::filesystem::path FullPath(FPaths::ToWide(Path));
+		if (!FullPath.is_absolute())
+		{
+			FullPath = std::filesystem::path(FPaths::RootDir()) / FullPath;
+		}
+
+		return std::filesystem::exists(FullPath) && std::filesystem::is_regular_file(FullPath);
+	}
+
+	FString GetExpectedSkeletalMeshPathForPhysicsAsset(const FString& PhysicsAssetPath)
+	{
+		std::filesystem::path MeshPath(FPaths::ToWide(FPaths::MakeProjectRelative(PhysicsAssetPath)));
+		std::wstring Stem = MeshPath.stem().wstring();
+		static constexpr const wchar_t* PhysicsAssetSuffix = L"_PhysicsAsset";
+
+		// Importer가 만든 기본 짝 이름: Foo_PhysicsAsset.uasset -> Foo_SkeletalMesh.uasset.
+		if (Stem.size() >= std::char_traits<wchar_t>::length(PhysicsAssetSuffix)
+			&& Stem.compare(
+				Stem.size() - std::char_traits<wchar_t>::length(PhysicsAssetSuffix),
+				std::char_traits<wchar_t>::length(PhysicsAssetSuffix),
+				PhysicsAssetSuffix) == 0)
+		{
+			Stem.resize(Stem.size() - std::char_traits<wchar_t>::length(PhysicsAssetSuffix));
+		}
+
+		MeshPath.replace_filename(Stem + L"_SkeletalMesh.uasset");
+		return FPaths::ToUtf8(MeshPath.generic_wstring());
+	}
+
+	bool DoesMeshReferencePhysicsAsset(USkeletalMesh* Mesh, const FString& PhysicsAssetPath)
+	{
+		if (!Mesh)
+		{
+			return false;
+		}
+
+		if (IsSameProjectPath(Mesh->GetPhysicsAssetPath(), PhysicsAssetPath))
+		{
+			return true;
+		}
+
+		UPhysicsAsset* MeshPhysicsAsset = Mesh->GetPhysicsAsset();
+		return MeshPhysicsAsset && IsSameProjectPath(MeshPhysicsAsset->GetAssetPathFileName(), PhysicsAssetPath);
+	}
+
+	USkeletalMesh* ResolveSkeletalMeshForPhysicsAsset(UPhysicsAsset* PhysicsAsset, ID3D11Device* Device)
+	{
+		if (!PhysicsAsset || !Device)
+		{
+			return nullptr;
+		}
+
+		const FString PhysicsAssetPath = FPaths::MakeProjectRelative(PhysicsAsset->GetAssetPathFileName());
+		if (PhysicsAssetPath.empty() || PhysicsAssetPath == "None")
+		{
+			return nullptr;
+		}
+
+		// 대부분의 auto-generated PhysicsAsset은 같은 디렉터리의 SkeletalMesh와 이름으로 짝지어진다.
+		const FString ExpectedMeshPath = GetExpectedSkeletalMeshPathForPhysicsAsset(PhysicsAssetPath);
+		if (ProjectRegularFileExists(ExpectedMeshPath) && FMeshManager::IsSkeletalMeshPackage(ExpectedMeshPath))
+		{
+			if (USkeletalMesh* Mesh = FMeshManager::LoadSkeletalMesh(ExpectedMeshPath, Device))
+			{
+				if (!DoesMeshReferencePhysicsAsset(Mesh, PhysicsAssetPath))
+				{
+					Mesh->SetPhysicsAsset(PhysicsAsset);
+				}
+				return Mesh;
+			}
+		}
+
+		// 이름 규칙이 깨진 경우에는 로드 가능한 SkeletalMesh 중 PhysicsAsset 참조가 일치하는 것을 찾는다.
+		FMeshManager::ScanMeshAssets();
+		for (const FAssetListItem& Item : FMeshManager::GetAvailableSkeletalMeshFiles())
+		{
+			USkeletalMesh* Mesh = FMeshManager::LoadSkeletalMesh(Item.FullPath, Device);
+			if (DoesMeshReferencePhysicsAsset(Mesh, PhysicsAssetPath))
+			{
+				return Mesh;
+			}
+		}
+
+		return nullptr;
 	}
 
 	FKShapeElem* GetFirstPhysicsShapeElem(UBodySetup* BodySetup, const char** OutShapeType = nullptr)
@@ -565,7 +659,7 @@ FMeshEditorWidget::FMeshEditorWidget()
 
 bool FMeshEditorWidget::CanEdit(UObject* Object) const
 {
-	return Object && Object->IsA<USkeletalMesh>();
+	return Object && (Object->IsA<USkeletalMesh>() || Object->IsA<UPhysicsAsset>());
 }
 
 bool FMeshEditorWidget::IsEditingObject(UObject* Object) const
@@ -577,7 +671,20 @@ bool FMeshEditorWidget::IsEditingObject(UObject* Object) const
 
 	const USkeletalMesh* CurrentMesh = Cast<USkeletalMesh>(EditedObject);
 	const USkeletalMesh* RequestedMesh = Cast<USkeletalMesh>(Object);
-	if (!IsOpen() || !CurrentMesh || !RequestedMesh)
+	if (!IsOpen() || !CurrentMesh)
+	{
+		return false;
+	}
+
+	const UPhysicsAsset* RequestedPhysicsAsset = Cast<UPhysicsAsset>(Object);
+	if (RequestedPhysicsAsset)
+	{
+		return DoesMeshReferencePhysicsAsset(
+			const_cast<USkeletalMesh*>(CurrentMesh),
+			RequestedPhysicsAsset->GetAssetPathFileName());
+	}
+
+	if (!RequestedMesh)
 	{
 		return false;
 	}
@@ -590,6 +697,21 @@ bool FMeshEditorWidget::IsEditingObject(UObject* Object) const
 
 void FMeshEditorWidget::Open(UObject* Object)
 {
+	bool bOpenPhysicalAssetTab = false;
+	if (UPhysicsAsset* PhysicsAsset = Cast<UPhysicsAsset>(Object))
+	{
+		// Physical Asset 편집 UI는 SkeletalMesh 프리뷰/본 계층을 필요로 하므로 연결된 Mesh를 연다.
+		Object = ResolveSkeletalMeshForPhysicsAsset(
+			PhysicsAsset,
+			GEngine->GetRenderer().GetFD3DDevice().GetDevice());
+		bOpenPhysicalAssetTab = Object != nullptr;
+	}
+
+	if (!Object)
+	{
+		return;
+	}
+
 	FAssetEditorWidget::Open(Object);
 
 	FWorldContext& WorldContext = GEngine->CreateWorldContext(EWorldType::EditorPreview, PreviewWorldHandle);
@@ -655,13 +777,23 @@ void FMeshEditorWidget::Open(UObject* Object)
 	// 디스크의 기존 AnimSequence .uasset 들을 목록에 채워 둔다(런타임 Load/Save 만으론 안 잡힘).
 	FAnimationManager::Get().RefreshAvailableAnimations();
 
-	ActiveTab = EMeshEditorTab::Skeleton;
+	ActiveTab = bOpenPhysicalAssetTab ? EMeshEditorTab::PhysicalAsset : EMeshEditorTab::Skeleton;
 	AnimTabState = FAnimationTabState{};
 	SelectedBoneIndex = -1;
 	SelectedBodySetup = nullptr;
 	PhysicsGraphFocusBodySetup = nullptr;
 	SelectedConstraintIndex = -1;
 	PhysicsGraphNodePositions.clear();
+}
+
+void FMeshEditorWidget::FocusObject(UObject* Object)
+{
+	if (Object && Object->IsA<UPhysicsAsset>())
+	{
+		// 같은 Mesh editor가 이미 열려 있으면 PhysicsAsset 탭만 앞으로 가져온다.
+		ActiveTab = EMeshEditorTab::PhysicalAsset;
+	}
+	RequestFocus();
 }
 
 void FMeshEditorWidget::Close()

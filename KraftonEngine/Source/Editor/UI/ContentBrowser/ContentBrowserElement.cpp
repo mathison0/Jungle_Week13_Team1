@@ -22,6 +22,8 @@
 #include "Animation/Skeleton/SkeletonManager.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemManager.h"
+#include "Physics/PhysicsAsset.h"
+#include "Physics/PhysicsAssetManager.h"
 #include "Physics/PhysicsMaterial/PhysicalMaterial.h"
 #include "Physics/PhysicsMaterial/PhysicalMaterialManager.h"
 #include "Asset/AssetRegistry.h"
@@ -846,6 +848,24 @@ void PhysicalMaterialElement::OnDoubleLeftClicked(ContentBrowserContext& Context
 	if (UPhysicalMaterial* Material = FPhysicalMaterialManager::Get().Load(FilePath))
 	{
 		Context.EditorEngine->OpenAssetEditorForObject(Material);
+	}
+}
+
+void PhysicsAssetElement::OnDoubleLeftClicked(ContentBrowserContext& Context)
+{
+	if (!Context.EditorEngine)
+	{
+		return;
+	}
+
+	const FString PackagePath = FPaths::ToUtf8(
+		ContentItem.Path.lexically_relative(FPaths::RootDir()).generic_wstring()
+	);
+
+	// PhysicsAsset 자체를 로드한 뒤, 에디터 매니저가 적절한 편집 컨텍스트를 찾게 한다.
+	if (UPhysicsAsset* PhysicsAsset = FPhysicsAssetManager::Get().Load(PackagePath))
+	{
+		Context.EditorEngine->OpenAssetEditorForObject(PhysicsAsset);
 	}
 }
 

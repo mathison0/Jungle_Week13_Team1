@@ -14,6 +14,8 @@ public:
 	virtual void Open(UObject* Object);
 	virtual void Close();
 	virtual void Tick(float DeltaTime) {}
+	// 기존 에디터 재사용 시 PhysicsAsset 요청이면 PhysicalAsset 탭으로 전환하기 위한 hook.
+	virtual void FocusObject(UObject* Object) { (void)Object; RequestFocus(); }
 
 	virtual void CollectPreviewViewports(TArray<IEditorPreviewViewportClient*>& OutClients) const {}
 

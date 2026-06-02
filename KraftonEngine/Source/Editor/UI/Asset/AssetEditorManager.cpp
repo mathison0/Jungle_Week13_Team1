@@ -46,7 +46,7 @@ bool FAssetEditorManager::OpenEditorForObject(UObject* Object)
 	{
 		if (Editor && Editor->IsEditingObject(Object))
 		{
-			Editor->RequestFocus();
+			Editor->FocusObject(Object);
 			return true;
 		}
 	}

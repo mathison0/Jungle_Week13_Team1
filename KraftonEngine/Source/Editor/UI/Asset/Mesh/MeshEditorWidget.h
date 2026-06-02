@@ -60,6 +60,7 @@ public:
 	bool IsEditingObject(UObject* Object) const override;
 
 	void Open(UObject* Object) override;
+	void FocusObject(UObject* Object) override;
 	void Close() override;
 	void Tick(float DeltaTime) override;
 
