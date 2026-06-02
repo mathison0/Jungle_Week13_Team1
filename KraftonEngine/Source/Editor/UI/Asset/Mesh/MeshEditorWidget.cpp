@@ -2107,7 +2107,8 @@ void FMeshEditorWidget::RenderPhysicalAssetLayout()
 
 				const FSkeletalMesh* MeshAsset = SkeletalMesh->GetSkeletalMeshAsset();
 				const FString SourcePath = MeshAsset ? MeshAsset->PathFileName : FString();
-				if (FPhysicsAssetManager::Get().Save(PhysAsset, SourcePath))
+				if (FPhysicsAssetManager::Get().Save(PhysAsset, SourcePath)
+					&& FMeshManager::SaveSkeletalMesh(SkeletalMesh))
 				{
 					ClearDirty();
 				}

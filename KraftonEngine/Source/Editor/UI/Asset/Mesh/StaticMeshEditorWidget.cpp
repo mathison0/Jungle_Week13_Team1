@@ -5,6 +5,7 @@
 #include "GameFramework/AActor.h"
 #include "GameFramework/Light/DirectionalLightActor.h"
 #include "GameFramework/Actor/StaticMeshActor.h"
+#include "Mesh/MeshManager.h"
 #include "Mesh/Static/StaticMesh.h"
 #include "Mesh/Static/StaticMeshAsset.h"
 #include "Runtime/Engine.h"
@@ -251,7 +252,7 @@ void FStaticMeshEditorWidget::Render(float DeltaTime)
 	ImGui::BeginChild("Details", ImVec2(DetailsWidth, 0), true);
 	ImGui::Text("Static Mesh Details");
 	ImGui::Separator();
-	RenderDetailsPanel(StaticMesh ? StaticMesh->GetStaticMeshAsset() : nullptr);
+	RenderDetailsPanel(StaticMesh);
 	ImGui::EndChild();
 
 	ImGui::End();
@@ -290,8 +291,9 @@ void FStaticMeshEditorWidget::RenderMeshStatsOverlay(ImDrawList* DrawList, const
 	DrawList->AddText(TextPos, IM_COL32(235, 238, 242, 255), Text.c_str());
 }
 
-void FStaticMeshEditorWidget::RenderDetailsPanel(FStaticMesh* Asset) const
+void FStaticMeshEditorWidget::RenderDetailsPanel(UStaticMesh* StaticMesh)
 {
+	FStaticMesh* Asset = StaticMesh ? StaticMesh->GetStaticMeshAsset() : nullptr;
 	if (!Asset)
 	{
 		ImGui::TextDisabled("No static mesh data.");
@@ -302,4 +304,56 @@ void FStaticMeshEditorWidget::RenderDetailsPanel(FStaticMesh* Asset) const
 	ImGui::Text("Indices: %s", FormatStaticMeshStatCount(Asset->Indices.size()).c_str());
 	ImGui::Text("Triangles: %s", FormatStaticMeshStatCount(Asset->Indices.size() / 3).c_str());
 	ImGui::Text("Sections: %s", FormatStaticMeshStatCount(Asset->Sections.size()).c_str());
+
+	ImGui::Spacing();
+	ImGui::SeparatorText("Collision");
+	ImGui::Text("Triangle Mesh: %s", StaticMesh->IsTriangleMeshCollisionEnabled() ? "Enabled" : "Disabled");
+
+	if (!StaticMesh->IsTriangleMeshCollisionEnabled())
+	{
+		// 렌더 메시를 import하는 것만으로는 BodySetup을 만들지 않는다.
+		// 이 버튼을 누른 에셋만 PhysX triangle mesh binary를 cook하여 package에 저장한다.
+		if (ImGui::Button("Build Triangle Collision", ImVec2(-1.0f, 0.0f)))
+		{
+			StaticMesh->SetTriangleMeshCollisionEnabled(true);
+			if (!FMeshManager::SaveStaticMesh(StaticMesh))
+			{
+				MarkDirty();
+			}
+			else
+			{
+				ClearDirty();
+			}
+		}
+	}
+	else
+	{
+		// 원본 변경은 reimport가 자동으로 처리하지만, 에디터에서도 필요할 때 같은 데이터를 명시적으로 다시 cook할 수 있다.
+		if (ImGui::Button("Rebuild Triangle Collision", ImVec2(-1.0f, 0.0f)))
+		{
+			if (!FMeshManager::SaveStaticMesh(StaticMesh))
+			{
+				MarkDirty();
+			}
+			else
+			{
+				ClearDirty();
+			}
+		}
+
+		// collision을 제거하면 UStaticMesh가 BodySetup도 함께 제거한다.
+		// 저장 후에는 이 렌더 메시가 physics 데이터를 소유하지 않는다.
+		if (ImGui::Button("Remove Triangle Collision", ImVec2(-1.0f, 0.0f)))
+		{
+			StaticMesh->SetTriangleMeshCollisionEnabled(false);
+			if (!FMeshManager::SaveStaticMesh(StaticMesh))
+			{
+				MarkDirty();
+			}
+			else
+			{
+				ClearDirty();
+			}
+		}
+	}
 }

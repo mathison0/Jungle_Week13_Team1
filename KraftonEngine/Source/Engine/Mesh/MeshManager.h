@@ -86,6 +86,8 @@ public:
 
 	static bool ReimportStaticMesh(const FString& BinaryPath, ID3D11Device* Device, UStaticMesh*& OutStaticMesh);
 	static bool ReimportSkeletalMesh(const FString& BinaryPath, ID3D11Device* Device, USkeletalMesh*& OutSkeletalMesh);
+	static bool SaveStaticMesh(UStaticMesh* StaticMesh);
+	static bool SaveSkeletalMesh(USkeletalMesh* SkeletalMesh);
 
 	static bool IsStaticMeshPackage(const FString& Path);
 	static bool IsSkeletalMeshPackage(const FString& Path);
