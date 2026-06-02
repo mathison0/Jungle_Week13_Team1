@@ -156,57 +156,50 @@ static void AddSolidTriangle(TArray<FVertex>& Vertices, TArray<uint32>& Indices,
 	Indices.push_back(BaseIndex + 2);
 }
 
-// 입력된 축(InAxis)을 기준으로 직교하는 세 개의 축(TangentA, TangentB, Axis) 기저(Basis)를 생성합니다.
-static void MakeBasisFromAxis(const FVector& InAxis, FVector& OutAxis, FVector& OutTangentA, FVector& OutTangentB)
+// Swing1(Z) / Swing2(Y)를 함께 반영하는 타원 cone 형태의 가동 범위를 시각화합니다.
+static void BuildConstraintSwingCone(TArray<FVertex>& Vertices, TArray<uint32>& Indices,
+	const FVector& Center, const FVector& AxisX, const FVector& AxisY, const FVector& AxisZ,
+	float ConeLength, float Swing1LimitDegrees, float Swing2LimitDegrees, const FVector4& ConeColor, const FVector4& ArcColor)
 {
-	OutAxis = InAxis;
-	if (OutAxis.IsNearlyZero())
-	{
-		OutAxis = FVector::XAxisVector;
-	}
-	OutAxis.Normalize();
+	if (ConeLength <= 0.0f || (Swing1LimitDegrees <= 0.0f && Swing2LimitDegrees <= 0.0f)) return;
 
-	// Gimbal Lock 방지를 위한 Up 벡터 힌트 결정
-	const FVector UpHint = std::fabs(OutAxis.Z) > 0.9f ? FVector::YAxisVector : FVector::ZAxisVector;
-	OutTangentA = UpHint.Cross(OutAxis);
-	if (OutTangentA.IsNearlyZero())
-	{
-		OutTangentA = FVector::XAxisVector;
-	}
-	OutTangentA.Normalize();
-	OutTangentB = OutAxis.Cross(OutTangentA);
-	OutTangentB.Normalize();
-}
-
-// 물리 제약 조건(Physics Constraint) 중 Swing1(원뿔 형태의 가동 범위)을 시각화합니다.
-static void BuildConstraintConeAndArc(TArray<FVertex>& Vertices, TArray<uint32>& Indices,
-	const FVector& Center, const FVector& ConeAxis,
-	float ConeLength, float LimitDegrees, const FVector4& ConeColor, const FVector4& ArcColor)
-{
-	if (ConeLength <= 0.0f || LimitDegrees <= 0.0f) return;
-
-	const float LimitRadians = FMath::Clamp(LimitDegrees, 0.0f, 89.0f) * FMath::Pi / 180.0f;
-	const float BaseRadius = std::max(0.002f, tanf(LimitRadians) * ConeLength);
+	const float Swing1Radians = FMath::Clamp(Swing1LimitDegrees, 0.0f, 89.0f) * FMath::Pi / 180.0f;
+	const float Swing2Radians = FMath::Clamp(Swing2LimitDegrees, 0.0f, 89.0f) * FMath::Pi / 180.0f;
+	const float Swing1Tan = tanf(Swing1Radians);
+	const float Swing2Tan = tanf(Swing2Radians);
 	const float ArcWidth = std::max(0.004f, ConeLength * 0.035f);
 	constexpr int32 Segments = 36;
 
-	FVector Axis, TangentA, TangentB;
-	MakeBasisFromAxis(ConeAxis, Axis, TangentA, TangentB);
+	FVector TwistAxis = AxisX;
+	FVector Swing2Axis = AxisY;
+	FVector Swing1Axis = AxisZ;
+	TwistAxis.Normalize();
+	Swing2Axis.Normalize();
+	Swing1Axis.Normalize();
 
-	const FVector BaseCenter = Center + Axis * ConeLength;
-	FVector PrevInner = BaseCenter + TangentA * BaseRadius;
-	FVector PrevOuter = BaseCenter + TangentA * (BaseRadius + ArcWidth);
+	auto MakeConePoint = [&](float Angle, float Length)
+	{
+		FVector Direction = TwistAxis
+			+ Swing2Axis * (cosf(Angle) * Swing2Tan)
+			+ Swing1Axis * (sinf(Angle) * Swing1Tan);
+		if (Direction.IsNearlyZero())
+		{
+			Direction = TwistAxis;
+		}
+		Direction.Normalize();
+		return Center + Direction * Length;
+	};
+
+	FVector PrevInner = MakeConePoint(0.0f, ConeLength);
+	FVector PrevOuter = MakeConePoint(0.0f, ConeLength + ArcWidth);
 
 	for (int32 Segment = 1; Segment <= Segments; ++Segment)
 	{
 		const float Angle = 2.0f * FMath::Pi * static_cast<float>(Segment) / static_cast<float>(Segments);
-		const FVector RingDirection = TangentA * cosf(Angle) + TangentB * sinf(Angle);
-		const FVector NextInner = BaseCenter + RingDirection * BaseRadius;
-		const FVector NextOuter = BaseCenter + RingDirection * (BaseRadius + ArcWidth);
+		const FVector NextInner = MakeConePoint(Angle, ConeLength);
+		const FVector NextOuter = MakeConePoint(Angle, ConeLength + ArcWidth);
 
-		// 원뿔 본체 렌더링
 		AddSolidTriangle(Vertices, Indices, Center, PrevInner, NextInner, ConeColor);
-		// 원뿔 끝의 테두리(Arc) 렌더링
 		AddSolidTriangle(Vertices, Indices, PrevInner, PrevOuter, NextInner, ArcColor);
 		AddSolidTriangle(Vertices, Indices, NextInner, PrevOuter, NextOuter, ArcColor);
 		PrevInner = NextInner;
@@ -233,34 +226,6 @@ static void BuildConstraintSolidSector(TArray<FVertex>& Vertices, TArray<uint32>
 
 		AddSolidTriangle(Vertices, Indices, Center, Prev, Next, Color);
 		Prev = Next;
-	}
-}
-
-// 물리 제약 조건 중 Twist(비틀림 가동 범위를 나타내는 둥근 띠)를 시각화합니다.
-static void BuildConstraintTwistBand(TArray<FVertex>& Vertices, TArray<uint32>& Indices,
-	const FVector& Center, const FVector& AxisX, const FVector& AxisY, const FVector& AxisZ,
-	float Radius, float BandHalfWidth, float LimitDegrees, const FVector4& Color)
-{
-	if (Radius <= 0.0f || BandHalfWidth <= 0.0f || LimitDegrees <= 0.0f) return;
-
-	const float LimitRadians = FMath::Clamp(LimitDegrees, 0.0f, 180.0f) * FMath::Pi / 180.0f;
-	constexpr int32 Segments = 28;
-	FVector PrevInner = Center - AxisX * BandHalfWidth + (AxisY * cosf(-LimitRadians) + AxisZ * sinf(-LimitRadians)) * Radius;
-	FVector PrevOuter = Center + AxisX * BandHalfWidth + (AxisY * cosf(-LimitRadians) + AxisZ * sinf(-LimitRadians)) * Radius;
-
-	for (int32 Segment = 1; Segment <= Segments; ++Segment)
-	{
-		const float Alpha = static_cast<float>(Segment) / static_cast<float>(Segments);
-		const float Angle = -LimitRadians + LimitRadians * 2.0f * Alpha;
-		const FVector Arc = (AxisY * cosf(Angle) + AxisZ * sinf(Angle)) * Radius;
-		const FVector NextInner = Center - AxisX * BandHalfWidth + Arc;
-		const FVector NextOuter = Center + AxisX * BandHalfWidth + Arc;
-
-		// 띠(Band)의 양면을 삼각형 2개로 렌더링
-		AddSolidTriangle(Vertices, Indices, PrevInner, NextInner, PrevOuter, Color);
-		AddSolidTriangle(Vertices, Indices, PrevOuter, NextInner, NextOuter, Color);
-		PrevInner = NextInner;
-		PrevOuter = NextOuter;
 	}
 }
 
@@ -677,10 +642,9 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 	}
 
 	// 2. 제약 조건(Constraints - Joint Limits) 렌더링을 위한 색상 정의
-	const FVector4 Swing1ConeColor(1.0f, 0.08f, 0.05f, 0.26f); // Red Cone
-	const FVector4 Swing1ArcColor(1.0f, 0.08f, 0.05f, 0.58f);  // Red Arc
-	const FVector4 Swing2ArcColor(0.05f, 0.9f, 0.18f, 0.58f);  // Green Arc
-	const FVector4 TwistColor(0.10f, 0.34f, 1.0f, 0.62f);      // Blue Band
+	const FVector4 SwingConeColor(1.0f, 0.08f, 0.05f, 0.26f); // Swing1/2 Red Cone
+	const FVector4 SwingArcColor(1.0f, 0.08f, 0.05f, 0.58f);
+	const FVector4 TwistSectorColor(0.05f, 0.9f, 0.18f, 0.50f); // Twist Green Sector
 
 	for (int32 ConstraintIndex = 0; ConstraintIndex < static_cast<int32>(PhysicsAsset->ConstraintSetups.size()); ++ConstraintIndex)
 	{
@@ -709,32 +673,25 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 
 		// 에디터에서 선택된 제약조건은 살짝 크게 렌더링하여 강조
 		const float Radius = AutoRadius * 0.3f * (ConstraintIndex == SelectedConstraintIndex ? 1.15f : 1.0f);
-		const float BandHalfWidth = std::max(0.01f, Radius * 0.08f);
 
 		if (bDrawSolid)
 		{
 			const float Swing1Degrees = GetConstraintVisualLimitDegrees(
 				Constraint.Option.Swing1Motion, Constraint.Option.Swing1LimitDegrees, 89.0f);
 			const float Swing2Degrees = GetConstraintVisualLimitDegrees(
-				Constraint.Option.Swing2Motion, Constraint.Option.Swing2LimitDegrees, 180.0f);
+				Constraint.Option.Swing2Motion, Constraint.Option.Swing2LimitDegrees, 89.0f);
 			const float TwistDegrees = GetConstraintVisualLimitDegrees(
 				Constraint.Option.TwistMotion, Constraint.Option.TwistLimitDegrees, 180.0f);
 
-			// 각 모션 타입(Swing1, Swing2, Twist)이 제한(Limited) 또는 자유(Free) 상태일 때 시각화 도형 렌더링
-			if (Swing1Degrees > 0.0f)
+			if (Swing1Degrees > 0.0f || Swing2Degrees > 0.0f)
 			{
-				BuildConstraintConeAndArc(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
-					Center, AxisZ, Radius, Swing1Degrees, Swing1ConeColor, Swing1ArcColor);
-			}
-			if (Swing2Degrees > 0.0f)
-			{
-				BuildConstraintSolidSector(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
-					Center, AxisX, AxisZ, Radius * 0.92f, Swing2Degrees, Swing2ArcColor);
+				BuildConstraintSwingCone(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
+					Center, AxisX, AxisY, AxisZ, Radius, Swing1Degrees, Swing2Degrees, SwingConeColor, SwingArcColor);
 			}
 			if (TwistDegrees > 0.0f)
 			{
-				BuildConstraintTwistBand(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
-					Center, AxisX, AxisY, AxisZ, Radius * 0.72f, BandHalfWidth, TwistDegrees, TwistColor);
+				BuildConstraintSolidSector(CachedPhysicsConstraintSolidVertices, CachedPhysicsConstraintSolidIndices,
+					Center, AxisY, AxisZ, Radius * 0.86f, TwistDegrees, TwistSectorColor);
 			}
 		}
 
