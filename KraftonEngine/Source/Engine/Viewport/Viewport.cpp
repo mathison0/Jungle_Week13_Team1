@@ -26,7 +26,10 @@ void FViewport::Release()
 
 void FViewport::Resize(uint32 InWidth, uint32 InHeight)
 {
-	if (InWidth == 0 || InHeight == 0) return;
+	// 음수 패널 크기가 호출부 static_cast<uint32>에서 거대값으로 래핑돼 들어올 수 있다.
+	// 0이거나 D3D 최대 텍스처 변(16384) 초과면 무효 dimension이므로 무시한다(CreateTexture2D 무효 dimension 에러 방지).
+	constexpr uint32 MaxTextureDimension = 16384;
+	if (InWidth == 0 || InHeight == 0 || InWidth > MaxTextureDimension || InHeight > MaxTextureDimension) return;
 	if (InWidth == Width && InHeight == Height) return;
 
 	Width = InWidth;
@@ -38,7 +41,8 @@ void FViewport::Resize(uint32 InWidth, uint32 InHeight)
 
 void FViewport::RequestResize(uint32 InWidth, uint32 InHeight)
 {
-	if (InWidth == 0 || InHeight == 0) return;
+	constexpr uint32 MaxTextureDimension = 16384;
+	if (InWidth == 0 || InHeight == 0 || InWidth > MaxTextureDimension || InHeight > MaxTextureDimension) return;
 	if (InWidth == Width && InHeight == Height)
 	{
 		bPendingResize = false;
