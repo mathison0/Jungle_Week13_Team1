@@ -27,9 +27,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <utility>
 
 namespace
 {
+    constexpr float MinRagdollVelocitySampleDeltaTime = 1.0e-4f;
+    constexpr float MaxRagdollInitialLinearSpeed = 500.0f;
+    constexpr float MaxRagdollInitialAngularSpeed = 500.0f;
+
     bool IsScaleNearlyEqual(const FVector& A, const FVector& B, float Tolerance = 1.0e-4f)
     {
         return std::fabs(A.X - B.X) <= Tolerance
@@ -52,6 +57,48 @@ namespace
         Result.Rotation = FQuat::Slerp(A.Rotation.GetNormalized(), B.Rotation.GetNormalized(), Alpha).GetNormalized();
         Result.Scale = A.Scale + (B.Scale - A.Scale) * Alpha;
         return Result;
+    }
+
+    FVector ClampVectorLength(const FVector& Vector, float MaxLength)
+    {
+        const float LengthSq = Vector.Dot(Vector);
+        if (LengthSq <= MaxLength * MaxLength)
+        {
+            return Vector;
+        }
+
+        const float Length = std::sqrt(LengthSq);
+        if (Length <= 1.0e-6f)
+        {
+            return FVector::ZeroVector;
+        }
+
+        return Vector * (MaxLength / Length);
+    }
+
+    FVector ComputeAngularVelocity(const FQuat& PreviousRotation, const FQuat& CurrentRotation, float DeltaTime)
+    {
+        // 프레임 간 회전 차이를 PhysX angular velocity로 변환한다.
+        // 부호 반전은 Slerp와 같은 규칙으로 quaternion 최단 회전 경로를 고른다.
+        FQuat Delta = (CurrentRotation.GetNormalized() * PreviousRotation.GetNormalized().Inverse()).GetNormalized();
+        if (Delta.W < 0.0f)
+        {
+            Delta.X = -Delta.X;
+            Delta.Y = -Delta.Y;
+            Delta.Z = -Delta.Z;
+            Delta.W = -Delta.W;
+        }
+
+        const float W = std::clamp(Delta.W, -1.0f, 1.0f);
+        const float Angle = 2.0f * std::acos(W);
+        const float SinHalf = std::sqrt((std::max)(0.0f, 1.0f - W * W));
+        if (Angle <= 1.0e-5f || SinHalf <= 1.0e-5f)
+        {
+            return FVector::ZeroVector;
+        }
+
+        const FVector Axis(Delta.X / SinHalf, Delta.Y / SinHalf, Delta.Z / SinHalf);
+        return ClampVectorLength(Axis * (Angle / DeltaTime), MaxRagdollInitialAngularSpeed);
     }
 }
 
@@ -108,6 +155,10 @@ void USkeletalMeshComponent::EndPlay()
     bRagdollSimulating = false;
     ResetRagdollBlendToPhysics();
     ResetRagdollBlendToAnimation();
+    PreviousRagdollVelocityWorldPose.clear();
+    CurrentRagdollVelocityWorldPose.clear();
+    RagdollVelocitySampleDeltaTime = 0.0f;
+    bHasRagdollVelocitySample = false;
 
     Super::EndPlay();
 }
@@ -125,6 +176,10 @@ void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InMesh)
     ResetRagdollBlendToAnimation();
     // Mesh 가 바뀌면 이전 AnimInstance 가 가리키던 본 인덱스/카운트가 무의미해진다.
     // 새 SkeletalMesh 기준으로 AnimInstance 를 재인스턴스화한다.
+    PreviousRagdollVelocityWorldPose.clear();
+    CurrentRagdollVelocityWorldPose.clear();
+    RagdollVelocitySampleDeltaTime = 0.0f;
+    bHasRagdollVelocitySample = false;
     InitializeAnimation();
 }
 
@@ -182,6 +237,87 @@ void USkeletalMeshComponent::RecreatePhysicsAssetBodiesIfScaleChanged()
 
     bRagdollSimulating = bWasRagdollSimulating && !Bodies.empty();
     bRecreatingPhysicsAssetForScaleChange = false;
+}
+
+void USkeletalMeshComponent::CaptureRagdollVelocityPose(float DeltaTime)
+{
+    // 랙돌 진입 속도 샘플은 animation이 만든 pose일 때만 의미가 있다.
+    // 랙돌이 켜진 뒤의 bone transform은 physics write-back 결과라 다시 속도 샘플로 쓰면 피드백이 생긴다.
+    if (bRagdollSimulating)
+    {
+        return;
+    }
+
+    USkeletalMesh* Mesh = GetSkeletalMesh();
+    FSkeletalMesh* Asset = Mesh ? Mesh->GetSkeletalMeshAsset() : nullptr;
+    if (!Asset || Asset->Bones.empty())
+    {
+        PreviousRagdollVelocityWorldPose.clear();
+        CurrentRagdollVelocityWorldPose.clear();
+        RagdollVelocitySampleDeltaTime = 0.0f;
+        bHasRagdollVelocitySample = false;
+        return;
+    }
+
+    TArray<FTransform> NewWorldPose;
+    NewWorldPose.resize(Asset->Bones.size());
+    for (int32 BoneIndex = 0; BoneIndex < static_cast<int32>(Asset->Bones.size()); ++BoneIndex)
+    {
+        FTransform BoneWorldTransform;
+        if (!GetBoneWorldTransformByIndex(BoneIndex, BoneWorldTransform))
+        {
+            PreviousRagdollVelocityWorldPose.clear();
+            CurrentRagdollVelocityWorldPose.clear();
+            RagdollVelocitySampleDeltaTime = 0.0f;
+            bHasRagdollVelocitySample = false;
+            return;
+        }
+        NewWorldPose[BoneIndex] = BoneWorldTransform;
+    }
+
+    // 본별 linear/angular velocity를 복원할 수 있도록 world pose 샘플을 직전/현재 2개만 유지한다.
+    PreviousRagdollVelocityWorldPose = std::move(CurrentRagdollVelocityWorldPose);
+    CurrentRagdollVelocityWorldPose = std::move(NewWorldPose);
+    RagdollVelocitySampleDeltaTime = (std::isfinite(DeltaTime) && DeltaTime > 0.0f) ? DeltaTime : 0.0f;
+    bHasRagdollVelocitySample =
+        PreviousRagdollVelocityWorldPose.size() == CurrentRagdollVelocityWorldPose.size() &&
+        RagdollVelocitySampleDeltaTime >= MinRagdollVelocitySampleDeltaTime;
+}
+
+void USkeletalMeshComponent::ApplyCachedRagdollVelocitiesToBodies()
+{
+    for (auto& Body : Bodies)
+    {
+        if (!Body || !Body->IsValidBodyInstance()) continue;
+
+        const int32 BoneIndex = Body->GetBoneIndex();
+        const bool bCanApplyBoneVelocity =
+            bHasRagdollVelocitySample &&
+            BoneIndex >= 0 &&
+            BoneIndex < static_cast<int32>(PreviousRagdollVelocityWorldPose.size()) &&
+            BoneIndex < static_cast<int32>(CurrentRagdollVelocityWorldPose.size());
+        if (!bCanApplyBoneVelocity)
+        {
+            // animation 샘플이 없거나 무효이면 이전 PhysX velocity가 남지 않도록 명시적으로 초기화한다.
+            Body->SetLinearVelocity(FVector::ZeroVector);
+            Body->SetAngularVelocity(FVector::ZeroVector);
+            continue;
+        }
+
+        const FTransform& Previous = PreviousRagdollVelocityWorldPose[BoneIndex];
+        const FTransform& Current = CurrentRagdollVelocityWorldPose[BoneIndex];
+        // world-space 본 이동량에는 actor 이동/root motion과 팔/다리 animation 관성이 함께 들어간다.
+        const FVector LinearVelocity = ClampVectorLength(
+            (Current.Location - Previous.Location) / RagdollVelocitySampleDeltaTime,
+            MaxRagdollInitialLinearSpeed);
+        const FVector AngularVelocity = ComputeAngularVelocity(
+            Previous.Rotation,
+            Current.Rotation,
+            RagdollVelocitySampleDeltaTime);
+
+        Body->SetLinearVelocity(LinearVelocity);
+        Body->SetAngularVelocity(AngularVelocity);
+    }
 }
 
 void USkeletalMeshComponent::PlayAnimation(UAnimSequenceBase* NewAnimToPlay, bool bLooping)
@@ -251,8 +387,10 @@ void USkeletalMeshComponent::SetSimulateRagdoll(bool bEnable)
         // blend를 넣어도 캐릭터가 한 프레임 튀어 보일 수 있다.
         BeginRagdollBlendToPhysics();
         ResetRagdollBlendToAnimation();
-        PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(this, true);
+        PhysicsScene->SyncPhysicsAssetBodiesToComponentPose(this, false);
         PhysicsScene->SetPhysicsAssetBodiesSimulate(this, true);
+        // PhysX는 kinematic actor에 velocity 쓰기를 거부하므로 body를 dynamic으로 바꾼 뒤 주입한다.
+        ApplyCachedRagdollVelocitiesToBodies();
         bRagdollSimulating = !Bodies.empty();
         if (!bRagdollSimulating)
         {
@@ -654,6 +792,7 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime, ELevelTick TickType,
     if (TickRagdollBlendToAnimation(DeltaTime))
     {
         UMeshComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
+        CaptureRagdollVelocityPose(DeltaTime);
         return;
     }
 
@@ -666,10 +805,12 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime, ELevelTick TickType,
     if (EvaluateAnimInstance(DeltaTime))
     {
         UMeshComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
+        CaptureRagdollVelocityPose(DeltaTime);
         return;
     }
 
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+    CaptureRagdollVelocityPose(DeltaTime);
 }
 
 // ──────────────────────────────────────────────

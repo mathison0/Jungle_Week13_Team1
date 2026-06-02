@@ -103,6 +103,8 @@ protected:
 private:
     void LoadAnimationFromPath();
     void RecreatePhysicsAssetBodiesIfScaleChanged();
+    void CaptureRagdollVelocityPose(float DeltaTime);
+    void ApplyCachedRagdollVelocitiesToBodies();
     // Animation -> Ragdoll 전환 순간의 현재 local pose를 저장한다.
     // 물리는 즉시 dynamic으로 돌지만, 렌더 포즈는 이 pose에서 physics pose로 짧게 따라간다.
     void BeginRagdollBlendToPhysics();
@@ -152,6 +154,11 @@ protected:
     TArray<FTransform> RagdollBlendToAnimationStartLocalPose;
     float RagdollBlendToAnimationElapsed = 0.0f;
     bool bRagdollBlendToAnimationActive = false;
+
+    TArray<FTransform> PreviousRagdollVelocityWorldPose;
+    TArray<FTransform> CurrentRagdollVelocityWorldPose;
+    float RagdollVelocitySampleDeltaTime = 0.0f;
+    bool bHasRagdollVelocitySample = false;
 
     FVector CachedPhysicsAssetRuntimeScale = FVector::OneVector;
     bool bHasCachedPhysicsAssetRuntimeScale = false;
