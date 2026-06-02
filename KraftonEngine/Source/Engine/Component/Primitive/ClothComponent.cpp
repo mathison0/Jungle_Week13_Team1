@@ -22,11 +22,6 @@ void UClothComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UE_LOG("[ClothDebug] BeginPlay component=%s simulate=%d collisionMode=%u",
-		GetName().c_str(),
-		bSimulateCloth ? 1 : 0,
-		static_cast<uint32>(CollisionMode));
-
 	ResolveMaterial();
 	RebuildCloth();
 	RegisterClothInstance();
@@ -183,10 +178,6 @@ void UClothComponent::RegisterClothInstance()
 {
 	if (ClothInstance || !bSimulateCloth)
 	{
-		UE_LOG("[ClothDebug] Register skipped component=%s hasInstance=%d simulate=%d",
-			GetName().c_str(),
-			ClothInstance ? 1 : 0,
-			bSimulateCloth ? 1 : 0);
 		return;
 	}
 
@@ -195,11 +186,6 @@ void UClothComponent::RegisterClothInstance()
 	FClothScene* ClothScene = World ? World->GetClothScene() : nullptr;
 	if (!ClothScene || !ClothMesh)
 	{
-		UE_LOG("[ClothDebug] Register blocked component=%s world=%p clothScene=%p clothMesh=%p",
-			GetName().c_str(),
-			World,
-			ClothScene,
-			ClothMesh.Get());
 		return;
 	}
 
@@ -222,14 +208,6 @@ void UClothComponent::RegisterClothInstance()
 	if (!ClothInstance)
 	{
 		UE_LOG("[Cloth] Failed to register cloth instance for component %s.", GetName().c_str());
-	}
-	else
-	{
-		UE_LOG("[ClothDebug] Registered component=%s instance=%p particles=%u collisionMode=%u",
-			GetName().c_str(),
-			ClothInstance,
-			static_cast<uint32>(ClothMesh->GetParticles().size()),
-			static_cast<uint32>(CollisionMode));
 	}
 }
 

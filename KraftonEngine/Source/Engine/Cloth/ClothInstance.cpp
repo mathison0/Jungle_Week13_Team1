@@ -244,21 +244,6 @@ void FClothInstance::SetCollisionData(const FClothCollisionData& CollisionData)
 			0,
 			0);
 	}
-
-	static uint32 ClothCollisionSetLogCounter = 0;
-	if ((++ClothCollisionSetLogCounter % 30) == 1)
-	{
-		UE_LOG("[ClothCollision][NvCloth] set spheres=%u capsules=%u planes=%u convexes=%u primitives=%u previousSpheres=%u previousCapsules=%u previousPlanes=%u previousConvexes=%u",
-			static_cast<uint32>(CollisionData.Spheres.size()),
-			NewCapsuleCount,
-			static_cast<uint32>(CollisionData.Planes.size()),
-			static_cast<uint32>(CollisionData.ConvexMasks.size()),
-			CollisionData.GetPrimitiveCount(),
-			ExistingSphereCount,
-			ExistingCapsuleCount,
-			ExistingPlaneCount,
-			ExistingConvexCount);
-	}
 #else
 	(void)CollisionData;
 #endif
