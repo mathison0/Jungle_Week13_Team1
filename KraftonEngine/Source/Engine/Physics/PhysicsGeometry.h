@@ -61,44 +61,6 @@ struct FKSphylElem : public FKShapeElem
 };
 
 USTRUCT()
-struct FKConvexElem : public FKShapeElem
-{
-    GENERATED_BODY()
-
-    UPROPERTY(Edit, Save, Category="Physics|Shape", DisplayName="Vertices", Type=Array)
-    TArray<FVector> VertexData;
-
-    UPROPERTY(Edit, Save, Category="Physics|Shape", DisplayName="Indices", Type=Array)
-    TArray<uint32> IndexData;
-
-    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Cooked PhysX Data", Type=Array)
-    TArray<uint8> CookedPhysXData;
-
-    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Geometry Hash")
-    uint64 GeometryHash = 0;
-
-    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Cooking Version")
-    uint32 CookingVersion = 1;
-
-    UPROPERTY(Save, Category="Physics|Shape", DisplayName="PhysX Version")
-    uint32 PhysXVersion = 0;
-
-    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Cooking Params Hash")
-    uint32 CookingParamsHash = 0;
-
-    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Cooked Data Hash")
-    uint64 CookedDataHash = 0;
-
-    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Local Bounds Min", Type=Vec3)
-    FVector LocalBoundsMin = FVector(0.0f, 0.0f, 0.0f);
-
-    UPROPERTY(Save, Category="Physics|Shape", DisplayName="Local Bounds Max", Type=Vec3)
-    FVector LocalBoundsMax = FVector(0.0f, 0.0f, 0.0f);
-
-    bool bCookedDataDirty = true;
-};
-
-USTRUCT()
 struct FKAggregateGeom
 {
     GENERATED_BODY()
@@ -111,11 +73,6 @@ struct FKAggregateGeom
 
     UPROPERTY(Edit, Save, Category="Physics|Geometry", DisplayName="Capsules", Type=Array, Struct=FKSphylElem)
     TArray<FKSphylElem> SphylElems;
-
-    // 데이터 저장 구조는 준비되어 있지만 PhysX 변환은 아직 지원하지 않는다.
-    // PhysicsAsset Editor 초기 버전에서는 생성 UI를 숨기거나 비활성화해야 한다.
-    UPROPERTY(Edit, Save, Category="Physics|Geometry", DisplayName="Convexes", Type=Array, Struct=FKConvexElem)
-    TArray<FKConvexElem> ConvexElems;
 
     bool IsEmpty() const;
     int32 GetElementCount() const;

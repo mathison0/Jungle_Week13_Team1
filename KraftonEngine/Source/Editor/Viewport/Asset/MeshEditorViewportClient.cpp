@@ -39,7 +39,6 @@ namespace
 		if (!AggGeom.SphereElems.empty()) return &AggGeom.SphereElems[0];
 		if (!AggGeom.BoxElems.empty()) return &AggGeom.BoxElems[0];
 		if (!AggGeom.SphylElems.empty()) return &AggGeom.SphylElems[0];
-		if (!AggGeom.ConvexElems.empty()) return &AggGeom.ConvexElems[0];
 		return nullptr;
 	}
 

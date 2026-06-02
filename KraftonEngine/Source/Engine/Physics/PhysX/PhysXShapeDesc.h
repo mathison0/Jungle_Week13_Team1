@@ -68,7 +68,7 @@ namespace FPhysXShapeDescUtils
 
 	// StaticMesh BodySetup 경로.
 	// component transform과 world scale을 반영한다.
-	// Sphere, Box, Capsule만 지원하며 ConvexElems는 아직 건너뛴다.
+	// Sphere, Box, Capsule만 지원한다.
 	void MakeShapeDescsFromBodySetup(
 		UPrimitiveComponent* RootComp,
 		UPrimitiveComponent* Comp,
@@ -77,7 +77,7 @@ namespace FPhysXShapeDescUtils
 
 	// PhysicsAsset ragdoll 경로.
 	// ragdoll body 자체가 bone world transform 위치에 생성되므로 AggGeom element transform은
-	// bone-local pose로 그대로 사용한다. Sphere, Box, Capsule만 지원하며 ConvexElems는 아직 건너뛴다.
+	// bone-local pose로 그대로 사용한다. Sphere, Box, Capsule만 지원한다.
 	void MakeShapeDescsFromBodySetupAsset(
 		UBodySetup* BodySetup,
 		EPhysXBodyType BodyType,

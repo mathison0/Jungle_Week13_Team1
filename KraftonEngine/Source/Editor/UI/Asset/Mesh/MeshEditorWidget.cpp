@@ -192,11 +192,6 @@ namespace
 			if (OutShapeType) *OutShapeType = "Capsule";
 			return &AggGeom.SphylElems[0];
 		}
-		if (!AggGeom.ConvexElems.empty())
-		{
-			if (OutShapeType) *OutShapeType = "Convex";
-			return &AggGeom.ConvexElems[0];
-		}
 		return nullptr;
 	}
 
