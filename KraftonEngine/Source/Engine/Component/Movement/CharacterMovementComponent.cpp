@@ -87,6 +87,26 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime, ELevelTick Tick
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner()))
+	{
+		if (USkeletalMeshComponent* Mesh = OwnerCharacter->GetMesh())
+		{
+			if (Mesh->IsRagdollSimulating())
+			{
+				FVector DiscardedInput;
+				ConsumeInputVector(DiscardedInput);
+
+				FTransform DiscardedRootMotion;
+				ConsumePendingRootMotion(DiscardedRootMotion);
+
+				Velocity = FVector::ZeroVector;
+				bWantsJump = false;
+				bAppliedRootMotionYawThisFrame = false;
+				return;
+			}
+		}
+	}
+
 	USceneComponent* Updated = GetUpdatedComponent();
 	if (!Updated) return;
 	if (DeltaTime <= 0.0f) return;
