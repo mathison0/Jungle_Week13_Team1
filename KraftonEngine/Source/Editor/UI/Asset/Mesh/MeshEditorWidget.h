@@ -122,8 +122,13 @@ private:
 	UBodySetup* PhysicsGraphFocusBodySetup = nullptr;
 	int32 SelectedConstraintIndex = -1;
 	TMap<FString, FPhysicsGraphNodePosition> PhysicsGraphNodePositions;
+	float PhysicsGraphPanX = 0.0f;
+	float PhysicsGraphPanY = 0.0f;
+	float PhysicsGraphZoom = 1.0f;
+	bool bPhysicsGraphPanning = false;
 	bool bPhysicsGraphCapturingMouse = false;
 	bool bPhysicsAssetSimulationRunning = false;
+	float PhysicsAssetSimulationTimeScale = 1.0f;
 	float HierarchyWidth    = 250.0f;
 	float DetailsWidth      = 300.0f;
 

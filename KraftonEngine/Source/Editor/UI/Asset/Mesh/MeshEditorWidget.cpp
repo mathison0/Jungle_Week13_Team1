@@ -511,7 +511,8 @@ void FMeshEditorWidget::Tick(float DeltaTime)
 		{
 			if (IPhysicsScene* PhysicsScene = PreviewWorld->GetPhysicsScene())
 			{
-				PhysicsScene->Tick(DeltaTime);
+				const float SimDeltaTime = DeltaTime * std::clamp(PhysicsAssetSimulationTimeScale, 0.0f, 2.0f);
+				PhysicsScene->Tick(SimDeltaTime);
 			}
 		}
 		return;
