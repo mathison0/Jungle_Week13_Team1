@@ -464,6 +464,7 @@ void FDrawCommandBuilder::BuildProxyCommands(const FFrameContext& Frame, FScene&
 
 		if (Proxy->HasProxyFlag(EPrimitiveProxyFlags::SkeletalMesh))
 		{
+			// SkeletalMesh 프록시가 만든 PhysicsAsset debug geometry를 동적 렌더 패스에 합칩니다.
 			const FSkeletalMeshSceneProxy* SkeletalProxy = static_cast<const FSkeletalMeshSceneProxy*>(Proxy);
 			for (const FWireLine& Line : SkeletalProxy->GetCachedPhysicsAssetLines())
 			{

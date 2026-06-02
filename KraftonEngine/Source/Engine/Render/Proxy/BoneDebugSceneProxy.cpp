@@ -601,6 +601,7 @@ void FBoneDebugSceneProxy::RebuildPhysicsAssetLines(UBoneDebugComponent* Comp, U
 	{
 		ConstraintShowMode = EPhysicsAssetConstraintShowMode::None;
 	}
+	// Solid body 모드에서는 wire/debug line을 만들지 않습니다.
 	const bool bDrawBodyWireframe = BodyShowMode == EPhysicsAssetBodyShowMode::Wireframe;
 	const bool bDrawBodySolid = BodyShowMode == EPhysicsAssetBodyShowMode::Solid;
 	const bool bDrawConstraintSolid = ConstraintShowMode == EPhysicsAssetConstraintShowMode::Solid;

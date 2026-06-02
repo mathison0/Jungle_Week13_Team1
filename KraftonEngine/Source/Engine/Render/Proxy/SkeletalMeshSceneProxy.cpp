@@ -400,6 +400,7 @@ void FSkeletalMeshSceneProxy::UpdateMesh()
 
 void FSkeletalMeshSceneProxy::UpdatePerViewport(const FFrameContext& Frame)
 {
+	// 메인 viewport의 PhysicsAsset show flag는 SkeletalMesh 프록시에서 직접 처리합니다.
 	RebuildPhysicsAssetDebugGeometry(Frame);
 }
 
@@ -413,6 +414,7 @@ void FSkeletalMeshSceneProxy::RebuildPhysicsAssetDebugGeometry(const FFrameConte
 
 	if (Frame.WorldType == EWorldType::EditorPreview)
 	{
+		// Mesh editor preview는 UBoneDebugComponent가 PhysicsAsset을 따로 그립니다.
 		return;
 	}
 
@@ -437,6 +439,7 @@ void FSkeletalMeshSceneProxy::RebuildPhysicsAssetDebugGeometry(const FFrameConte
 
 	const FVector4 BodySolidColor(0.56f, 0.58f, 0.60f, 0.30f);
 
+	// Body shape은 bone world transform과 shape local transform을 합쳐서 그립니다.
 	for (UBodySetup* BodySetup : PhysicsAsset->BodySetups)
 	{
 		if (!BodySetup || !BodySetup->HasGeometry()) continue;
@@ -508,6 +511,7 @@ void FSkeletalMeshSceneProxy::RebuildPhysicsAssetDebugGeometry(const FFrameConte
 		}
 	}
 
+	// Constraint None 모드에서는 joint limit geometry를 만들지 않습니다.
 	if (!bDrawConstraintSolid)
 	{
 		return;
@@ -517,6 +521,7 @@ void FSkeletalMeshSceneProxy::RebuildPhysicsAssetDebugGeometry(const FFrameConte
 	const FVector4 SwingArcColor(1.0f, 0.08f, 0.05f, 0.58f);
 	const FVector4 TwistSectorColor(0.05f, 0.9f, 0.18f, 0.50f);
 
+	// Constraint limit은 parent/child frame을 모두 반영한 표시 좌표계에 생성합니다.
 	for (const FConstraintSetup& Constraint : PhysicsAsset->ConstraintSetups)
 	{
 		const int32 ParentBoneIndex = SMC->FindBoneIndex(Constraint.ParentBoneName.ToString());
