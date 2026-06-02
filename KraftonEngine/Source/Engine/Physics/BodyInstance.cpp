@@ -132,13 +132,9 @@ void FBodyInstance::SetBodyTransform(const FVector& WorldLocation, const FQuat& 
 
 	if (PxRigidDynamic* Dynamic = GetPxRigidDynamic())
 	{
-		// Kinematic은 코드에서 처리
-		if (Dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC)
-		{
-			Dynamic->setKinematicTarget(NewPose);
-			return;
-		}
-
+		// This API is a teleport. Smooth kinematic motion uses SetKinematicTarget().
+		// Ragdoll activation calls this immediately before switching bodies dynamic,
+		// so deferring the pose by one simulation step leaves stale joint anchors.
 		Dynamic->setGlobalPose(NewPose);
 		// Teleport 성격 -> 속도 유지하지 않는 쪽이 예측 가능
 		// 기존 엔진 정책이 velocity 보존이라서 따로 처리 -> 바뀐다면 bResetVelocity = true 변경
