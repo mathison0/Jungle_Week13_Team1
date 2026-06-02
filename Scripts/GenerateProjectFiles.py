@@ -464,10 +464,12 @@ def generate_vcxproj(files: dict[str, list[str]]):
 
         ET.SubElement(cl, "ConformanceMode").text = "true"
         # /bigobj — sol2 binding이 누적되며 LuaScriptManager.cpp가 섹션 한도를 넘어 필수화됨.
+        # /FS — /MP 병렬 컴파일 중 여러 cl.exe가 같은 PDB에 동시에 쓰며 C2471이 나는 것을 막는다.
         # 전역 적용으로 단일 파일 한정 옵션 관리 비용 회피.
-        ET.SubElement(cl, "AdditionalOptions").text = "/utf-8 /bigobj %(AdditionalOptions)"
+        ET.SubElement(cl, "AdditionalOptions").text = "/utf-8 /bigobj /FS %(AdditionalOptions)"
         ET.SubElement(cl, "ExceptionHandling").text = "Async"
         ET.SubElement(cl, "MultiProcessorCompilation").text = "true"
+        ET.SubElement(cl, "DebugInformationFormat").text = "OldStyle"
 
         if is_x64:
             ET.SubElement(cl, "LanguageStandard").text = "stdcpp20"

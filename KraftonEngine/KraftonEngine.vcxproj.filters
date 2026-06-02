@@ -1145,6 +1145,12 @@
     <ClCompile Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget.cpp">
       <Filter>Source\Editor\UI\Asset\Mesh</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget_Animation.cpp">
+      <Filter>Source\Editor\UI\Asset\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\UI\Asset\Mesh\MeshEditorWidget_PhysicalAsset.cpp">
+      <Filter>Source\Editor\UI\Asset\Mesh</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Editor\UI\Asset\Mesh\StaticMeshEditorWidget.cpp">
       <Filter>Source\Editor\UI\Asset\Mesh</Filter>
     </ClCompile>
