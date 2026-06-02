@@ -17,6 +17,7 @@ using namespace physx;
 bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float MaxDist, FHitResult& OutHit,
 	ECollisionChannel TraceChannel, const AActor* IgnoreActor) const
 {
+	++PendingRaycastQueries;
 	if (!Scene) return false;
 
 	// Channel + IgnoreActor 통합 filter.
@@ -78,6 +79,7 @@ bool FPhysXPhysicsScene::Raycast(const FVector& Start, const FVector& Dir, float
 bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVector& Dir, float MaxDist, FHitResult& OutHit,
 	uint32 ObjectTypeMask, const AActor* IgnoreActor) const
 {
+	++PendingRaycastQueries;
 	if (!Scene || ObjectTypeMask == 0) return false;
 
 	// SetupFilterData (line ~322) 에서 word0 = ObjectType (채널 enum 값) 으로 set.
@@ -135,6 +137,7 @@ bool FPhysXPhysicsScene::RaycastByObjectTypes(const FVector& Start, const FVecto
 bool FPhysXPhysicsScene::SphereSweepShapeComponents(const FVector& Start, const FVector& Dir, float MaxDist, float Radius,
 	FHitResult& OutHit, ECollisionChannel TraceChannel, const AActor* IgnoreActor) const
 {
+	++PendingSweepQueries;
 	if (!Scene || MaxDist <= 0.0f) return false;
 
 	struct FShapeChannelSweepFilter : PxQueryFilterCallback
