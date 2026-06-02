@@ -540,6 +540,29 @@ static bool TryGetStaticMeshSourcePathFromPackage(const FString& PackagePath, FS
 	return true;
 }
 
+// 캐시 슬롯을 erase하기 전에 그 StaticMesh의 GPU 버퍼(VB/IB + LOD)를 먼저 해제한다.
+// erase는 map에서 포인터만 빼므로, 먼저 풀지 않으면 RenderBuffer가 고아가 되어
+// ReleaseAllGPU(캐시 잔존분만 순회)에도 안 잡히고 종료까지 LIVE_BUFFER로 샌다.
+static void ReleaseCachedStaticMeshGPU(const FString& CacheKey)
+{
+	auto It = FMeshManager::StaticMeshCache.find(CacheKey);
+	if (It == FMeshManager::StaticMeshCache.end() || !It->second) return;
+
+	UStaticMesh* CachedMesh = It->second;
+	if (FStaticMesh* Asset = CachedMesh->GetStaticMeshAsset(); Asset && Asset->RenderBuffer)
+	{
+		Asset->RenderBuffer->Release();
+		Asset->RenderBuffer.reset();
+	}
+	for (uint32 LOD = 1; LOD < UStaticMesh::MAX_LOD_COUNT; ++LOD)
+	{
+		if (FMeshBuffer* LODBuffer = CachedMesh->GetLODMeshBuffer(LOD))
+		{
+			LODBuffer->Release();
+		}
+	}
+}
+
 static UStaticMesh* ImportStaticMeshSourceToPackage(const FString& SourcePath, const FString& PackagePath, ID3D11Device* InDevice)
 {
 	std::unique_ptr<FStaticMesh> NewMeshAsset = std::make_unique<FStaticMesh>();
@@ -551,6 +574,7 @@ static UStaticMesh* ImportStaticMeshSourceToPackage(const FString& SourcePath, c
 	}
 
 	const FString CacheKey = NormalizeProjectPath(PackagePath);
+	ReleaseCachedStaticMeshGPU(CacheKey);
 	FMeshManager::StaticMeshCache.erase(CacheKey);
 
 	UStaticMesh* StaticMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
@@ -799,6 +823,7 @@ bool FMeshManager::ReimportStaticMesh(const FString& BinaryPath, ID3D11Device* D
 		}
 		UObjectManager::Get().DestroyObject(ExistingMesh);
 	}
+	ReleaseCachedStaticMeshGPU(PackagePath);
 	StaticMeshCache.erase(PackagePath);
 
 	UStaticMesh* StaticMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
@@ -1048,6 +1073,7 @@ UStaticMesh* FMeshManager::LoadStaticMesh(const FString& PathFileName, const FIm
 
 	// import 옵션이 바뀌면 같은 원본도 다른 Mesh가 될 수 있다.
 	// 그래서 기존 캐시를 지우고 새 .uasset package를 만든다.
+	ReleaseCachedStaticMeshGPU(CacheKey);
 	StaticMeshCache.erase(CacheKey);
 
 	std::unique_ptr<FStaticMesh> NewMeshAsset = std::make_unique<FStaticMesh>();

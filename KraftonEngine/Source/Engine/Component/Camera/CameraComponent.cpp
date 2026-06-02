@@ -109,11 +109,19 @@ UStaticMeshComponent* UCameraComponent::EnsureEditorVisualizationMesh()
 		return nullptr;
 	}
 
-	ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-	FImportOptions CameraMeshImportOptions = FImportOptions::Default();
-	CameraMeshImportOptions.ForwardAxis = EForwardAxis::Identity;
-	CameraMeshImportOptions.WindingOrder = EWindingOrder::Keep;
-	UStaticMesh* CameraMesh = FMeshManager::LoadStaticMesh("Content/Data/EditorCamera/CameraMesh.OBJ", CameraMeshImportOptions, Device);
+	// 카메라 기즈모 메시는 import 옵션이 고정이라 프로세스에서 한 번만 로드해 모든 카메라가 공유한다.
+	// 옵션 오버로드는 호출마다 캐시를 erase+재import하므로, 월드를 재생성할 때마다(PIE 등)
+	// 직전 GPU 버퍼(VB/IB)가 고아로 누수된다. static 캐시로 그 churn 자체를 없앤다.
+	static UStaticMesh* SharedCameraVizMesh = nullptr;
+	if (!SharedCameraVizMesh)
+	{
+		ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
+		FImportOptions CameraMeshImportOptions = FImportOptions::Default();
+		CameraMeshImportOptions.ForwardAxis = EForwardAxis::Identity;
+		CameraMeshImportOptions.WindingOrder = EWindingOrder::Keep;
+		SharedCameraVizMesh = FMeshManager::LoadStaticMesh("Content/Data/EditorCamera/CameraMesh.OBJ", CameraMeshImportOptions, Device);
+	}
+	UStaticMesh* CameraMesh = SharedCameraVizMesh;
 	if (!CameraMesh)
 	{
 		return nullptr;
