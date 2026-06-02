@@ -5,6 +5,7 @@
 #include "Component/Primitive/StaticMeshComponent.h"
 #include "Engine/Component/Camera/CameraComponent.h"
 #include "Render/Types/LODContext.h"
+#include "Cloth/ClothScene.h"
 #include "Physics/NativePhysicsScene.h"
 #include "Physics/PhysX/PhysXPhysicsScene.h"
 #include "Core/ProjectSettings.h"
@@ -314,6 +315,9 @@ void UWorld::InitWorld()
 		else
 			PhysicsScene = std::make_unique<FNativePhysicsScene>();
 		PhysicsScene->Initialize(this);
+
+		ClothScene = std::make_unique<FClothScene>();
+		ClothScene->Initialize(this);
 	}
 }
 
@@ -370,6 +374,12 @@ void UWorld::Tick(float DeltaTime, ELevelTick TickType)
 
 	TickManager.Tick(this, DeltaTime, TickType);
 
+	if (bHasBegunPlay && ClothScene)
+	{
+		SCOPE_STAT_CAT("ClothScene", "1_WorldTick");
+		ClothScene->Tick(DeltaTime);
+	}
+
 	// 카메라는 물리/액터 Tick 이후 갱신 — 차량 1인칭처럼 physics body 에 붙은 카메라가
 	// 같은 프레임의 최신 transform 으로 POV cache 를 채운다.
 	TickPlayerCamera();
@@ -412,6 +422,12 @@ void UWorld::EndPlay()
 	if (PhysicsScene)
 	{
 		PhysicsScene->Shutdown();
+	}
+
+	if (ClothScene)
+	{
+		ClothScene->Shutdown();
+		ClothScene.reset();
 	}
 
 	// Clear spatial partition while actors/components are still alive.

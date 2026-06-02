@@ -2,6 +2,7 @@
 #include "Platform/Paths.h"
 
 #include <Windows.h>
+#include <share.h>
 #include <cstdio>
 #include <algorithm>
 
@@ -28,7 +29,8 @@ public:
 	{
 		std::wstring LogPath = FPaths::LogDir() + L"Engine.log";
 		FPaths::CreateDir(FPaths::LogDir());
-		_wfopen_s(&File, LogPath.c_str(), L"w");
+		// 실행 중에도 로그를 외부 도구에서 읽을 수 있도록 공유 읽기를 허용한다.
+		File = _wfsopen(LogPath.c_str(), L"w", _SH_DENYNO);
 	}
 
 	~FFileOutputDevice() override

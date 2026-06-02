@@ -142,6 +142,9 @@
     <Filter Include="Source\Engine\CameraShake">
       <UniqueIdentifier>{6402e8a9-52cd-5e58-13d2-0638ee5aff09}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source\Engine\Cloth">
+      <UniqueIdentifier>{43fcc25f-e35b-da79-8e36-7dcc2a63c76c}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source\Engine\Collision">
       <UniqueIdentifier>{0a1ac0a6-fa86-45a3-c38e-91b60c7ce3cf}</UniqueIdentifier>
     </Filter>
@@ -177,6 +180,9 @@
     </Filter>
     <Filter Include="Source\Engine\Component\Particle">
       <UniqueIdentifier>{35416e1f-359c-3d0d-7186-922fdee6933f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Engine\Component\Physics">
+      <UniqueIdentifier>{f2e43ada-9deb-3893-3821-eab9be705709}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Engine\Component\Primitive">
       <UniqueIdentifier>{57bc4de3-ad9b-789f-c9a3-f7282f3fe720}</UniqueIdentifier>
@@ -369,6 +375,27 @@
     </Filter>
     <Filter Include="ThirdParty\ImGui">
       <UniqueIdentifier>{5fdcaaee-156a-a40d-82bd-8b77a5a402df}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\NvCloth">
+      <UniqueIdentifier>{ea768f62-fea7-cd01-ccb4-22ff5394179d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\NvCloth\include">
+      <UniqueIdentifier>{c060c8e9-bdc2-4ec8-5634-9a7c1b055b7a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\NvCloth\include\NvCloth">
+      <UniqueIdentifier>{4cd6acae-72b2-3ccc-1de0-9ac79b0a6bd0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\NvCloth\include\NvClothExt">
+      <UniqueIdentifier>{d0bee18b-3a8c-c779-1904-1562ca199440}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\NvCloth\include\NvCloth\ps">
+      <UniqueIdentifier>{be2f4c21-239e-9602-74ac-bee3baca3f7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\NvCloth\include\NvCloth\ps\unix">
+      <UniqueIdentifier>{842b8b7d-75eb-a7b5-9f5e-b3938297a1a5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\NvCloth\include\NvCloth\ps\windows">
+      <UniqueIdentifier>{0653b2ec-5aea-df4b-00b4-fe8e7e400e84}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\PhysX">
       <UniqueIdentifier>{3b5c6c2c-585f-fc6b-bab4-7cd38d7a05c2}</UniqueIdentifier>
@@ -1328,6 +1355,27 @@
     <ClCompile Include="Source\Engine\CameraShake\CameraShakeManager.cpp">
       <Filter>Source\Engine\CameraShake</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Cloth\ClothCollisionBridge.cpp">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Cloth\ClothCollisionBuilder.cpp">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Cloth\ClothCollisionTypes.cpp">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Cloth\ClothInstance.cpp">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Cloth\ClothMesh.cpp">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Cloth\ClothScene.cpp">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Cloth\NvClothContext.cpp">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Collision\BVH\MeshTriangleBVH.cpp">
       <Filter>Source\Engine\Collision\BVH</Filter>
     </ClCompile>
@@ -1433,7 +1481,13 @@
     <ClCompile Include="Source\Engine\Component\Particle\ParticleSystemComponent.cpp">
       <Filter>Source\Engine\Component\Particle</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Component\Physics\WindDirectionalSourceComponent.cpp">
+      <Filter>Source\Engine\Component\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Component\Primitive\BillboardComponent.cpp">
+      <Filter>Source\Engine\Component\Primitive</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Component\Primitive\ClothComponent.cpp">
       <Filter>Source\Engine\Component\Primitive</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Component\Primitive\CylindricalBillboardComponent.cpp">
@@ -1553,6 +1607,9 @@
     <ClCompile Include="Source\Engine\GameFramework\Actor\CapsuleActor.cpp">
       <Filter>Source\Engine\GameFramework\Actor</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\GameFramework\Actor\ClothActor.cpp">
+      <Filter>Source\Engine\GameFramework\Actor</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\GameFramework\Actor\DecalActor.cpp">
       <Filter>Source\Engine\GameFramework\Actor</Filter>
     </ClCompile>
@@ -1572,6 +1629,9 @@
       <Filter>Source\Engine\GameFramework\Actor</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\GameFramework\Actor\TriggerVolumeBase.cpp">
+      <Filter>Source\Engine\GameFramework\Actor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\GameFramework\Actor\WindDirectionalSourceActor.cpp">
       <Filter>Source\Engine\GameFramework\Actor</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\GameFramework\Camera\CameraModifier.cpp">
@@ -1890,6 +1950,9 @@
       <Filter>Source\Engine\Render\Proxy</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\Proxy\BoneDebugSceneProxy.cpp">
+      <Filter>Source\Engine\Render\Proxy</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Render\Proxy\ClothSceneProxy.cpp">
       <Filter>Source\Engine\Render\Proxy</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\Proxy\CylindricalBillboardSceneProxy.cpp">
@@ -2504,6 +2567,27 @@
     <ClInclude Include="Source\Engine\CameraShake\CameraShakeManager.h">
       <Filter>Source\Engine\CameraShake</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Cloth\ClothCollisionBridge.h">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Cloth\ClothCollisionBuilder.h">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Cloth\ClothCollisionTypes.h">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Cloth\ClothInstance.h">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Cloth\ClothMesh.h">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Cloth\ClothScene.h">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Cloth\NvClothContext.h">
+      <Filter>Source\Engine\Cloth</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Collision\BVH\MeshTriangleBVH.h">
       <Filter>Source\Engine\Collision\BVH</Filter>
     </ClInclude>
@@ -2612,7 +2696,13 @@
     <ClInclude Include="Source\Engine\Component\Particle\ParticleSystemComponent.h">
       <Filter>Source\Engine\Component\Particle</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Component\Physics\WindDirectionalSourceComponent.h">
+      <Filter>Source\Engine\Component\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Component\Primitive\BillboardComponent.h">
+      <Filter>Source\Engine\Component\Primitive</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Component\Primitive\ClothComponent.h">
       <Filter>Source\Engine\Component\Primitive</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Component\Primitive\CylindricalBillboardComponent.h">
@@ -2762,6 +2852,9 @@
     <ClInclude Include="Source\Engine\GameFramework\Actor\CapsuleActor.h">
       <Filter>Source\Engine\GameFramework\Actor</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\GameFramework\Actor\ClothActor.h">
+      <Filter>Source\Engine\GameFramework\Actor</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\GameFramework\Actor\DecalActor.h">
       <Filter>Source\Engine\GameFramework\Actor</Filter>
     </ClInclude>
@@ -2781,6 +2874,9 @@
       <Filter>Source\Engine\GameFramework\Actor</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\GameFramework\Actor\TriggerVolumeBase.h">
+      <Filter>Source\Engine\GameFramework\Actor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\GameFramework\Actor\WindDirectionalSourceActor.h">
       <Filter>Source\Engine\GameFramework\Actor</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\GameFramework\Camera\CameraModifier.h">
@@ -3068,6 +3164,9 @@
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXCore.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\PhysXClothCollisionReader.h">
+      <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXHelper.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
     </ClInclude>
@@ -3186,6 +3285,9 @@
       <Filter>Source\Engine\Render\Proxy</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\Proxy\BoneDebugSceneProxy.h">
+      <Filter>Source\Engine\Render\Proxy</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\Proxy\ClothSceneProxy.h">
       <Filter>Source\Engine\Render\Proxy</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\Proxy\CylindricalBillboardSceneProxy.h">
@@ -4415,6 +4517,90 @@
     <ClInclude Include="ThirdParty\lua\include\lualib.h">
       <Filter>ThirdParty\lua\include</Filter>
     </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\Allocator.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\Callbacks.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\Cloth.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\DxContextManagerCallback.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\Fabric.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\Factory.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\PhaseConfig.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\Range.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\Solver.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\Ps.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsAlignedMalloc.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsAllocator.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsArray.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsAtomic.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsBasicTemplates.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsBitUtils.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsHash.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsHashInternals.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsHashMap.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsIntrinsics.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsMathUtils.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\PsUserAllocated.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\unix\PsUnixIntrinsics.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps\unix</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvCloth\ps\windows\PsWindowsIntrinsics.h">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvClothExt\ClothFabricCooker.h">
+      <Filter>ThirdParty\NvCloth\include\NvClothExt</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvClothExt\ClothMeshDesc.h">
+      <Filter>ThirdParty\NvCloth\include\NvClothExt</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvClothExt\ClothMeshQuadifier.h">
+      <Filter>ThirdParty\NvCloth\include\NvClothExt</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\NvCloth\include\NvClothExt\ClothTetherCooker.h">
+      <Filter>ThirdParty\NvCloth\include\NvClothExt</Filter>
+    </ClInclude>
     <ClInclude Include="ThirdParty\RmlUi\Include\RmlUi\Core.h">
       <Filter>ThirdParty\RmlUi\Include\RmlUi</Filter>
     </ClInclude>
@@ -5173,6 +5359,9 @@
     <ResourceCompile Include="KraftonEngine.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="ThirdParty\NvCloth\include\NvCloth\ps\PsAllocator.cpp">
+      <Filter>ThirdParty\NvCloth\include\NvCloth\ps</Filter>
+    </None>
     <None Include="ThirdParty\PhysX\physx\include\PxActor.h">
       <Filter>ThirdParty\PhysX\physx\include</Filter>
     </None>

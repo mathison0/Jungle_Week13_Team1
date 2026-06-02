@@ -33,11 +33,13 @@ public:
 	void ShowShadow(bool bEnable = true) { bShowShadow = bEnable; }
 	void ShowSkinning(bool bEnable = true) { bShowSkinning = bEnable; }
 	void ShowParticles(bool bEnable = true) { bShowParticles = bEnable; }
+	void ShowCloth(bool bEnable = true) { bShowCloth = bEnable; }
 	bool ToggleFPS() { bShowFPS = !bShowFPS; return bShowFPS; }
 	bool ToggleMemory() { bShowMemory = !bShowMemory; return bShowMemory; }
 	bool ToggleShadow() { bShowShadow = !bShowShadow; return bShowShadow; }
 	bool ToggleSkinning() { bShowSkinning = !bShowSkinning; return bShowSkinning; }
 	bool ToggleParticles() { bShowParticles = !bShowParticles; return bShowParticles; }
+	bool ToggleCloth() { bShowCloth = !bShowCloth; return bShowCloth; }
 	void RecordPickingAttempt(double ElapsedMs);
 	void HideAll()
 	{
@@ -47,6 +49,7 @@ public:
 		bShowShadow = false;
 		bShowSkinning = false;
 		bShowParticles = false;
+		bShowCloth = false;
 	}
 
 	const FOverlayStatLayout& GetLayout() const { return Layout; }
@@ -63,6 +66,7 @@ private:
 	void BuildShadowLines(TArray<FString>& OutLines) const;
 	void BuildSkinningLines(TArray<FString>& OutLines) const;
 	void BuildParticleLines(const UEditorEngine& Editor, TArray<FString>& OutLines) const;
+	void BuildClothLines(const UEditorEngine& Editor, TArray<FString>& OutLines) const;
 
 	bool bShowFPS = false;
 	bool bShowPickingTime = false; // WM_LBUTTONDOWN , VK_LBUTTON 입력 시점이 아닌 오브젝트 충돌 판정에 걸린 시간을 측정합니다.
@@ -70,6 +74,7 @@ private:
 	bool bShowShadow = false;
 	bool bShowSkinning = false;
 	bool bShowParticles = false;
+	bool bShowCloth = false;
 	double LastPickingTimeMs = 0.0;
 	double AccumulatedPickingTimeMs = 0.0;
 	uint32 PickingAttemptCount = 0;

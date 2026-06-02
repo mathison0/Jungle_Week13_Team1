@@ -86,6 +86,8 @@ public:
 		SphereCollider,
 		CapsuleCollider,
 		TriggerVolume,
+		Cloth,
+		WindDirectionalSource,
 		SkeletalMesh,
 		Character,
 		LuaCharacter,

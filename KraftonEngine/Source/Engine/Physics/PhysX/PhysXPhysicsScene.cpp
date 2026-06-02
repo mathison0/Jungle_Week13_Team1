@@ -2,8 +2,11 @@
 #include "PhysXCore.h"
 #include "PhysXCollision.h"
 #include "PhysXSimulationCallback.h"
+#include "PhysXClothCollisionReader.h"
 #include "PhysXHelper.h"
+#include "Component/Primitive/ClothComponent.h"
 #include "Component/PrimitiveComponent.h"
+#include "Component/Primitive/SkeletalMeshComponent.h"
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
 #include "Math/Quat.h"
@@ -16,8 +19,53 @@
 
 #include <algorithm>
 #include <memory>
+#include <vector>
 
 using namespace physx;
+
+static const char* GetPhysXGeometryTypeName(PxGeometryType::Enum Type)
+{
+	switch (Type)
+	{
+	case PxGeometryType::eSPHERE:
+		return "Sphere";
+	case PxGeometryType::ePLANE:
+		return "Plane";
+	case PxGeometryType::eCAPSULE:
+		return "Capsule";
+	case PxGeometryType::eBOX:
+		return "Box";
+	case PxGeometryType::eCONVEXMESH:
+		return "ConvexMesh";
+	case PxGeometryType::eTRIANGLEMESH:
+		return "TriangleMesh";
+	case PxGeometryType::eHEIGHTFIELD:
+		return "HeightField";
+	default:
+		return "Unknown";
+	}
+}
+
+static FString MakeClothCollisionShapeDebugLine(
+	const char* GeometryTypeName,
+	const char* OwnerName,
+	const char* OwnerActorName,
+	const char* Result,
+	uint32 PrimitiveCount = 0)
+{
+	char Buffer[512];
+	if (PrimitiveCount > 0)
+	{
+		snprintf(Buffer, sizeof(Buffer), "type=%s owner=%s actor=%s result=%s primitives=%u",
+			GeometryTypeName, OwnerName, OwnerActorName, Result, PrimitiveCount);
+	}
+	else
+	{
+		snprintf(Buffer, sizeof(Buffer), "type=%s owner=%s actor=%s result=%s",
+			GeometryTypeName, OwnerName, OwnerActorName, Result);
+	}
+	return FString(Buffer);
+}
 
 // Dispatcher Thread 수
 // TODO: 프로젝트 세팅으로 빼서 개수 조절할 수 있게 만들기 고려
@@ -33,6 +81,7 @@ static void ApplyRootMassAndCOM(PxRigidDynamic* Dyn, UPrimitiveComponent* Root)
 	PxRigidBodyExt::setMassAndUpdateInertia(*Dyn, MassKg);
 	Dyn->setCMassLocalPose(PxTransform(FPhysXHelper::ToPxVec3(Root->GetCenterOfMass())));
 }
+
 // ============================================================
 // Lifecycle
 // ============================================================
@@ -312,6 +361,163 @@ void FPhysXPhysicsScene::RebuildBody(UPrimitiveComponent* Comp)
 	for (UPrimitiveComponent* C : CompList)
 	{
 		RegisterComponent(C);
+	}
+}
+
+void FPhysXPhysicsScene::GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const
+{
+	OutData.Reset();
+	if (!Scene || !Desc.ClothComponent)
+	{
+		return;
+	}
+
+	const FMatrix& ClothWorldInverse = Desc.ClothComponent->GetWorldInverseMatrix();
+	std::vector<PxRigidActor*> VisitedActors;
+	uint32 TotalShapeCount = 0;
+	uint32 AppendedShapeCount = 0;
+	uint32 SkippedNonSimulationShapeCount = 0;
+	uint32 SkippedSelfShapeCount = 0;
+	uint32 SkippedDisabledShapeCount = 0;
+	uint32 UnsupportedOrLimitedShapeCount = 0;
+	TArray<FString> ShapeDebugLines;
+
+	auto GatherRigidActor = [&](PxRigidActor* Actor)
+	{
+		if (!Actor)
+		{
+			return;
+		}
+
+		if (std::find(VisitedActors.begin(), VisitedActors.end(), Actor) != VisitedActors.end())
+		{
+			return;
+		}
+		VisitedActors.push_back(Actor);
+
+		const PxU32 NumShapes = Actor->getNbShapes();
+		if (NumShapes == 0)
+		{
+			return;
+		}
+
+		std::vector<PxShape*> Shapes(NumShapes);
+		Actor->getShapes(Shapes.data(), NumShapes);
+
+		for (PxShape* Shape : Shapes)
+		{
+			++TotalShapeCount;
+			const PxGeometryType::Enum GeometryType = Shape ? Shape->getGeometryType() : PxGeometryType::eINVALID;
+			UPrimitiveComponent* OwnerComponent = Shape ? FPhysXHelper::GetOwnerComponentFromPxShape(Shape) : nullptr;
+			const char* OwnerName = OwnerComponent ? OwnerComponent->GetName().c_str() : "None";
+			const char* OwnerActorName = (OwnerComponent && OwnerComponent->GetOwner()) ? OwnerComponent->GetOwner()->GetName().c_str() : "None";
+
+			if (!Shape || !Shape->getFlags().isSet(PxShapeFlag::eSIMULATION_SHAPE))
+			{
+				++SkippedNonSimulationShapeCount;
+				if (ShapeDebugLines.size() < 8)
+				{
+					ShapeDebugLines.push_back(MakeClothCollisionShapeDebugLine(
+						GetPhysXGeometryTypeName(GeometryType),
+						OwnerName,
+						OwnerActorName,
+						"SkipNonSimulation"));
+				}
+				continue;
+			}
+
+			if (OwnerComponent == Desc.ClothComponent)
+			{
+				++SkippedSelfShapeCount;
+				if (ShapeDebugLines.size() < 8)
+				{
+					ShapeDebugLines.push_back(MakeClothCollisionShapeDebugLine(
+						GetPhysXGeometryTypeName(GeometryType),
+						OwnerName,
+						OwnerActorName,
+						"SkipSelf"));
+				}
+				continue;
+			}
+
+			if (OwnerComponent && !OwnerComponent->IsCollisionEnabled())
+			{
+				++SkippedDisabledShapeCount;
+				if (ShapeDebugLines.size() < 8)
+				{
+					ShapeDebugLines.push_back(MakeClothCollisionShapeDebugLine(
+						GetPhysXGeometryTypeName(GeometryType),
+						OwnerName,
+						OwnerActorName,
+						"SkipDisabled"));
+				}
+				continue;
+			}
+
+			const uint32 PrimitiveCountBefore = OutData.GetPrimitiveCount();
+			FPhysXClothCollisionReader::AppendNvClothCollisionFromPxShape(Actor, Shape, Desc.CollisionThickness, ClothWorldInverse, OutData);
+			if (OutData.GetPrimitiveCount() > PrimitiveCountBefore)
+			{
+				++AppendedShapeCount;
+				if (ShapeDebugLines.size() < 8)
+				{
+					ShapeDebugLines.push_back(MakeClothCollisionShapeDebugLine(
+						GetPhysXGeometryTypeName(GeometryType),
+						OwnerName,
+						OwnerActorName,
+						"Append",
+						OutData.GetPrimitiveCount() - PrimitiveCountBefore));
+				}
+			}
+			else
+			{
+				++UnsupportedOrLimitedShapeCount;
+				if (ShapeDebugLines.size() < 8)
+				{
+					ShapeDebugLines.push_back(MakeClothCollisionShapeDebugLine(
+						GetPhysXGeometryTypeName(GeometryType),
+						OwnerName,
+						OwnerActorName,
+						"UnsupportedOrLimited"));
+				}
+			}
+		}
+	};
+
+	for (FBodyInstance* Host : Bodies)
+	{
+		GatherRigidActor(FPhysXHelper::GetRigidActor(Host));
+	}
+
+	for (USkeletalMeshComponent* SkeletalComponent : SkeletalPhysicsComponents)
+	{
+		if (!SkeletalComponent)
+		{
+			continue;
+		}
+
+		for (const std::unique_ptr<FBodyInstance>& Body : SkeletalComponent->GetBodies())
+		{
+			GatherRigidActor(FPhysXHelper::GetRigidActor(Body.get()));
+		}
+	}
+
+	static uint32 ClothCollisionGatherLogCounter = 0;
+	if ((++ClothCollisionGatherLogCounter % 30) == 1)
+	{
+		UE_LOG("[ClothCollision][PhysX] actors=%u shapes=%u appendedShapes=%u primitives=%u skippedNonSim=%u skippedSelf=%u skippedDisabled=%u unsupportedOrLimited=%u",
+			static_cast<uint32>(VisitedActors.size()),
+			TotalShapeCount,
+			AppendedShapeCount,
+			OutData.GetPrimitiveCount(),
+			SkippedNonSimulationShapeCount,
+			SkippedSelfShapeCount,
+			SkippedDisabledShapeCount,
+			UnsupportedOrLimitedShapeCount);
+		for (const FString& Line : ShapeDebugLines)
+		{
+			UE_LOG("[ClothCollision][PhysXShape] %s", Line.c_str());
+		}
 	}
 }
 

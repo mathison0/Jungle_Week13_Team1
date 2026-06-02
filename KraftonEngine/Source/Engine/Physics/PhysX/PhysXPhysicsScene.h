@@ -60,6 +60,7 @@ public:
 	void DestroyPhysicsAssetBodies(USkeletalMeshComponent* Comp) override;
 	bool SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComponent* Comp, bool bResetVelocity = true) override;
 	void SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* Comp, bool bSimulate) override;
+	void GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const override;
 
 	void Tick(float DeltaTime) override;
 
