@@ -21,6 +21,11 @@ struct FPhysicsAssetAutoGenerateSettings
     float ShapePadding = 1.10f;
     float MinShapeSize = 0.01f;
     int32 MinVertexCount = 8;
+
+    // [merge-up] 작은/깊은 본을 드롭하지 않고 부모 바디로 병합해 바디 폭발을 막는 임계값(에디터에서 튜닝).
+    float MinBoneSizeRatio = 0.04f; // 본 스킨버텍스 AABB 최대 extent / 메시 전체 extent. 미만이면 부모로 병합.
+    int32 MaxBoneDepth = 0;         // 루트로부터 깊이 초과 본을 부모로 병합. 0=무제한.
+    int32 MaxBodyCount = 0;         // 생성 바디 수 안전캡. 초과분은 볼륨 작은 순으로 병합. 0=무제한.
 };
 
 struct FPhysicsAssetAutoGenerateStats

@@ -125,6 +125,23 @@ static FVector MaxVector(const FVector& Value, float MinValue)
         std::max(Value.Z, MinValue));
 }
 
+// 점 집합의 AABB 크기(max-min)를 반환. 비었으면 0. (merge-up 본 크기 판정/볼륨 정렬용)
+static FVector ComputeSampleExtent(const TArray<FVector>& Points)
+{
+    if (Points.empty())
+    {
+        return FVector::ZeroVector;
+    }
+    FVector Min = Points[0];
+    FVector Max = Points[0];
+    for (const FVector& P : Points)
+    {
+        Min.X = std::min(Min.X, P.X); Min.Y = std::min(Min.Y, P.Y); Min.Z = std::min(Min.Z, P.Z);
+        Max.X = std::max(Max.X, P.X); Max.Y = std::max(Max.Y, P.Y); Max.Z = std::max(Max.Z, P.Z);
+    }
+    return Max - Min;
+}
+
 static void BuildPercentileBounds(
     const TArray<FBoneVertexSample>& Samples,
     float LowerPercentile,
@@ -416,14 +433,39 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
         }
     }
 
+    // [merge-up] 본별 직접 가중 버텍스를 COMPONENT 공간으로 수집한다(병합이 단순 concat이 되도록).
+    // 본-로컬 변환은 실제 바디를 만드는 시점에만 적용한다. 동시에 메시 전체 AABB로 본 크기 상대비율을 구한다.
     TArray<TArray<FBoneVertexSample>> SamplesByBone;
     SamplesByBone.resize(BoneCount);
+
+    TArray<TArray<FVector>> CompSamplesByBone;
+    CompSamplesByBone.resize(BoneCount);
+
+    FVector MeshMin(0.0f, 0.0f, 0.0f);
+    FVector MeshMax(0.0f, 0.0f, 0.0f);
+    bool bMeshBoundsValid = false;
 
     for (const FVertexPNCTBW& Vertex : Mesh.Vertices)
     {
         if (!IsFiniteVector(Vertex.Position))
         {
             continue;
+        }
+
+        if (!bMeshBoundsValid)
+        {
+            MeshMin = Vertex.Position;
+            MeshMax = Vertex.Position;
+            bMeshBoundsValid = true;
+        }
+        else
+        {
+            MeshMin.X = std::min(MeshMin.X, Vertex.Position.X);
+            MeshMin.Y = std::min(MeshMin.Y, Vertex.Position.Y);
+            MeshMin.Z = std::min(MeshMin.Z, Vertex.Position.Z);
+            MeshMax.X = std::max(MeshMax.X, Vertex.Position.X);
+            MeshMax.Y = std::max(MeshMax.Y, Vertex.Position.Y);
+            MeshMax.Z = std::max(MeshMax.Z, Vertex.Position.Z);
         }
 
         if (Settings.bUseDominantBoneOnly)
@@ -443,7 +485,7 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
 
             if (BestBoneIndex >= 0 && BestWeight >= Settings.MinBoneWeight)
             {
-                SamplesByBone[BestBoneIndex].push_back({ Vertex.Position * BoneBindInverse[BestBoneIndex] });
+                CompSamplesByBone[BestBoneIndex].push_back(Vertex.Position);
             }
         }
         else
@@ -454,12 +496,25 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
                 const float Weight = Vertex.BoneWeights[InfluenceIndex];
                 if (BoneIndex >= 0 && BoneIndex < BoneCount && Weight >= Settings.MinBoneWeight)
                 {
-                    SamplesByBone[BoneIndex].push_back({ Vertex.Position * BoneBindInverse[BoneIndex] });
+                    CompSamplesByBone[BoneIndex].push_back(Vertex.Position);
                 }
             }
         }
     }
 
+    const FVector MeshSize = bMeshBoundsValid ? (MeshMax - MeshMin) : FVector::ZeroVector;
+    const float MeshExtentMax = std::max({ MeshSize.X, MeshSize.Y, MeshSize.Z });
+
+    // 본 깊이(루트 기준). bone 배열은 parent-first 전제(parent index < child index).
+    TArray<int32> BoneDepth;
+    BoneDepth.resize(BoneCount, 0);
+    for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
+    {
+        const int32 Parent = Mesh.Bones[BoneIndex].ParentIndex;
+        BoneDepth[BoneIndex] = (Parent >= 0 && Parent < BoneIndex) ? BoneDepth[Parent] + 1 : 0;
+    }
+
+    // 이미 바디가 있는 본(편집된 에셋 보존).
     TArray<bool> bHasBodyForBone;
     bHasBodyForBone.resize(BoneCount, false);
     for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
@@ -470,32 +525,116 @@ bool UPhysicsAsset::AutoGeneratePrimitiveBodiesFromSkeletalMesh(
         }
     }
 
+    // [merge-up] leaf-first 순회로 작은/이름필터/깊은/샘플부족 본을 드롭하지 않고 부모로 샘플을 합친다.
+    // 부모 바디가 자식 지오메트리를 흡수해 고아 영역이 없고 모양이 정확하다(UE PhAT 방식).
+    const float MinBoneSizeRatio = std::max(Settings.MinBoneSizeRatio, 0.0f);
+    TArray<bool> bGetsBody;
+    bGetsBody.resize(BoneCount, false);
+    for (int32 BoneIndex = BoneCount - 1; BoneIndex >= 0; --BoneIndex)
+    {
+        const FBone& Bone = Mesh.Bones[BoneIndex];
+        const int32 Parent = Bone.ParentIndex;
+
+        if (bHasBodyForBone[BoneIndex])
+        {
+            continue; // 기존 바디는 유지(신규 생성/병합 대상 아님)
+        }
+
+        const FVector SampleSize = ComputeSampleExtent(CompSamplesByBone[BoneIndex]);
+        const float SampleExtentMax = std::max({ SampleSize.X, SampleSize.Y, SampleSize.Z });
+        const float SizeRatio = (MeshExtentMax > 1.0e-6f) ? (SampleExtentMax / MeshExtentMax) : 0.0f;
+
+        const bool bNameFiltered = Settings.bUseDefaultNameFilters
+            && (ShouldSkipBoneName(Bone.Name) || ShouldSkipTerminalDetailBone(Mesh, BoneIndex));
+        const bool bTooSmall = SizeRatio < MinBoneSizeRatio;
+        const bool bTooDeep  = Settings.MaxBoneDepth > 0 && BoneDepth[BoneIndex] > Settings.MaxBoneDepth;
+        const bool bTooFew   = CompSamplesByBone[BoneIndex].size() < static_cast<size_t>(RequiredMinVertexCount);
+
+        if (Parent >= 0 && (bNameFiltered || bTooSmall || bTooDeep || bTooFew))
+        {
+            TArray<FVector>& ParentSamples = CompSamplesByBone[Parent];
+            ParentSamples.insert(ParentSamples.end(),
+                CompSamplesByBone[BoneIndex].begin(), CompSamplesByBone[BoneIndex].end());
+            ++Stats.SkippedBoneCount;
+            UE_LOG("[PhysicsAssetAutoGen] Merge bone=%s -> parent=%s reason=%s ratio=%.3f depth=%d samples=%d",
+                Bone.Name.c_str(),
+                Mesh.Bones[Parent].Name.c_str(),
+                bNameFiltered ? "NameFilter" : (bTooDeep ? "Depth" : (bTooSmall ? "Size" : "FewSamples")),
+                SizeRatio,
+                BoneDepth[BoneIndex],
+                static_cast<int32>(CompSamplesByBone[BoneIndex].size()));
+            continue;
+        }
+
+        bGetsBody[BoneIndex] = true;
+    }
+
+    // [merge-up] MaxBodyCount 안전캡: 초과 시 볼륨 작은 순으로 가장 가까운 바디 조상에 병합.
+    if (Settings.MaxBodyCount > 0)
+    {
+        struct FBodyCandidate { int32 BoneIndex; float Volume; };
+        TArray<FBodyCandidate> Candidates;
+        for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
+        {
+            if (!bGetsBody[BoneIndex])
+            {
+                continue;
+            }
+            const FVector S = ComputeSampleExtent(CompSamplesByBone[BoneIndex]);
+            Candidates.push_back({ BoneIndex, S.X * S.Y * S.Z });
+        }
+        if (static_cast<int32>(Candidates.size()) > Settings.MaxBodyCount)
+        {
+            std::sort(Candidates.begin(), Candidates.end(),
+                [](const FBodyCandidate& A, const FBodyCandidate& B) { return A.Volume < B.Volume; });
+            const int32 DemoteCount = static_cast<int32>(Candidates.size()) - Settings.MaxBodyCount;
+            for (int32 i = 0; i < DemoteCount; ++i)
+            {
+                const int32 BoneIndex = Candidates[i].BoneIndex;
+                int32 Ancestor = Mesh.Bones[BoneIndex].ParentIndex;
+                while (Ancestor >= 0 && !bGetsBody[Ancestor] && !bHasBodyForBone[Ancestor])
+                {
+                    Ancestor = Mesh.Bones[Ancestor].ParentIndex;
+                }
+                bGetsBody[BoneIndex] = false;
+                if (Ancestor >= 0)
+                {
+                    TArray<FVector>& Dst = CompSamplesByBone[Ancestor];
+                    Dst.insert(Dst.end(),
+                        CompSamplesByBone[BoneIndex].begin(), CompSamplesByBone[BoneIndex].end());
+                }
+                ++Stats.SkippedBoneCount;
+                UE_LOG("[PhysicsAssetAutoGen] Cap merge bone=%s (over MaxBodyCount=%d)",
+                    Mesh.Bones[BoneIndex].Name.c_str(),
+                    Settings.MaxBodyCount);
+            }
+        }
+    }
+
+    // 바디 본의 병합된 component 샘플을 본-로컬로 변환해 기존 사이징 로직에 넘긴다.
+    for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
+    {
+        if (!bGetsBody[BoneIndex])
+        {
+            continue;
+        }
+        const FMatrix& InvBind = BoneBindInverse[BoneIndex];
+        TArray<FBoneVertexSample>& Localized = SamplesByBone[BoneIndex];
+        Localized.reserve(CompSamplesByBone[BoneIndex].size());
+        for (const FVector& P : CompSamplesByBone[BoneIndex])
+        {
+            Localized.push_back({ P * InvBind });
+        }
+    }
+
     for (int32 BoneIndex = 0; BoneIndex < BoneCount; ++BoneIndex)
     {
         const FBone& Bone = Mesh.Bones[BoneIndex];
         const FName BoneName(Bone.Name);
         const TArray<FBoneVertexSample>& Samples = SamplesByBone[BoneIndex];
 
-        if (bHasBodyForBone[BoneIndex])
+        if (!bGetsBody[BoneIndex])
         {
-            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=ExistingBody",
-                Bone.Name.c_str());
-            continue;
-        }
-        if (Settings.bUseDefaultNameFilters && ShouldSkipBoneName(Bone.Name))
-        {
-            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=NameFilter samples=%d",
-                Bone.Name.c_str(),
-                static_cast<int32>(Samples.size()));
-            ++Stats.SkippedBoneCount;
-            continue;
-        }
-        if (Settings.bUseDefaultNameFilters && ShouldSkipTerminalDetailBone(Mesh, BoneIndex))
-        {
-            UE_LOG("[PhysicsAssetAutoGen] Skip bone=%s reason=TerminalDetail samples=%d",
-                Bone.Name.c_str(),
-                static_cast<int32>(Samples.size()));
-            ++Stats.SkippedBoneCount;
             continue;
         }
         if (Samples.size() < static_cast<size_t>(RequiredMinVertexCount))
