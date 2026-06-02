@@ -7,25 +7,66 @@
 #include <NvCloth/Callbacks.h>
 #include <NvCloth/DxContextManagerCallback.h>
 #include <NvCloth/Factory.h>
+#include <foundation/PxErrorCallback.h>
 
 #include <Windows.h>
 #include <d3d11.h>
 
+#include <cstring>
 #include <mutex>
 #endif
 
 #if WITH_NVCLOTH
+
+static const char* GetNvClothLogFileName(const char* File)
+{
+	if (!File)
+	{
+		return "";
+	}
+
+	const char* LastBackslash = std::strrchr(File, '\\');
+	const char* LastSlash = std::strrchr(File, '/');
+	const char* LastSeparator = LastBackslash > LastSlash ? LastBackslash : LastSlash;
+	return LastSeparator ? LastSeparator + 1 : File;
+}
+
+class FNvClothErrorCallback : public physx::PxErrorCallback
+{
+public:
+	void reportError(physx::PxErrorCode::Enum Code, const char* Message, const char* File, int Line) override
+	{
+		const char* Severity = "Info";
+		if (Code == physx::PxErrorCode::eABORT || Code == physx::PxErrorCode::eOUT_OF_MEMORY)
+		{
+			Severity = "Fatal";
+		}
+		else if (Code == physx::PxErrorCode::eINTERNAL_ERROR || Code == physx::PxErrorCode::eINVALID_OPERATION)
+		{
+			Severity = "Error";
+		}
+		else if (Code == physx::PxErrorCode::eINVALID_PARAMETER ||
+			Code == physx::PxErrorCode::ePERF_WARNING ||
+			Code == physx::PxErrorCode::eDEBUG_WARNING)
+		{
+			Severity = "Warning";
+		}
+
+		UE_LOG("[NvCloth %s] %s (%s:%d)", Severity, Message ? Message : "", GetNvClothLogFileName(File), Line);
+	}
+};
 
 class FNvClothAssertHandler : public nv::cloth::PxAssertHandler
 {
 public:
 	void operator()(const char* Exp, const char* File, int Line, bool& Ignore) override
 	{
-		UE_LOG("[NvCloth Assert] %s (%s:%d)", Exp ? Exp : "", File ? File : "", Line);
+		UE_LOG("[NvCloth Assert] %s (%s:%d)", Exp ? Exp : "", GetNvClothLogFileName(File), Line);
 		Ignore = false;
 	}
 };
 
+static FNvClothErrorCallback GNvClothErrorCallback;
 static FNvClothAssertHandler GNvClothAssertHandler;
 static bool GNvClothCallbacksInitialized = false;
 
@@ -241,7 +282,7 @@ bool FNvClothContext::EnsureCallbacksInitialized()
 
 	nv::cloth::InitializeNvCloth(
 		&FPhysXCore::GetAllocatorCallback(),
-		&FPhysXCore::GetErrorCallback(),
+		&GNvClothErrorCallback,
 		&GNvClothAssertHandler,
 		nullptr
 	);
