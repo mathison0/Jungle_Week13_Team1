@@ -27,6 +27,19 @@ namespace
 		}
 		return Result;
 	}
+
+	FString FormatStaticMeshByteSize(size_t Value)
+	{
+		if (Value >= 1024 * 1024)
+		{
+			return std::to_string(Value / (1024 * 1024)) + " MB";
+		}
+		if (Value >= 1024)
+		{
+			return std::to_string(Value / 1024) + " KB";
+		}
+		return std::to_string(Value) + " B";
+	}
 }
 
 static uint32 GNextStaticMeshEditorInstanceId = 0;
@@ -282,6 +295,8 @@ void FStaticMeshEditorWidget::RenderMeshStatsOverlay(ImDrawList* DrawList, const
 		}
 	}
 
+	// preview texture 위에 항상 보이도록 ImGui window draw list에 직접 통계를 그린다.
+	// 그림자를 한 번 먼저 찍어 밝은 mesh 위에서도 vertex/triangle 수를 읽기 쉽게 유지한다.
 	const FString Text =
 		"Triangles: " + FormatStaticMeshStatCount(TriangleCount) + "\n" +
 		"Vertices: " + FormatStaticMeshStatCount(VertexCount);
@@ -308,6 +323,12 @@ void FStaticMeshEditorWidget::RenderDetailsPanel(UStaticMesh* StaticMesh)
 	ImGui::Spacing();
 	ImGui::SeparatorText("Collision");
 	ImGui::Text("Triangle Mesh: %s", StaticMesh->IsTriangleMeshCollisionEnabled() ? "Enabled" : "Disabled");
+	if (const UBodySetup* BodySetup = StaticMesh->GetBodySetup())
+	{
+		// StaticMesh package 안에 저장된 PhysX cooked binary 크기다.
+		// 대형 맵 collision이 asset 용량에 미치는 영향을 에디터에서 바로 확인할 수 있다.
+		ImGui::Text("Cooked Data: %s", FormatStaticMeshByteSize(BodySetup->GetCookedTriangleMeshPhysXData().size()).c_str());
+	}
 
 	if (!StaticMesh->IsTriangleMeshCollisionEnabled())
 	{
@@ -322,12 +343,38 @@ void FStaticMeshEditorWidget::RenderDetailsPanel(UStaticMesh* StaticMesh)
 			}
 			else
 			{
+				// 처음 collision을 만든 직후에는 결과를 바로 검수할 수 있도록 wireframe도 함께 켠다.
+				ViewportClient.SetShowTriangleCollision(true);
 				ClearDirty();
 			}
 		}
 	}
 	else
 	{
+		// Show Collision은 저장되는 asset 설정이 아니라 현재 StaticMesh Editor preview의 표시 옵션이다.
+		// 활성화하면 viewport client가 매 frame 원본 triangle edge를 EditorLines pass에 제출한다.
+		bool bShowCollision = ViewportClient.IsShowingTriangleCollision();
+		if (ImGui::Checkbox("Show Collision", &bShowCollision))
+		{
+			ViewportClient.SetShowTriangleCollision(bShowCollision);
+		}
+
+		// Collision Only는 wireframe이 렌더 메시 표면과 겹쳐 잘 보이지 않을 때 사용한다.
+		// Show Collision이 꺼져 있으면 의미가 없으므로 UI도 비활성화한다.
+		bool bCollisionOnly = ViewportClient.IsShowingTriangleCollisionOnly();
+		if (!bShowCollision)
+		{
+			ImGui::BeginDisabled();
+		}
+		if (ImGui::Checkbox("Collision Only", &bCollisionOnly))
+		{
+			ViewportClient.SetTriangleCollisionOnly(bCollisionOnly);
+		}
+		if (!bShowCollision)
+		{
+			ImGui::EndDisabled();
+		}
+
 		// 원본 변경은 reimport가 자동으로 처리하지만, 에디터에서도 필요할 때 같은 데이터를 명시적으로 다시 cook할 수 있다.
 		if (ImGui::Button("Rebuild Triangle Collision", ImVec2(-1.0f, 0.0f)))
 		{
@@ -345,6 +392,7 @@ void FStaticMeshEditorWidget::RenderDetailsPanel(UStaticMesh* StaticMesh)
 		// 저장 후에는 이 렌더 메시가 physics 데이터를 소유하지 않는다.
 		if (ImGui::Button("Remove Triangle Collision", ImVec2(-1.0f, 0.0f)))
 		{
+			ViewportClient.SetShowTriangleCollision(false);
 			StaticMesh->SetTriangleMeshCollisionEnabled(false);
 			if (!FMeshManager::SaveStaticMesh(StaticMesh))
 			{
