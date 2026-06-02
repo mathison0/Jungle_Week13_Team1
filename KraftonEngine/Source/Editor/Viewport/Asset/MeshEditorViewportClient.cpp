@@ -793,9 +793,22 @@ void FMeshEditorViewportClient::SetPhysicsAssetDebugDrawEnabled(bool bEnabled)
 
 void FMeshEditorViewportClient::SetPhysicsAssetSolidDebugDrawEnabled(bool bEnabled)
 {
+	SetPhysicsAssetBodyShowMode(bEnabled ? EPhysicsAssetBodyShowMode::Solid : EPhysicsAssetBodyShowMode::Wireframe);
+}
+
+void FMeshEditorViewportClient::SetPhysicsAssetBodyShowMode(EPhysicsAssetBodyShowMode InMode)
+{
 	if (BoneDebugComponent)
 	{
-		BoneDebugComponent->SetDrawPhysicsAssetSolid(bEnabled);
+		BoneDebugComponent->SetPhysicsAssetBodyShowMode(InMode);
+	}
+}
+
+void FMeshEditorViewportClient::SetPhysicsAssetConstraintShowMode(EPhysicsAssetConstraintShowMode InMode)
+{
+	if (BoneDebugComponent)
+	{
+		BoneDebugComponent->SetPhysicsAssetConstraintShowMode(InMode);
 	}
 }
 

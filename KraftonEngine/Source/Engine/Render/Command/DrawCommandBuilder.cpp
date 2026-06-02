@@ -462,6 +462,21 @@ void FDrawCommandBuilder::BuildProxyCommands(const FFrameContext& Frame, FScene&
 			BuildMeshCommands(Scene, Proxy);
 		}
 
+		if (Proxy->HasProxyFlag(EPrimitiveProxyFlags::SkeletalMesh))
+		{
+			const FSkeletalMeshSceneProxy* SkeletalProxy = static_cast<const FSkeletalMeshSceneProxy*>(Proxy);
+			for (const FWireLine& Line : SkeletalProxy->GetCachedPhysicsAssetLines())
+			{
+				DebugBoneLines.AddLine(Line.Start, Line.End, SkeletalProxy->GetPhysicsAssetColor());
+			}
+			PhysicsAssetSolids.AddIndexedTriangles(
+				SkeletalProxy->GetCachedPhysicsAssetSolidVertices(),
+				SkeletalProxy->GetCachedPhysicsAssetSolidIndices());
+			PhysicsConstraintSolids.AddIndexedTriangles(
+				SkeletalProxy->GetCachedPhysicsConstraintSolidVertices(),
+				SkeletalProxy->GetCachedPhysicsConstraintSolidIndices());
+		}
+
 		if (Proxy->IsSelected())
 			BuildSelectionCommands(Proxy, bShowBoundingVolume, Scene);
 	}
