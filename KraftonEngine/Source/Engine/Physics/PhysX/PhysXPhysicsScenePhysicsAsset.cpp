@@ -1,4 +1,4 @@
-#include "PhysXPhysicsScene.h"
+﻿#include "PhysXPhysicsScene.h"
 
 #include "Component/Primitive/SkeletalMeshComponent.h"
 #include "Core/Logging/Log.h"
@@ -203,12 +203,17 @@ bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComp
 		bSynced = true;
 	}
 
-	// A constraint can skip bones that do not own bodies. Animation on those
-	// intermediate bones moves the child actor away from its reference-pose
-	// anchor. Match only the parent anchor position after teleporting bodies;
-	// authored frame rotations and angular limits remain unchanged.
-	int32 AdjustedAnchorCount = 0;
-	float MaxAnchorError = 0.0f;
+	// Ragdoll을 켜는 순간 body는 현재 animation 포즈로 teleport된다. 그 상대 포즈가 joint의 authored
+	// limit(bind 기준 ±θ)이나 locked linear를 크게 위반하면(예: capoeira 덤블링), dynamic 첫 프레임에
+	// solver가 위반을 한 step으로 되돌리며 보정 속도 ≈ (위반량/dt)를 만든다. dt 작은 release 고FPS에서
+	// 이 값이 폭발(각속도 측정 ~100 rad/s)해 캐릭터가 솟구친다. projection·maxAngularVelocity로는
+	// 안 잡힌다(solver의 limit 보정이라). 그래서 시작 위반 자체를 제거한다:
+	 
+	
+	//   활성화 순간 각 joint의 ParentLocal frame을 다시 잡아 "현재 상대 포즈 = joint neutral"로 만든다.
+	//   → 시작 위반 0 → solver가 보정할 게 없음 → 발사 없음. limit은 이 포즈 기준 ±θ로 이후 정상 작동.
+	//   위치 앵커(본 없는 중간 bone로 어긋나는 문제)도 함께 해소된다(위치+회전 모두 identity로 맞춤).
+	int32 ReanchoredCount = 0;
 	for (auto& Constraint : Comp->GetConstraints())
 	{
 		if (!Constraint || !Constraint->IsValidConstraint()) continue;
@@ -222,27 +227,21 @@ bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComp
 			: nullptr;
 		if (!Joint || !ParentActor || !ChildActor) continue;
 
-		physx::PxTransform ParentLocalPose = Joint->getLocalPose(physx::PxJointActorIndex::eACTOR0);
 		const physx::PxTransform ChildLocalPose = Joint->getLocalPose(physx::PxJointActorIndex::eACTOR1);
 		const physx::PxTransform ParentWorldPose = ParentActor->getGlobalPose();
 		const physx::PxTransform ChildWorldPose = ChildActor->getGlobalPose();
-		const physx::PxVec3 ParentAnchorWorld = ParentWorldPose.transform(ParentLocalPose.p);
-		const physx::PxVec3 ChildAnchorWorld = ChildWorldPose.transform(ChildLocalPose.p);
-		const float AnchorError = (ChildAnchorWorld - ParentAnchorWorld).magnitude();
-		MaxAnchorError = std::max(MaxAnchorError, AnchorError);
 
-		if (AnchorError <= 1.0e-4f) continue;
-
-		ParentLocalPose.p = ParentWorldPose.transformInv(ChildAnchorWorld);
-		Joint->setLocalPose(physx::PxJointActorIndex::eACTOR0, ParentLocalPose);
-		++AdjustedAnchorCount;
+		// cA2w == cB2w 가 되도록 ParentLocal 재설정 → 상대 변환(위치+회전) = identity = 위반 0.
+		//   cB2w = ChildWorldPose * ChildLocalPose,  ParentLocal = ParentWorldPose^-1 * cB2w
+		const physx::PxTransform ChildJointWorld = ChildWorldPose * ChildLocalPose;
+		const physx::PxTransform DesiredParentLocal = ParentWorldPose.getInverse() * ChildJointWorld;
+		Joint->setLocalPose(physx::PxJointActorIndex::eACTOR0, DesiredParentLocal);
+		++ReanchoredCount;
 	}
 
-	if (AdjustedAnchorCount > 0)
+	if (ReanchoredCount > 0)
 	{
-		UE_LOG("[PhysX] Ragdoll pose sync adjusted joint anchors: count=%d maxError=%.4f",
-			AdjustedAnchorCount,
-			MaxAnchorError);
+		UE_LOG("[PhysX] Ragdoll re-anchored joints to current pose (pos+rot): count=%d", ReanchoredCount);
 	}
 	return bSynced;
 }
