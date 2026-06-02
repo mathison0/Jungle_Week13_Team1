@@ -392,6 +392,10 @@ void FEditorRenderPipeline::RenderPreviewViewport(IEditorPreviewViewportClient* 
 
 	FScene& Scene = World->GetScene();
 	Scene.ClearFrameData();
+	// asset preview마다 이전 frame의 임시 line을 비운 직후 editor 전용 overlay를 다시 제출한다.
+	// StaticMesh Editor는 이 지점에서 triangle collision edge를 넣고, 이후 BuildCommands()가
+	// 기존 EditorLines pass용 line geometry로 변환한다.
+	VC->SubmitPreviewDebugDraw(Scene);
 
 	FCollectOutput Output;
 	FDrawCommandBuilder& Builder = Renderer.GetBuilder();

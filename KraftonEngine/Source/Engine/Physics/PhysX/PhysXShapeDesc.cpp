@@ -163,8 +163,6 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetup(
 		OutDescs.push_back(Desc);
 	}
 
-	// ConvexElems는 이번 구현에서 생성하지 않는다.
-
 	for (const FKSphylElem& Sphyl : AggGeom.SphylElems)
 	{
 		float LateralScale = std::max(WorldScale.X, WorldScale.Y);
@@ -226,8 +224,6 @@ void FPhysXShapeDescUtils::MakeShapeDescsFromBodySetupAsset(
 		Desc.BodyInstance = BodyInstance;
 		OutDescs.push_back(Desc);
 	}
-
-	// ConvexElems는 이번 구현에서 생성하지 않는다.
 
 	for (const FKSphylElem& Sphyl : AggGeom.SphylElems)
 	{

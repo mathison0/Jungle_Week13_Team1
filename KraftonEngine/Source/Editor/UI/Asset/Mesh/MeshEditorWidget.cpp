@@ -166,8 +166,6 @@ namespace
 
 
 
-
-
 	FString FormatMeshStatCount(size_t Value)
 	{
 		FString Result = std::to_string(Value);

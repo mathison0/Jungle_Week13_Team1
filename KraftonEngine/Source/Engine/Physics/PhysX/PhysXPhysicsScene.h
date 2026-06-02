@@ -10,6 +10,7 @@
 
 class AActor;
 class USkeletalMeshComponent;
+class UStaticMeshComponent;
 class UBodySetup;
 struct FPhysXShapeDesc;
 
@@ -183,6 +184,10 @@ private:
 	physx::PxShape* AddShapeForComponent(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp);
 	// HostActor에 Comp의 BodySetup AggGeom을 shape로 추가. shape가 하나 이상 생성되면 true.
 	bool AddShapesFromBodySetup(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp);
+	// StaticMeshComponent 전용 triangle mesh 경로.
+	// StaticMesh package에 저장된 cooked data를 PxTriangleMesh simulation/query shape로 붙인다.
+	// 런타임 등록 단계에서는 vertex/index 해시 계산이나 recook을 하지 않는다.
+	bool AddTriangleMeshShapeFromStaticMesh(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UStaticMeshComponent* Comp);
 	// HostActor에서 Comp에 매칭된 shape를 detach.
 	void DetachShapeForComponent(physx::PxRigidActor* HostActor, UPrimitiveComponent* Comp);
 };

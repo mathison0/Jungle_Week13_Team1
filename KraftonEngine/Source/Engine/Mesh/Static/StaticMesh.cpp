@@ -34,12 +34,16 @@ void UStaticMesh::Serialize(FArchive& Ar)
 	// 2. 머티리얼 데이터 직렬화 (필수!)
 	Ar << StaticMaterials;
 
-	if (Ar.IsSaving())
-	{
-		EnsureBodySetup();
-	}
 	SerializeProperties(Ar, PF_Save);
-	if (BodySetup)
+	if (Ar.IsLoading() && !bTriangleMeshCollisionEnabled && BodySetup)
+	{
+		// 과거 package는 import만으로 BodySetup이 자동 생성되었다.
+		// opt-in 플래그가 없는 기존 렌더 메시를 로드하면 자동 생성된 physics 데이터를 제거하여
+		// 새 정책과 동일하게 collision 없는 StaticMesh로 취급한다.
+		UObjectManager::Get().DestroyObject(BodySetup);
+		BodySetup = nullptr;
+	}
+	else if (BodySetup)
 	{
 		BodySetup->SetOuter(this);
 	}
@@ -59,7 +63,6 @@ void UStaticMesh::Serialize(FArchive& Ar)
 				}
 			}
 		}
-		EnsureBodySetup();
 	}
 }
 
@@ -127,7 +130,6 @@ void UStaticMesh::InitResources(ID3D11Device* InDevice)
 void UStaticMesh::SetStaticMeshAsset(FStaticMesh* InMesh)
 {
 	StaticMeshAsset = InMesh;
-	EnsureBodySetup();
 	// 현재는 static mesh asset이 로드 후 고정된다고 보고, 메시 변경 dirty 갱신은 비활성화합니다.
 	// MarkMeshTrianglePickingBVHDirty();
 
@@ -167,6 +169,21 @@ UBodySetup* UStaticMesh::EnsureBodySetup()
 	}
 
 	return BodySetup;
+}
+
+void UStaticMesh::SetTriangleMeshCollisionEnabled(bool bEnabled)
+{
+	bTriangleMeshCollisionEnabled = bEnabled;
+	if (bTriangleMeshCollisionEnabled || !BodySetup)
+	{
+		return;
+	}
+
+	// StaticMesh에서는 BodySetup을 triangle collision 전용으로 사용한다.
+	// 사용자가 collision을 제거하면 cooked binary까지 가진 BodySetup도 같이 제거하여
+	// 시각 표현만 필요한 메시가 불필요한 physics 데이터를 계속 들고 있지 않게 한다.
+	UObjectManager::Get().DestroyObject(BodySetup);
+	BodySetup = nullptr;
 }
 
 void UStaticMesh::SetStaticMaterials(TArray<FStaticMaterial>&& InMaterials)

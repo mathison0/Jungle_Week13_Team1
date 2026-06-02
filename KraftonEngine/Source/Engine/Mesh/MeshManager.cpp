@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cwctype>
+#include <cstring>
 #include <exception>
 #include <filesystem>
 #include <memory>
@@ -27,6 +28,10 @@
 #include "Object/ReferenceCollector.h"
 #include "Physics/PhysicsAsset.h"
 #include "Physics/PhysicsAssetManager.h"
+#include "Physics/PhysX/PhysXCore.h"
+#include "Physics/BodySetup.h"
+
+#include <PxPhysicsAPI.h>
 
 TMap<FString, UStaticMesh*> FMeshManager::StaticMeshCache;
 TMap<FString, USkeletalMesh*> FMeshManager::SkeletalMeshCache;
@@ -203,6 +208,235 @@ static bool ImportStaticMeshByExtension(const FString& PathFileName, const FImpo
 	return false;
 }
 
+namespace
+{
+	struct FScopedPhysXCoreForCooking
+	{
+		physx::PxFoundation* Foundation = nullptr;
+		physx::PxPhysics* Physics = nullptr;
+		bool bAcquired = false;
+
+#ifdef _DEBUG
+		physx::PxPvd* Pvd = nullptr;
+		physx::PxPvdTransport* PvdTransport = nullptr;
+#endif
+
+		FScopedPhysXCoreForCooking()
+		{
+#ifdef _DEBUG
+			bAcquired = FPhysXCore::Acquire(Foundation, Physics, Pvd, PvdTransport);
+#else
+			bAcquired = FPhysXCore::Acquire(Foundation, Physics);
+#endif
+		}
+
+		~FScopedPhysXCoreForCooking()
+		{
+			if (bAcquired)
+			{
+				FPhysXCore::Release();
+			}
+		}
+
+		bool IsValid() const
+		{
+			return bAcquired && Foundation && Physics;
+		}
+	};
+
+	const char* TriangleCookingResultToString(physx::PxTriangleMeshCookingResult::Enum Result)
+	{
+		switch (Result)
+		{
+		case physx::PxTriangleMeshCookingResult::eSUCCESS:
+			return "Success";
+		case physx::PxTriangleMeshCookingResult::eLARGE_TRIANGLE:
+			return "Large triangle";
+		case physx::PxTriangleMeshCookingResult::eFAILURE:
+			return "Failure";
+		default:
+			return "Unknown";
+		}
+	}
+
+	bool BuildStaticMeshTriangleCookingInput(const FStaticMesh& Mesh, TArray<FVector>& OutVertices, TArray<uint32>& OutIndices, FString* OutError)
+	{
+		auto SetError = [OutError](const char* Message)
+		{
+			if (OutError)
+			{
+				*OutError = Message ? Message : "";
+			}
+		};
+
+		OutVertices.clear();
+		OutIndices.clear();
+
+		if (Mesh.Vertices.size() < 3 || Mesh.Indices.size() < 3 || (Mesh.Indices.size() % 3) != 0)
+		{
+			SetError("StaticMesh triangle collision input is incomplete.");
+			return false;
+		}
+
+		// PhysX cooking desc는 point stride를 직접 받는다. FNormalVertex는 렌더 vertex라
+		// position 외의 데이터가 섞여 있으므로, collision에 필요한 pos만 tight FVector 배열로 분리한다.
+		OutVertices.reserve(Mesh.Vertices.size());
+		for (const FNormalVertex& Vertex : Mesh.Vertices)
+		{
+			OutVertices.push_back(Vertex.pos);
+		}
+
+		OutIndices.reserve(Mesh.Indices.size());
+		for (uint32 Index : Mesh.Indices)
+		{
+			if (Index >= Mesh.Vertices.size())
+			{
+				SetError("StaticMesh triangle collision index is out of range.");
+				OutVertices.clear();
+				OutIndices.clear();
+				return false;
+			}
+			OutIndices.push_back(Index);
+		}
+
+		SetError("");
+		return true;
+	}
+
+	bool CookTriangleMeshPhysX(const TArray<FVector>& Vertices, const TArray<uint32>& Indices, TArray<uint8>& OutCookedData, FString* OutError)
+	{
+		auto SetError = [OutError](const char* Message)
+		{
+			if (OutError)
+			{
+				*OutError = Message ? Message : "";
+			}
+		};
+
+		OutCookedData.clear();
+
+		FScopedPhysXCoreForCooking PhysXCore;
+		if (!PhysXCore.IsValid())
+		{
+			SetError("PhysX Foundation/Physics could not be created for triangle mesh cooking.");
+			return false;
+		}
+
+		if (Vertices.size() < 3 || Indices.size() < 3 || (Indices.size() % 3) != 0)
+		{
+			SetError("Triangle mesh input is incomplete.");
+			return false;
+		}
+
+		for (uint32 Index : Indices)
+		{
+			if (Index >= Vertices.size())
+			{
+				SetError("Triangle mesh index is out of range.");
+				return false;
+			}
+		}
+
+		physx::PxCookingParams CookingParams(PhysXCore.Physics->getTolerancesScale());
+		CookingParams.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eWELD_VERTICES;
+		CookingParams.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eFORCE_32BIT_INDICES;
+		CookingParams.meshWeldTolerance = 0.001f;
+
+		physx::PxCooking* Cooking = PxCreateCooking(PX_PHYSICS_VERSION, *PhysXCore.Foundation, CookingParams);
+		if (!Cooking)
+		{
+			SetError("PxCreateCooking failed.");
+			return false;
+		}
+
+		physx::PxTriangleMeshDesc Desc;
+		Desc.points.count = static_cast<physx::PxU32>(Vertices.size());
+		Desc.points.stride = sizeof(FVector);
+		Desc.points.data = Vertices.data();
+		Desc.triangles.count = static_cast<physx::PxU32>(Indices.size() / 3);
+		Desc.triangles.stride = sizeof(uint32) * 3;
+		Desc.triangles.data = Indices.data();
+
+		if (!Desc.isValid())
+		{
+			Cooking->release();
+			SetError("PxTriangleMeshDesc is invalid.");
+			return false;
+		}
+
+		physx::PxTriangleMeshCookingResult::Enum CookResult = physx::PxTriangleMeshCookingResult::eFAILURE;
+		physx::PxDefaultMemoryOutputStream OutputStream;
+		const bool bCooked = Cooking->cookTriangleMesh(Desc, OutputStream, &CookResult);
+		if (bCooked && CookResult != physx::PxTriangleMeshCookingResult::eFAILURE && OutputStream.getSize() > 0)
+		{
+			const physx::PxU32 Size = OutputStream.getSize();
+			OutCookedData.resize(Size);
+			std::memcpy(OutCookedData.data(), OutputStream.getData(), Size);
+		}
+		else
+		{
+			FString Message = "PxCooking::cookTriangleMesh failed: ";
+			Message += TriangleCookingResultToString(CookResult);
+			SetError(Message.c_str());
+		}
+
+		Cooking->release();
+
+		if (OutCookedData.empty())
+		{
+			return false;
+		}
+
+		SetError("");
+		return true;
+	}
+
+	bool CookStaticMeshTriangleCollisionForSave(UStaticMesh* StaticMesh, const FString& ContextPath)
+	{
+		if (!StaticMesh || !StaticMesh->GetStaticMeshAsset())
+		{
+			return false;
+		}
+
+		// 렌더링 전용 StaticMesh는 BodySetup과 PhysX cooked data를 만들지 않는다.
+		// StaticMesh Editor에서 triangle collision을 생성한 에셋만 아래 cooking 경로에 들어온다.
+		if (!StaticMesh->IsTriangleMeshCollisionEnabled())
+		{
+			return true;
+		}
+
+		UBodySetup* BodySetup = StaticMesh->EnsureBodySetup();
+		if (!BodySetup)
+		{
+			return false;
+		}
+
+		TArray<FVector> CollisionVertices;
+		TArray<uint32> CollisionIndices;
+		FString Error;
+		if (!BuildStaticMeshTriangleCookingInput(*StaticMesh->GetStaticMeshAsset(), CollisionVertices, CollisionIndices, &Error))
+		{
+			BodySetup->ClearCookedTriangleMeshPhysXData();
+			UE_LOG("[PhysX] StaticMesh triangle collision input failed before save. Asset=%s Reason=%s", ContextPath.c_str(), Error.c_str());
+			return false;
+		}
+
+		TArray<uint8> CookedData;
+		if (!CookTriangleMeshPhysX(CollisionVertices, CollisionIndices, CookedData, &Error))
+		{
+			BodySetup->ClearCookedTriangleMeshPhysXData();
+			UE_LOG("[PhysX] StaticMesh triangle collision cooking failed before save. Asset=%s Reason=%s", ContextPath.c_str(), Error.c_str());
+			return false;
+		}
+
+		BodySetup->SetCookedTriangleMeshPhysXData(
+			std::move(CookedData),
+			static_cast<int32>(PX_PHYSICS_VERSION),
+			UBodySetup::StaticMeshTriangleCollisionCookingVersion);
+		return true;
+	}
+}
+
 static bool LoadStaticMeshBinary(UStaticMesh* StaticMesh, const FString& BinaryPath)
 {
 	FWindowsBinReader Reader(BinaryPath);
@@ -245,6 +479,14 @@ static bool LoadStaticMeshBinary(UStaticMesh* StaticMesh, const FString& BinaryP
 
 static bool SaveStaticMeshBinary(UStaticMesh* StaticMesh, const FString& BinaryPath, const FString& SourcePath)
 {
+	// Triangle collision이 활성화된 StaticMesh package를 쓰기 직전에만 PhysX cooked binary를 갱신한다.
+	// 비활성 메시에는 BodySetup 자체가 없으며, 런타임 등록 시점에는 저장된 데이터를 읽기만 한다.
+	if (!CookStaticMeshTriangleCollisionForSave(StaticMesh, BinaryPath))
+	{
+		UE_LOG("StaticMesh binary save failed: triangle collision cooking failed. Path=%s", BinaryPath.c_str());
+		return false;
+	}
+
 	FWindowsBinWriter Writer(BinaryPath);
 	if (!Writer.IsValid())
 	{
@@ -317,7 +559,10 @@ static UStaticMesh* ImportStaticMeshSourceToPackage(const FString& SourcePath, c
 	StaticMesh->SetStaticMeshAsset(NewMeshAsset.release());
 
 	// .uasset이 없거나 현재 직렬화 형식과 맞지 않으면 원본에서 다시 만들고 캐시에 넣는다.
-	SaveStaticMeshBinary(StaticMesh, CacheKey, SourcePath);
+	if (!SaveStaticMeshBinary(StaticMesh, CacheKey, SourcePath))
+	{
+		return nullptr;
+	}
 
 	StaticMesh->InitResources(InDevice);
 	StaticMesh->SetAssetPathFileName(CacheKey);
@@ -499,79 +744,6 @@ static bool SaveSkeletalMeshBinary(USkeletalMesh* SkeletalMesh, const FString& B
 	return Writer.IsValid();
 }
 
-static bool GenerateAndSavePhysicsAssetForImportedSkeletalMesh(USkeletalMesh* SkeletalMesh, const FString& PackagePath)
-{
-	if (!SkeletalMesh)
-	{
-		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation skipped: reason=NullSkeletalMesh package=%s",
-			PackagePath.c_str());
-		return false;
-	}
-
-	FSkeletalMesh* MeshAsset = SkeletalMesh->GetSkeletalMeshAsset();
-	if (!MeshAsset)
-	{
-		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation skipped: reason=MissingMeshAsset package=%s",
-			PackagePath.c_str());
-		return false;
-	}
-
-	UPhysicsAsset* PhysicsAsset = SkeletalMesh->EnsurePhysicsAsset();
-	if (!PhysicsAsset)
-	{
-		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation skipped: reason=MissingPhysicsAsset package=%s source=%s",
-			PackagePath.c_str(),
-			MeshAsset->PathFileName.c_str());
-		return false;
-	}
-
-	FPhysicsAssetAutoGenerateSettings Settings;
-	Settings.bReplaceExisting = true;
-	Settings.bCreateConstraints = true;
-	Settings.bUseDominantBoneOnly = true;
-	Settings.bUseDefaultNameFilters = true;
-	Settings.MinBoneWeight = 0.25f;
-	Settings.LowerPercentile = 0.05f;
-	Settings.UpperPercentile = 0.95f;
-	Settings.ShapePadding = 1.10f;
-	Settings.MinShapeSize = 0.01f;
-	Settings.MinVertexCount = 12;
-
-	UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation requested: package=%s source=%s bones=%d vertices=%d",
-		PackagePath.c_str(),
-		MeshAsset->PathFileName.c_str(),
-		static_cast<int32>(MeshAsset->Bones.size()),
-		static_cast<int32>(MeshAsset->Vertices.size()));
-
-	FPhysicsAssetAutoGenerateStats Stats;
-	const bool bGenerated = PhysicsAsset->AutoGeneratePrimitiveBodiesFromSkeletalMesh(*MeshAsset, Settings, &Stats);
-	if (bGenerated)
-	{
-		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generated before save: package=%s bodies=%d constraints=%d skipped=%d",
-			PackagePath.c_str(),
-			Stats.BodyCount,
-			Stats.ConstraintCount,
-			Stats.SkippedBoneCount);
-	}
-	else
-	{
-		UE_LOG("[SkeletalMeshImport] Auto PhysicsAsset generation produced no bodies before save: package=%s skipped=%d",
-			PackagePath.c_str(),
-			Stats.SkippedBoneCount);
-	}
-
-	const FString PhysicsAssetPath = FPhysicsAssetManager::GetPhysicsAssetPackagePath(PackagePath);
-	PhysicsAsset->SetAssetPathFileName(PhysicsAssetPath);
-	SkeletalMesh->SetPhysicsAsset(PhysicsAsset);
-	if (!FPhysicsAssetManager::Get().Save(PhysicsAsset, MeshAsset->PathFileName))
-	{
-		UE_LOG("[SkeletalMeshImport] PhysicsAsset save failed: package=%s", PhysicsAssetPath.c_str());
-		return false;
-	}
-
-	return true;
-}
-
 FString FMeshManager::GetStaticMeshBinaryFilePath(const FString& SourcePath)
 {
 	return GetMeshPackageFilePath(SourcePath, EAssetPackageType::StaticMesh);
@@ -610,12 +782,30 @@ bool FMeshManager::ReimportStaticMesh(const FString& BinaryPath, ID3D11Device* D
 	}
 
 	const FString PackagePath = NormalizeProjectPath(BinaryPath);
+	bool bTriangleMeshCollisionEnabled = false;
+	auto ExistingMeshIt = StaticMeshCache.find(PackagePath);
+	if (ExistingMeshIt != StaticMeshCache.end() && ExistingMeshIt->second)
+	{
+		bTriangleMeshCollisionEnabled = ExistingMeshIt->second->IsTriangleMeshCollisionEnabled();
+	}
+	else
+	{
+		// reimport는 새 UStaticMesh를 만들기 때문에 기존 에셋의 editor opt-in 상태를 먼저 읽어 둔다.
+		// 활성화된 에셋이면 아래 SaveStaticMeshBinary()가 변경된 vertex/index로 cooked binary를 다시 만든다.
+		UStaticMesh* ExistingMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
+		if (LoadStaticMeshBinary(ExistingMesh, PackagePath))
+		{
+			bTriangleMeshCollisionEnabled = ExistingMesh->IsTriangleMeshCollisionEnabled();
+		}
+		UObjectManager::Get().DestroyObject(ExistingMesh);
+	}
 	StaticMeshCache.erase(PackagePath);
 
 	UStaticMesh* StaticMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
 	NewMeshAsset->PathFileName = Metadata.SourcePath;
 	StaticMesh->SetStaticMaterials(std::move(ParsedMaterials));
 	StaticMesh->SetStaticMeshAsset(NewMeshAsset.release());
+	StaticMesh->SetTriangleMeshCollisionEnabled(bTriangleMeshCollisionEnabled);
 
 	if (!SaveStaticMeshBinary(StaticMesh, PackagePath, Metadata.SourcePath)) return false;
 
@@ -628,6 +818,44 @@ bool FMeshManager::ReimportStaticMesh(const FString& BinaryPath, ID3D11Device* D
 	FMaterialManager::Get().ScanMaterialAssets();
 
 	return true;
+}
+
+bool FMeshManager::SaveStaticMesh(UStaticMesh* StaticMesh)
+{
+	if (!StaticMesh)
+	{
+		return false;
+	}
+
+	const FStaticMesh* MeshAsset = StaticMesh->GetStaticMeshAsset();
+	const FString& PackagePath = StaticMesh->GetAssetPathFileName();
+	if (!MeshAsset || PackagePath.empty() || PackagePath == "None")
+	{
+		return false;
+	}
+
+	// StaticMesh Editor에서 triangle collision 생성/제거를 확정할 때 사용한다.
+	// 생성 시에는 SaveStaticMeshBinary() 내부에서 cook하고, 제거 시에는 BodySetup 없는 package를 기록한다.
+	return SaveStaticMeshBinary(StaticMesh, PackagePath, MeshAsset->PathFileName);
+}
+
+bool FMeshManager::SaveSkeletalMesh(USkeletalMesh* SkeletalMesh)
+{
+	if (!SkeletalMesh)
+	{
+		return false;
+	}
+
+	const FSkeletalMesh* MeshAsset = SkeletalMesh->GetSkeletalMeshAsset();
+	const FString& PackagePath = SkeletalMesh->GetAssetPathFileName();
+	if (!MeshAsset || PackagePath.empty() || PackagePath == "None")
+	{
+		return false;
+	}
+
+	// PhysicsAsset Editor에서 새 asset을 연결한 경우 SkeletalMesh의 soft reference도 package에 기록한다.
+	// PhysicsAsset 본문과 SkeletalMesh 참조는 별도 파일이므로 둘 다 저장해야 다음 로드에서도 연결이 유지된다.
+	return SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, MeshAsset->PathFileName);
 }
 
 bool FMeshManager::ReimportSkeletalMesh(const FString& BinaryPath, ID3D11Device* Device, USkeletalMesh*& OutSkeletalMesh)
@@ -648,10 +876,26 @@ bool FMeshManager::ReimportSkeletalMesh(const FString& BinaryPath, ID3D11Device*
 	const FString    PackagePath = NormalizeProjectPath(BinaryPath);
 	FSkeletonBinding ExistingBinding;
 	ReadSkeletalMeshBinding(PackagePath, ExistingBinding);
+	FString ExistingPhysicsAssetPath = "None";
+	auto ExistingMeshIt = SkeletalMeshCache.find(PackagePath);
+	if (ExistingMeshIt != SkeletalMeshCache.end() && ExistingMeshIt->second)
+	{
+		ExistingPhysicsAssetPath = ExistingMeshIt->second->GetPhysicsAssetPath();
+	}
+	else
+	{
+		USkeletalMesh* ExistingMesh = UObjectManager::Get().CreateObject<USkeletalMesh>();
+		if (LoadSkeletalMeshBinary(ExistingMesh, PackagePath))
+		{
+			ExistingPhysicsAssetPath = ExistingMesh->GetPhysicsAssetPath();
+		}
+		UObjectManager::Get().DestroyObject(ExistingMesh);
+	}
 
 	const FString DefaultSkeletonPath  = FSkeletonManager::GetSkeletonPackagePath(Metadata.SourcePath);
 	const bool    bUseExistingSkeleton = ExistingBinding.HasSkeletonPath() && ExistingBinding.SkeletonPath != DefaultSkeletonPath;
 
+	bool bImported = false;
 	if (bUseExistingSkeleton)
 	{
 		FSkeletalMeshImportRequest Request;
@@ -659,10 +903,27 @@ bool FMeshManager::ReimportSkeletalMesh(const FString& BinaryPath, ID3D11Device*
 		Request.TargetSkeletonPath       = ExistingBinding.SkeletonPath;
 		Request.DestinationPackagePath   = PackagePath;
 		Request.bOverwriteExistingAssets = true;
-		return ImportSkeletalMesh(Request, Device, OutSkeletalMesh);
+		bImported = ImportSkeletalMesh(Request, Device, OutSkeletalMesh);
+	}
+	else
+	{
+		bImported = ImportSkeletalMeshAsNew(Metadata.SourcePath, Device, OutSkeletalMesh);
 	}
 
-	return ImportSkeletalMeshAsNew(Metadata.SourcePath, Device, OutSkeletalMesh);
+	if (!bImported || !OutSkeletalMesh || ExistingPhysicsAssetPath.empty() || ExistingPhysicsAssetPath == "None")
+	{
+		return bImported;
+	}
+
+	// FBX reimport는 새 USkeletalMesh를 만들지만, 사용자가 PhysicsAsset Editor에서 만든 body는 별도 asset이다.
+	// 기존 PhysicsAsset을 다시 연결하고 메시 package도 저장하여 명시적으로 만든 physics 설정을 보존한다.
+	if (UPhysicsAsset* ExistingPhysicsAsset = FPhysicsAssetManager::Get().Load(ExistingPhysicsAssetPath))
+	{
+		OutSkeletalMesh->SetPhysicsAsset(ExistingPhysicsAsset);
+		return SaveSkeletalMesh(OutSkeletalMesh);
+	}
+
+	return true;
 }
 
 bool FMeshManager::IsStaticMeshPackage(const FString& Path)
@@ -804,7 +1065,10 @@ UStaticMesh* FMeshManager::LoadStaticMesh(const FString& PathFileName, const FIm
 
 	// import가 끝난 StaticMesh는 .uasset package로 저장한다.
 	// 다음 로드부터는 무거운 원본 파싱을 건너뛸 수 있다.
-	SaveStaticMeshBinary(StaticMesh, CacheKey, PathFileName);
+	if (!SaveStaticMeshBinary(StaticMesh, CacheKey, PathFileName))
+	{
+		return nullptr;
+	}
 
 	StaticMesh->InitResources(InDevice);
 	StaticMesh->SetAssetPathFileName(CacheKey);
@@ -826,14 +1090,25 @@ UStaticMesh* FMeshManager::LoadStaticMesh(const FString& PathFileName, ID3D11Dev
 	}
 
 	const FString CacheKey = GetStaticMeshBinaryFilePath(PathFileName);
-	
+	const std::filesystem::path BinaryPath(FPaths::ToWide(CacheKey));
+
 	auto It = StaticMeshCache.find(CacheKey);
 	if (It != StaticMeshCache.end())
 	{
+		bool bMissingSource = false;
+		if (std::filesystem::exists(BinaryPath) && IsPackageSourceStale(CacheKey, EAssetPackageType::StaticMesh, bMissingSource) && !bMissingSource)
+		{
+			UStaticMesh* ReimportedStaticMesh = nullptr;
+			if (ReimportStaticMesh(CacheKey, InDevice, ReimportedStaticMesh) && ReimportedStaticMesh)
+			{
+				UE_LOG("StaticMesh package was stale and has been reimported. Binary=%s", CacheKey.c_str());
+				return ReimportedStaticMesh;
+			}
+			UE_LOG("StaticMesh package is stale but reimport failed; using cached package. Binary=%s", CacheKey.c_str());
+		}
 		return It->second;
 	}
 
-	const std::filesystem::path BinaryPath(FPaths::ToWide(CacheKey));
 	if (std::filesystem::exists(BinaryPath))
 	{
 		UStaticMesh* StaticMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
@@ -843,6 +1118,16 @@ UStaticMesh* FMeshManager::LoadStaticMesh(const FString& PathFileName, ID3D11Dev
 			if (IsPackageSourceStale(CacheKey, EAssetPackageType::StaticMesh, bMissingSource))
 			{
 				UE_LOG("StaticMesh package is stale. Package=%s MissingSource=%s", CacheKey.c_str(), bMissingSource ? "true" : "false");
+				if (!bMissingSource)
+				{
+					UStaticMesh* ReimportedStaticMesh = nullptr;
+					if (ReimportStaticMesh(CacheKey, InDevice, ReimportedStaticMesh) && ReimportedStaticMesh)
+					{
+						UE_LOG("StaticMesh package was reimported from changed source. Binary=%s", CacheKey.c_str());
+						return ReimportedStaticMesh;
+					}
+					UE_LOG("StaticMesh package reimport failed; using existing binary. Binary=%s", CacheKey.c_str());
+				}
 			}
 
 			StaticMesh->InitResources(InDevice);
@@ -1143,11 +1428,6 @@ bool FMeshManager::ImportSkeletalMeshAsNew(const FString& SourceFbxPath, ID3D11D
 	SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 	SkeletalMesh->SetSkeletalMeshAsset(NewMesh.release());
 	SkeletalMesh->SetSkeleton(Skeleton);
-	if (!GenerateAndSavePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath))
-	{
-		return false;
-	}
-
 	if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, SourceFbxPath))
 	{
 		return false;
@@ -1257,11 +1537,6 @@ bool FMeshManager::ImportSkeletalMesh(const FSkeletalMeshImportRequest& Request,
 	SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 	SkeletalMesh->SetSkeletalMeshAsset(new FSkeletalMesh(std::move(ImportResult.Mesh)));
 	SkeletalMesh->SetSkeleton(TargetSkeleton);
-	if (!GenerateAndSavePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath))
-	{
-		return false;
-	}
-
 	if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, Request.SourceFbxPath))
 	{
 		return false;
@@ -1412,11 +1687,6 @@ bool FMeshManager::ImportFbxScene(
 			SkeletalMesh->SetSkeletalMaterials(std::move(ImportResult.Materials));
 			SkeletalMesh->SetSkeletalMeshAsset(new FSkeletalMesh(std::move(ImportResult.Mesh)));
 			SkeletalMesh->SetSkeleton(EffectiveSkeleton);
-			if (!GenerateAndSavePhysicsAssetForImportedSkeletalMesh(SkeletalMesh, PackagePath))
-			{
-				return false;
-			}
-
 			if (!SaveSkeletalMeshBinary(SkeletalMesh, PackagePath, Request.SourceFbxPath))
 			{
 				return false;
