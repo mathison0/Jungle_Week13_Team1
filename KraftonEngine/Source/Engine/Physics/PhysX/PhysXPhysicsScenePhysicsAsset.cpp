@@ -259,7 +259,7 @@ void FPhysXPhysicsScene::SetPhysicsAssetBodiesSimulate(USkeletalMeshComponent* C
 	}
 }
 
-void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
+void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones(float DeltaTime)
 {
 	for (USkeletalMeshComponent* Comp : SkeletalPhysicsComponents)
 	{
@@ -324,6 +324,10 @@ void FPhysXPhysicsScene::SyncPhysicsAssetBodiesToBones()
 				: DesiredGlobalMatrices[BoneIndex];
 			DesiredLocalTransforms[BoneIndex] = FTransform(LocalMatrix);
 		}
+		// 여기까지는 "이번 프레임의 순수 physics pose"를 skeleton local pose로 만든 상태다.
+		// Animation -> Ragdoll 전환 중이면 컴포넌트가 캡처해둔 animation pose와 이 배열을 섞고,
+		// 전환 중이 아니면 배열을 그대로 둔다. PhysX scene은 blend 상태를 직접 소유하지 않는다.
+		Comp->ApplyRagdollBlendToPhysics(DeltaTime, DesiredLocalTransforms);
 		Comp->SetBoneLocalTransforms(DesiredLocalTransforms);
 	}
 }

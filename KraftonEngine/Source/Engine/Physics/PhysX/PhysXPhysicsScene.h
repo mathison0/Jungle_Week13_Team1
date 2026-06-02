@@ -176,7 +176,7 @@ private:
 	FBodyInstance* FindHostBodyByActor(AActor* OwnerActor);
 	// 강체 하나의 PhysX 자원(PxRigidActor)을 해제하는 공통 경로. FBodyInstance 객체는 소유자가 지우므로 여기서 delete하지 않는다.
 	void ReleaseBodyResource(FBodyInstance* Body);
-	void SyncPhysicsAssetBodiesToBones();
+	void SyncPhysicsAssetBodiesToBones(float DeltaTime);
 
 	// FPhysXShapeDesc 하나를 주어진 actor에 PxShape로 생성. 실패 시 nullptr.
 	physx::PxShape* CreateShapeOnActor(physx::PxRigidActor* Actor, const FPhysXShapeDesc& Desc);
