@@ -22,6 +22,7 @@ public:
 	void RegisterComponent(UPrimitiveComponent* Comp) override;
 	void UnregisterComponent(UPrimitiveComponent* Comp) override;
 	void RebuildBody(UPrimitiveComponent* Comp) override;
+	void GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const override;
 
 	void Tick(float DeltaTime) override;
 

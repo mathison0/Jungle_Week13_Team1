@@ -225,20 +225,46 @@ ID3D11Buffer* FIndexBuffer::GetBuffer() const
 // FDynamicVertexBuffer
 // ============================================================
 
-void FDynamicVertexBuffer::Create(ID3D11Device* InDevice, uint32 InMaxCount, uint32 InStride)
+bool FDynamicVertexBuffer::Create(ID3D11Device* InDevice, uint32 InMaxCount, uint32 InStride)
 {
-	Release();
-	Stride = InStride;
-	MaxCount = InMaxCount;
-	if (!InDevice || MaxCount == 0 || Stride == 0) return;
+	if (InStride == 0)
+	{
+		return false;
+	}
+	if (!Buffer)
+	{
+		Stride = InStride;
+	}
+	if (!InDevice || InMaxCount == 0)
+	{
+		return false;
+	}
+
+	const uint64 ByteWidth = static_cast<uint64>(InStride) * static_cast<uint64>(InMaxCount);
+	if (ByteWidth == 0 || ByteWidth > static_cast<uint64>(UINT32_MAX))
+	{
+		return false;
+	}
 
 	D3D11_BUFFER_DESC Desc = {};
-	Desc.ByteWidth = Stride * MaxCount;
+	Desc.ByteWidth = static_cast<UINT>(ByteWidth);
 	Desc.Usage = D3D11_USAGE_DYNAMIC;
 	Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	InDevice->CreateBuffer(&Desc, nullptr, &Buffer);
-	Buffer->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("DynamicVertexBuffer")), "DynamicVertexBuffer");
+
+	ID3D11Buffer* NewBuffer = nullptr;
+	if (FAILED(InDevice->CreateBuffer(&Desc, nullptr, &NewBuffer)) || !NewBuffer)
+	{
+		return false;
+	}
+
+	NewBuffer->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("DynamicVertexBuffer")), "DynamicVertexBuffer");
+
+	Release();
+	Buffer = NewBuffer;
+	Stride = InStride;
+	MaxCount = InMaxCount;
+	return true;
 }
 
 void FDynamicVertexBuffer::Release()
@@ -247,12 +273,23 @@ void FDynamicVertexBuffer::Release()
 	MaxCount = 0;
 }
 
-void FDynamicVertexBuffer::EnsureCapacity(ID3D11Device* InDevice, uint32 RequiredCount)
+bool FDynamicVertexBuffer::EnsureCapacity(ID3D11Device* InDevice, uint32 RequiredCount)
 {
-	if (Buffer && RequiredCount <= MaxCount) return;
+	if (RequiredCount == 0) return true;
+	if (Buffer && RequiredCount <= MaxCount) return true;
+	if (Stride == 0) return false;
+
 	uint32 NewMax = MaxCount > 0 ? MaxCount : 256;
-	while (NewMax < RequiredCount) NewMax *= 2;
-	Create(InDevice, NewMax, Stride);
+	while (NewMax < RequiredCount)
+	{
+		if (NewMax > UINT32_MAX / 2)
+		{
+			NewMax = RequiredCount;
+			break;
+		}
+		NewMax *= 2;
+	}
+	return Create(InDevice, NewMax, Stride);
 }
 
 bool FDynamicVertexBuffer::Update(ID3D11DeviceContext* Context, const void* Data, uint32 Count)
@@ -276,19 +313,37 @@ void FDynamicVertexBuffer::Bind(ID3D11DeviceContext* Context, uint32 Slot)
 // FDynamicIndexBuffer
 // ============================================================
 
-void FDynamicIndexBuffer::Create(ID3D11Device* InDevice, uint32 InMaxCount)
+bool FDynamicIndexBuffer::Create(ID3D11Device* InDevice, uint32 InMaxCount)
 {
-	Release();
-	MaxCount = InMaxCount;
-	if (!InDevice || MaxCount == 0) return;
+	if (!InDevice || InMaxCount == 0)
+	{
+		return false;
+	}
+
+	const uint64 ByteWidth = static_cast<uint64>(sizeof(uint32)) * static_cast<uint64>(InMaxCount);
+	if (ByteWidth == 0 || ByteWidth > static_cast<uint64>(UINT32_MAX))
+	{
+		return false;
+	}
 
 	D3D11_BUFFER_DESC Desc = {};
-	Desc.ByteWidth = sizeof(uint32) * MaxCount;
+	Desc.ByteWidth = static_cast<UINT>(ByteWidth);
 	Desc.Usage = D3D11_USAGE_DYNAMIC;
 	Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	InDevice->CreateBuffer(&Desc, nullptr, &Buffer);
-	Buffer->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("DynamicIndexBuffer")), "DynamicIndexBuffer");
+
+	ID3D11Buffer* NewBuffer = nullptr;
+	if (FAILED(InDevice->CreateBuffer(&Desc, nullptr, &NewBuffer)) || !NewBuffer)
+	{
+		return false;
+	}
+
+	NewBuffer->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(strlen("DynamicIndexBuffer")), "DynamicIndexBuffer");
+
+	Release();
+	Buffer = NewBuffer;
+	MaxCount = InMaxCount;
+	return true;
 }
 
 void FDynamicIndexBuffer::Release()
@@ -297,12 +352,22 @@ void FDynamicIndexBuffer::Release()
 	MaxCount = 0;
 }
 
-void FDynamicIndexBuffer::EnsureCapacity(ID3D11Device* InDevice, uint32 RequiredCount)
+bool FDynamicIndexBuffer::EnsureCapacity(ID3D11Device* InDevice, uint32 RequiredCount)
 {
-	if (Buffer && RequiredCount <= MaxCount) return;
+	if (RequiredCount == 0) return true;
+	if (Buffer && RequiredCount <= MaxCount) return true;
+
 	uint32 NewMax = MaxCount > 0 ? MaxCount : 256;
-	while (NewMax < RequiredCount) NewMax *= 2;
-	Create(InDevice, NewMax);
+	while (NewMax < RequiredCount)
+	{
+		if (NewMax > UINT32_MAX / 2)
+		{
+			NewMax = RequiredCount;
+			break;
+		}
+		NewMax *= 2;
+	}
+	return Create(InDevice, NewMax);
 }
 
 bool FDynamicIndexBuffer::Update(ID3D11DeviceContext* Context, const void* Data, uint32 Count)

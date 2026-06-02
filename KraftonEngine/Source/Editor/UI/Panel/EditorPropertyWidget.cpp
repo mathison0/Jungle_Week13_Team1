@@ -14,6 +14,7 @@
 #include "Component/Light/LightComponentBase.h"
 #include "Component/Primitive/DecalComponent.h"
 #include "Component/Primitive/HeightFogComponent.h"
+#include "Component/Physics/WindDirectionalSourceComponent.h"
 #include "GameFramework/AActor.h"
 #include "Asset/AssetRegistry.h"
 #include "Core/Property/ClassProperty.h"
@@ -300,6 +301,9 @@ void FEditorPropertyWidget::Render(float DeltaTime)
 	{
 		SelectedComponent = nullptr;
 		LastSelectedActor = nullptr;
+		LastDetailsTarget = nullptr;
+		DetailsScrollY = 0.0f;
+		bRestoreDetailsScroll = false;
 		bActorSelected = true;
 		ImGui::Text("No object selected.");
 		ImGui::End();
@@ -311,6 +315,9 @@ void FEditorPropertyWidget::Render(float DeltaTime)
 	{
 		SelectedComponent = nullptr;
 		LastSelectedActor = PrimaryActor;
+		LastDetailsTarget = nullptr;
+		DetailsScrollY = 0.0f;
+		bRestoreDetailsScroll = false;
 		bActorSelected = true;
 		bShowDuplicateWarning = false;
 	}
@@ -394,9 +401,35 @@ void FEditorPropertyWidget::Render(float DeltaTime)
 	float ScrollHeight = ImGui::GetContentRegionAvail().y;
 	if (ScrollHeight < 50.0f) ScrollHeight = 50.0f;
 
+	UObject* DetailsTarget = bActorSelected ? static_cast<UObject*>(PrimaryActor) : static_cast<UObject*>(SelectedComponent);
+	if (DetailsTarget != LastDetailsTarget)
+	{
+		LastDetailsTarget = DetailsTarget;
+		DetailsScrollY = 0.0f;
+		bRestoreDetailsScroll = false;
+	}
+
 	ImGui::BeginChild("##Details", ImVec2(0, ScrollHeight), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 	{
+		if (bRestoreDetailsScroll)
+		{
+			ImGui::SetScrollY(DetailsScrollY);
+			bRestoreDetailsScroll = false;
+		}
+
+		const float ScrollBeforeRender = ImGui::GetScrollY();
+		bDetailsContentInvalidatedThisFrame = false;
 		RenderDetails(PrimaryActor, SelectedActors);
+
+		if (bDetailsContentInvalidatedThisFrame)
+		{
+			DetailsScrollY = ScrollBeforeRender;
+			bRestoreDetailsScroll = true;
+		}
+		else
+		{
+			DetailsScrollY = ImGui::GetScrollY();
+		}
 	}
 	ImGui::EndChild();
 
@@ -948,6 +981,7 @@ void FEditorPropertyWidget::RenderComponentProperties(AActor* Actor, const TArra
 					// 변경 시 InitializeAnimation 이 AnimInstance 를 swap 하므로, forward 됐던
 					// AnimInstance 의 prop 들의 ContainerPtr 가 destroyed 인스턴스를 가리키게 된다.
 					// 사용자는 frame 당 1 prop 변경이 일반적이라 UX 영향 거의 없음.
+					bDetailsContentInvalidatedThisFrame = true;
 					bPropsInvalidated = true;
 					ImGui::PopID();
 					break;
@@ -1045,6 +1079,10 @@ void FEditorPropertyWidget::AddComponentToActor(AActor* Actor, UClass* Component
 		else if (Comp->IsA<UHeightFogComponent>())
 		{
 			Cast<UHeightFogComponent>(Comp)->EnsureEditorBillboard();
+		}
+		else if (Comp->IsA<UWindDirectionalSourceComponent>())
+		{
+			Cast<UWindDirectionalSourceComponent>(Comp)->EnsureEditorBillboard();
 		}
 		else if (Comp->IsA<UCameraComponent>())
 		{
