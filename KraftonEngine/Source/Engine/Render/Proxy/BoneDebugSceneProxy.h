@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "ShapeSceneProxy.h"
+#include "Render/Types/ViewTypes.h"
 #include "Render/Types/VertexTypes.h"
 
 class UBoneDebugComponent;
@@ -40,6 +41,9 @@ private:
 	TArray<uint32> CachedPhysicsAssetSolidIndices;
 	TArray<FVertex> CachedPhysicsConstraintSolidVertices;
 	TArray<uint32> CachedPhysicsConstraintSolidIndices;
+
+	EPhysicsAssetBodyShowMode ViewportPhysicsAssetBodyShowMode = EPhysicsAssetBodyShowMode::Solid;
+	EPhysicsAssetConstraintShowMode ViewportPhysicsAssetConstraintShowMode = EPhysicsAssetConstraintShowMode::Solid;
 
 	FVector4 BoneColor;
 	FVector4 ParentBoneColor;

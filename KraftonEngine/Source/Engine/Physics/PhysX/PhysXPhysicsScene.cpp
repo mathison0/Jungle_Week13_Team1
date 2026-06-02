@@ -19,6 +19,7 @@
 #include <PxPhysicsAPI.h>
 
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -481,8 +482,22 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	}
 
 	// ── Simulate ──
+	const auto PhysicsStartTime = std::chrono::high_resolution_clock::now();
 	Scene->simulate(DeltaTime);
 	Scene->fetchResults(true);
+	const auto PhysicsEndTime = std::chrono::high_resolution_clock::now();
+
+	PxSimulationStatistics SimulationStats;
+	Scene->getSimulationStatistics(SimulationStats);
+	LastStats.PhysicsTimeMs = std::chrono::duration<double, std::milli>(PhysicsEndTime - PhysicsStartTime).count();
+	LastStats.RigidBodiesTotal = SimulationStats.nbStaticBodies + SimulationStats.nbDynamicBodies;
+	LastStats.RigidBodiesActive = SimulationStats.nbActiveDynamicBodies + SimulationStats.nbActiveKinematicBodies;
+	LastStats.JointsCount = Scene->getNbConstraints();
+	LastStats.ContactPairs = SimulationStats.nbDiscreteContactPairsTotal;
+	LastStats.RaycastQueries = PendingRaycastQueries;
+	LastStats.SweepQueries = PendingSweepQueries;
+	PendingRaycastQueries = 0;
+	PendingSweepQueries = 0;
 
 	// ── Post-simulate: PhysX → Engine Transform 동기화 ──
 	// RootComp에만 transform 적용 → 자식 컴포넌트는 attach로 자동 따라감.

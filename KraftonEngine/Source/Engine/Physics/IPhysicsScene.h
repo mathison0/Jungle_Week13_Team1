@@ -20,6 +20,17 @@ enum class EPhysicsBackend : uint8
 	PhysX,		// NVIDIA PhysX 4.1
 };
 
+struct FPhysicsSceneStats
+{
+	double PhysicsTimeMs = 0.0;
+	uint32 RigidBodiesTotal = 0;
+	uint32 RigidBodiesActive = 0;
+	uint32 JointsCount = 0;
+	uint32 ContactPairs = 0;
+	uint32 RaycastQueries = 0;
+	uint32 SweepQueries = 0;
+};
+
 // ============================================================
 // IPhysicsScene — 물리 시스템 어댑터 인터페이스
 //
@@ -56,6 +67,7 @@ public:
 
 	// --- 시뮬레이션 ---
 	virtual void Tick(float DeltaTime) = 0;
+	virtual FPhysicsSceneStats GetStats() const { return FPhysicsSceneStats(); }
 
 	// --- 힘/토크 ---
 	virtual void AddForce(UPrimitiveComponent* Comp, const FVector& Force) = 0;

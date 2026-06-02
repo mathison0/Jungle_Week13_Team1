@@ -65,6 +65,7 @@ public:
 	void GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const override;
 
 	void Tick(float DeltaTime) override;
+	FPhysicsSceneStats GetStats() const override { return LastStats; }
 
 	// --- Force, Torque ----
 	void AddForce(UPrimitiveComponent* Comp, const FVector& Force) override;
@@ -167,6 +168,7 @@ private:
 	// ragdoll body/constraint는 컴포넌트(SkeletalMeshComponent)가 소유한다. 여기엔
 	// bone 계층 writeback(SyncPhysicsAssetBodiesToBones)을 위해 컴포넌트 목록만 둔다.
 	TArray<USkeletalMeshComponent*> SkeletalPhysicsComponents;
+	FPhysicsSceneStats LastStats;
 
 	// 내부 헬퍼
 	// Comp가 속한 강체의 대표 body. 등록 안 됐으면 nullptr.
@@ -194,4 +196,7 @@ private:
 	bool AddTriangleMeshShapeFromStaticMesh(physx::PxRigidActor* HostActor, UPrimitiveComponent* RootComp, UStaticMeshComponent* Comp);
 	// HostActor에서 Comp에 매칭된 shape를 detach.
 	void DetachShapeForComponent(physx::PxRigidActor* HostActor, UPrimitiveComponent* Comp);
+
+	mutable uint32 PendingRaycastQueries = 0;
+	mutable uint32 PendingSweepQueries = 0;
 };

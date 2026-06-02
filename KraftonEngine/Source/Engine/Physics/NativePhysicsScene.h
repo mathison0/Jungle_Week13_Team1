@@ -25,6 +25,7 @@ public:
 	void GatherClothCollision(const FClothCollisionGatherDesc& Desc, FClothCollisionData& OutData) const override;
 
 	void Tick(float DeltaTime) override;
+	FPhysicsSceneStats GetStats() const override { return LastStats; }
 
 	void AddForce(UPrimitiveComponent* Comp, const FVector& Force) override;
 	void AddForceAtLocation(UPrimitiveComponent* Comp, const FVector& Force, const FVector& WorldLocation) override;
@@ -77,4 +78,8 @@ private:
 	// Block 쌍 추적 — Hit 이벤트는 첫 접촉 시에만 발화
 	std::unordered_set<FOverlapPair> PreviousBlockPairs;
 	std::unordered_set<FOverlapPair> CurrentBlockPairs;
+
+	FPhysicsSceneStats LastStats;
+	mutable uint32 PendingRaycastQueries = 0;
+	mutable uint32 PendingSweepQueries = 0;
 };
