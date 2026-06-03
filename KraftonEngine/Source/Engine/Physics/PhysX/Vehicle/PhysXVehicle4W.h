@@ -17,10 +17,6 @@ struct FPxVehicleSetup;
 // PxRigidDynamic에 4륜 드라이브 데이터(엔진/기어/디퍼런셜/Ackermann)를 붙이고,
 // 자기를 굴리는 데 필요한 PhysX 자원(BatchQuery, 노면-타이어 마찰 페어, 결과
 // 버퍼)을 직접 소유한다.
-//
-// 이 프로젝트는 차량을 동시에 1대만 두고 키보드로만 조작하므로, 별도 매니저나
-// 게임패드(analog) 입력 없이 Scene이 매 프레임 simulate() 직전에 Simulate(dt)
-// 한 번만 불러주면 된다.
 // ======================================================
 class FPhysXVehicle4W
 {

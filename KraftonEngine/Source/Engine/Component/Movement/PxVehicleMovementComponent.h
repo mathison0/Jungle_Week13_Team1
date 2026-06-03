@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "MovementComponent.h"
 #include "Math/Rotator.h"
@@ -12,7 +12,7 @@ class UPrimitiveComponent;
 class USceneComponent;
 struct FPxVehicleSetup;
 
-// ======================================================
+// ===========================================================================
 // UPxVehicleMovementComponent
 //
 // PxVehicleDrive4W 기반 4륜 차량을 구동하는 무브먼트 컴포넌트.
@@ -22,7 +22,7 @@ struct FPxVehicleSetup;
 //
 // 실제 raycast/힘적용은 Scene이 simulate() 직전에 차의 Simulate()를 불러서 한다
 // (즉 이 컴포넌트는 입력 주입 + 결과 시각화만 담당).
-// ======================================================
+// ===========================================================================
 UCLASS()
 class UPxVehicleMovementComponent : public UMovementComponent
 {

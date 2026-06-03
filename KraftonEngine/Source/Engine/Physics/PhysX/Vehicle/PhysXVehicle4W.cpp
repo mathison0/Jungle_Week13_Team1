@@ -1,4 +1,4 @@
-#include "Physics/PhysX/Vehicle/PhysXVehicle4W.h"
+﻿#include "Physics/PhysX/Vehicle/PhysXVehicle4W.h"
 
 #include "Physics/PhysX/Vehicle/PhysXVehicleConfig.h"
 #include "Physics/PhysX/PhysXHelper.h"
@@ -64,6 +64,7 @@ bool FPhysXVehicle4W::Build(PxScene* Scene, PxPhysics* Physics, PxRigidDynamic* 
 	PxFilterData SuspQueryFilter;
 	SuspQueryFilter.word3 = OwnerFilterId;
 
+	// 관성 모먼트: 1/2 * m * r^2
 	const PxReal WheelMOI = 0.5f * Setup.WheelMass * Setup.WheelRadius * Setup.WheelRadius;
 
 	for (uint32 i = 0; i < NbWheels; ++i)
