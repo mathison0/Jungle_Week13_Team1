@@ -2,6 +2,7 @@
 
 #include "Component/Primitive/SkeletalMeshComponent.h"
 #include "Core/Logging/Log.h"
+#include "Math/MathUtils.h"
 #include "Mesh/Skeletal/SkeletalMesh.h"
 #include "Mesh/Skeletal/SkeletalMeshAsset.h"
 #include "Physics/BodySetup.h"
@@ -16,6 +17,8 @@
 namespace
 {
 	constexpr float MatrixDecomposeTolerance = 1.0e-6f;
+	constexpr float RagdollReanchorAngularMarginDegrees = 20.0f;
+	constexpr float RagdollReanchorLinearTolerance = 5.0f;
 
 	float GetPhysicsAssetUniformScale(const FVector& WorldScale)
 	{
@@ -78,6 +81,52 @@ namespace
 			// Row-vector matrices compose local * world, so quaternion removal applies the component inverse first.
 			(ComponentWorldRotationInv * BodyWorldRotation.GetNormalized()).GetNormalized(),
 			FVector::OneVector);
+	}
+
+	float GetAngularLimitWithMarginRad(EAngularConstraintMotion Motion, float LimitDegrees)
+	{
+		switch (Motion)
+		{
+		case EAngularConstraintMotion::Free:
+			return -1.0f;
+		case EAngularConstraintMotion::Locked:
+			return RagdollReanchorAngularMarginDegrees * FMath::DegToRad;
+		case EAngularConstraintMotion::Limited:
+		default:
+			return (FMath::ClampMin(LimitDegrees, 0.0f) + RagdollReanchorAngularMarginDegrees) * FMath::DegToRad;
+		}
+	}
+
+	bool IsAngleOutsideLimit(float AngleRad, EAngularConstraintMotion Motion, float LimitDegrees)
+	{
+		const float LimitRad = GetAngularLimitWithMarginRad(Motion, LimitDegrees);
+		return LimitRad >= 0.0f && std::fabs(AngleRad) > LimitRad;
+	}
+
+	bool ShouldReanchorRagdollJoint(
+		physx::PxD6Joint* Joint,
+		physx::PxRigidActor* ParentActor,
+		physx::PxRigidActor* ChildActor,
+		const FConstraintOption& Option)
+	{
+		if (!Joint || !ParentActor || !ChildActor)
+		{
+			return false;
+		}
+
+		const physx::PxTransform ParentAnchorWorld =
+			ParentActor->getGlobalPose() * Joint->getLocalPose(physx::PxJointActorIndex::eACTOR0);
+		const physx::PxTransform ChildAnchorWorld =
+			ChildActor->getGlobalPose() * Joint->getLocalPose(physx::PxJointActorIndex::eACTOR1);
+		const physx::PxVec3 AnchorDelta = ParentAnchorWorld.p - ChildAnchorWorld.p;
+		if (AnchorDelta.magnitudeSquared() > RagdollReanchorLinearTolerance * RagdollReanchorLinearTolerance)
+		{
+			return true;
+		}
+
+		return IsAngleOutsideLimit(Joint->getTwistAngle(), Option.TwistMotion, Option.TwistLimitDegrees)
+			|| IsAngleOutsideLimit(Joint->getSwingYAngle(), Option.Swing1Motion, Option.Swing1LimitDegrees)
+			|| IsAngleOutsideLimit(Joint->getSwingZAngle(), Option.Swing2Motion, Option.Swing2LimitDegrees);
 	}
 }
 
@@ -203,29 +252,31 @@ bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComp
 		bSynced = true;
 	}
 
-	// Ragdoll을 켜는 순간 body는 현재 animation 포즈로 teleport된다. 그 상대 포즈가 joint의 authored
-	// limit(bind 기준 ±θ)이나 locked linear를 크게 위반하면(예: capoeira 덤블링), dynamic 첫 프레임에
-	// solver가 위반을 한 step으로 되돌리며 보정 속도 ≈ (위반량/dt)를 만든다. dt 작은 release 고FPS에서
-	// 이 값이 폭발(각속도 측정 ~100 rad/s)해 캐릭터가 솟구친다. projection·maxAngularVelocity로는
-	// 안 잡힌다(solver의 limit 보정이라). 그래서 시작 위반 자체를 제거한다:
-	 
-	
-	//   활성화 순간 각 joint의 ParentLocal frame을 다시 잡아 "현재 상대 포즈 = joint neutral"로 만든다.
-	//   → 시작 위반 0 → solver가 보정할 게 없음 → 발사 없음. limit은 이 포즈 기준 ±θ로 이후 정상 작동.
-	//   위치 앵커(본 없는 중간 bone로 어긋나는 문제)도 함께 해소된다(위치+회전 모두 identity로 맞춤).
+	// Ragdoll을 켜는 순간 body는 현재 animation 포즈로 teleport된다. 이 포즈가 authored joint limit이나
+	// locked linear anchor를 크게 위반하면 solver가 첫 프레임에 큰 보정 속도를 만들 수 있다.
+	// 다만 모든 joint를 현재 포즈 기준으로 re-anchor하면 점프처럼 접힌 자세가 neutral이 되어 ragdoll이
+	// 굳어 보인다. 그래서 authored constraint가 감당 가능한 joint는 그대로 두고, 위험한 위반만 re-anchor한다.
 	int32 ReanchoredCount = 0;
+	int32 PreservedCount = 0;
 	for (auto& Constraint : Comp->GetConstraints())
 	{
 		if (!Constraint || !Constraint->IsValidConstraint()) continue;
 
 		physx::PxJoint* Joint = Constraint->GetJointHandle();
+		physx::PxD6Joint* D6Joint = Joint ? Joint->is<physx::PxD6Joint>() : nullptr;
 		physx::PxRigidActor* ParentActor = Constraint->ParentBody
 			? Constraint->ParentBody->GetPxRigidActor()
 			: nullptr;
 		physx::PxRigidActor* ChildActor = Constraint->ChildBody
 			? Constraint->ChildBody->GetPxRigidActor()
 			: nullptr;
-		if (!Joint || !ParentActor || !ChildActor) continue;
+		if (!Joint || !D6Joint || !ParentActor || !ChildActor) continue;
+
+		if (!ShouldReanchorRagdollJoint(D6Joint, ParentActor, ChildActor, Constraint->Setup.Option))
+		{
+			++PreservedCount;
+			continue;
+		}
 
 		const physx::PxTransform ChildLocalPose = Joint->getLocalPose(physx::PxJointActorIndex::eACTOR1);
 		const physx::PxTransform ParentWorldPose = ParentActor->getGlobalPose();
@@ -241,7 +292,7 @@ bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComp
 
 	if (ReanchoredCount > 0)
 	{
-		UE_LOG("[PhysX] Ragdoll re-anchored joints to current pose (pos+rot): count=%d", ReanchoredCount);
+		UE_LOG("[PhysX] Ragdoll conditionally re-anchored joints to current pose (pos+rot): count=%d preserved=%d", ReanchoredCount, PreservedCount);
 	}
 	return bSynced;
 }
