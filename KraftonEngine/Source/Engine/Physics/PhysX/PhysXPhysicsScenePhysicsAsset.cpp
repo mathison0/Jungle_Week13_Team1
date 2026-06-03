@@ -17,7 +17,7 @@
 namespace
 {
 	constexpr float MatrixDecomposeTolerance = 1.0e-6f;
-	constexpr float RagdollReanchorAngularMarginDegrees = 20.0f;
+	constexpr float RagdollReanchorAngularMarginDegrees = 40.0f;
 	constexpr float RagdollReanchorLinearTolerance = 5.0f;
 
 	float GetPhysicsAssetUniformScale(const FVector& WorldScale)
