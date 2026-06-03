@@ -224,8 +224,6 @@ UberPS_Output PS(UberVS_Output input)
     UberPS_Output output;
 
     float4 texColor = DiffuseTexture.Sample(LinearWrapSampler, input.texcoord);
-    if (texColor.a < 0.001f)
-        texColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
 
     float4 baseColor = texColor * input.color;
 
