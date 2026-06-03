@@ -21,6 +21,7 @@
 #include "Audio/AudioManager.h"
 #include "Object/ReferenceCollector.h"
 #include "Viewport/GameViewportClient.h"
+#include "Physics/PhysX/PhysXCore.h"
 
 UEngine* GEngine = nullptr;
 
@@ -49,6 +50,11 @@ void UEngine::Init(FWindowsWindow* InWindow)
 	// 싱글턴 초기화 순서 보장
 	FNamePool::Get();
 	FObjectFactory::Get();
+
+	// PhysX Foundation/Physics를 프로세스 수명 동안 잡아 둔다(Shutdown에서 해제).
+	// 씬을 닫았다 다시 열어도 refcount가 0으로 떨어지지 않아 Physics가 파괴/재생성되지 않는다.
+	// → 재생성된 Physics에서 캐시된 PxMaterial을 재사용하다 터지는 크래시 방지 + 매 씬 PhysX 재구축 비용 절감.
+	bHoldsPhysXCore = FPhysXCore::AcquireKeepAlive();
 
 	InputSystem::Get().SetOwnerWindow(Window->GetHWND());
 
@@ -87,6 +93,14 @@ void UEngine::Shutdown()
 	while (!WorldList.empty())
 	{
 		DestroyWorldContext(WorldList.back().ContextHandle);
+	}
+
+	// 월드(씬/물리)가 모두 정리된 뒤 프로세스 keepalive 핸들을 놓는다.
+	// 여기서 refcount가 0이 되며 Physics가 실제로 파괴된다(teardown 콜백이 캐시 머티리얼 핸들을 먼저 무효화).
+	if (bHoldsPhysXCore)
+	{
+		FPhysXCore::Release();
+		bHoldsPhysXCore = false;
 	}
 
 	// UI 가 Lua callback (FWidgetClickEventListener::Callback 의 sol::protected_function 등)

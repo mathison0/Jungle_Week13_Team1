@@ -86,6 +86,11 @@ protected:
 
 private:
 	std::unique_ptr<IRenderPipeline> RenderPipeline;
+
+	// PhysX Foundation/Physics를 프로세스 수명 동안 살려 둔다(UEngine::Init에서 Acquire).
+	// 씬을 닫았다 열 때 refcount가 0이 되어 Physics가 파괴→재생성되며 캐시된 PxMaterial이
+	// dangling 포인터가 되는 크래시(재오픈 시 createExclusiveShape)를 막는다.
+	bool bHoldsPhysXCore = false;
 };
 
 extern UEngine* GEngine;
