@@ -18,7 +18,7 @@ cbuffer DepthOfFieldCB : register(b2)
     float DepthOfFieldFocusTransitionPixels;
     float VisualizeFocusDistance;
     float DrawDebugFocusPlane;
-    float _Pad0;
+    float DepthOfFieldLayerMode;
     float2 BlurDirection;
     float2 _Pad1;
     float2 _Pad2;
