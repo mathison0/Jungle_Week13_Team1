@@ -66,7 +66,16 @@ AClothActor
 - CUDA backend if present, with DX11 fallback, then CPU fallback.
 - Procedural rectangular cloth grid.
   - Default component size is `7 x 7` engine units/meters, not the original sample-scale `300 x 300`.
-- `TopRow`, `Corners`, and `None` pin modes at minimum.
+- Pin modes for rectangular procedural cloth:
+  - `None`
+  - `TopRow`
+  - `Corners` / `TopCorners`
+  - `BottomRow`
+  - `LeftColumn`
+  - `RightColumn`
+  - `FourCorners`
+  - `Edges`
+  - `GoalFrame` (`TopRow + LeftColumn + RightColumn`)
 - Material assignment through the normal primitive/material path.
 - Double-sided rendering.
 - Directional wind.
@@ -132,12 +141,14 @@ UWorld::Tick
 
 ## Collision Runtime Flow
 
-Important rule: NvCloth does not consume a PhysX scene pointer. The engine translates the current runtime collision shapes into NvCloth's own collision arrays every cloth tick.
+Important rule: NvCloth does not consume a PhysX scene pointer. The engine translates runtime collision shapes into NvCloth's own collision arrays every cloth tick.
 
 ```text
 FClothScene::Tick
   -> IPhysicsScene::GatherClothCollision(desc, outData)
        desc.CollisionThickness comes from UClothComponent
+  -> split the frame into fixed cloth substeps
+  -> pass interpolated collision start/target data to FClothInstance per substep
 
 PhysX backend:
   FPhysXPhysicsScene
@@ -158,14 +169,17 @@ Native fallback:
     -> FClothCollisionBuilder
     -> FClothCollisionData
 
-FClothInstance::SetCollisionData
-  -> clear previous NvCloth collision arrays
-  -> set spheres/capsules/planes/convexes for this frame
+FClothInstance::SetCollisionDataForSubstep
+  -> compare this frame's collision topology with the previous frame
+  -> build substep-local start/target sphere and plane updates when compatible
+  -> set capsule indices and convex masks for the current collision topology
 ```
 
 Collision is currently one-way: engine/PhysX shapes affect cloth, but cloth does not push rigid bodies back.
 
 Collision thickness is an engine-side stability margin. `FClothCollisionBuilder` inflates sphere/capsule radii and box extents before converting them to NvCloth local-space collision primitives. This helps reduce deep initial penetration and violent correction when a moving capsule or box contacts the cloth.
+
+Moving collision uses `FClothInstance`'s previous collision snapshot as the NvCloth start state and the current gathered snapshot as the target state. `FClothScene` uses a PhysX-aligned `1/60` maximum cloth substep, and `FClothInstance::SetCollisionDataForSubstep` feeds each substep a smaller collision sweep segment. The previous snapshot is used only when sphere/capsule topology or plane/convex topology still matches and the cloth component world transform is unchanged. If topology changes, or the cloth actor itself moved, the instance falls back to current-only collision for that frame to avoid an invalid sweep.
 
 ## Class Diagram
 
@@ -221,6 +235,7 @@ classDiagram
         +Initialize(FNvClothContext, UClothMesh, FClothInstanceDesc)
         +SetWindVelocity(FVector)
         +SetCollisionData(FClothCollisionData)
+        +SetCollisionDataForSubstep(FClothCollisionData, uint32, uint32)
         +Simulate(float)
     }
 
@@ -521,8 +536,9 @@ The first implementation can run cloth on the game thread, inside `FClothScene::
 
 Initial rules:
 
-- Use the world delta time, clamped to a sane maximum. The current clamp is `1/30` seconds to avoid feeding large PIE/editor frame spikes into NvCloth.
-- Add an accumulator/substep path if the cloth becomes unstable with variable frame time.
+- Split the world delta time into PhysX-aligned `1/60` second maximum cloth substeps, capped at 4 substeps per frame.
+- Clamp large PIE/editor frame spikes to the maximum substep window instead of feeding an unbounded delta into NvCloth.
+- Gather collision once per cloth per frame, then interpolate compatible collision shapes across the substeps.
 - Keep solver count simple at first, likely one solver per active backend/world.
 - Keep all NvCloth object creation/destruction on the same owning thread until threading is deliberately introduced.
 - Do not add a job system dependency in the first pass.
@@ -538,18 +554,27 @@ Current default stability values:
 | `AngularDrag` | `0.45` | `0.0 - 1.0` | Suppress spin-heavy "washing machine" behavior. |
 | `DragCoefficient` | `0.20` | `0.0 - 2.0` | Keep wind/air response present but controlled. |
 | `LiftCoefficient` | `0.05` | `0.0 - 2.0` | Avoid excess lift by default. |
+| `ConstraintStiffness` | `1.0` | `0.0 - 1.0` | Controls phase constraint convergence; lower values make cloth more elastic. |
+| `ConstraintStiffnessMultiplier` | `1.0` | `0.0 - 2.0` | Scales phase stiffness response without changing the base value. |
+| `CompressionLimit` | `1.0` | `0.0 - 2.0` | Controls how much compression phase constraints allow. |
+| `StretchLimit` | `1.0` | `0.0 - 2.0` | Controls how much stretch phase constraints allow. |
+| `TetherConstraintScale` | `1.0` | `0.0 - 2.0` | Controls tether rest-length scale from fixed particles. |
+| `TetherConstraintStiffness` | `1.0` | `0.0 - 1.0` | Controls how springy tether constraints are. |
 | `Friction` | `0.45` | `0.0 - 1.0` | Reduce sliding across collision shapes. |
 | `CollisionMassScale` | `2.0` | `0.0 - 10.0` | Make collision response less explosive for light cloth particles. |
 | `CollisionThickness` | `0.03` | `0.0 - 0.25` | Add a small collision margin before deep penetration occurs. |
 | `bEnableContinuousCollision` | `true` | bool | Help fast-moving shapes avoid tunneling through cloth. |
 
-Potential future upgrade:
+Current substep flow:
 
 ```text
-FClothScene fixed-step accumulator
- -> N substeps
- -> solver simulate
- -> write back once per frame
+FClothScene::Tick
+ -> gather wind and collision once per cloth
+ -> calculate 1..4 substeps
+ -> SetCollisionDataForSubstep
+ -> Simulate(substepDelta)
+ -> write particles back after each successful substep
+ -> mark bounds/render data dirty once per frame
 ```
 
 ## Wind Policy
@@ -731,6 +756,13 @@ Implementation notes:
 | 2026-06-02 | Merge hold note: merging `feature/cloth` into current `main` produced runtime crash dumps around `Render/Resource/Buffer.cpp` in the dynamic vertex buffer path. Do not treat this as solved by build cleanup alone. Before the final merge, inspect how `FClothSceneProxy::PrepareDrawBuffer` interacts with the merged render pipeline, especially multi-pass calls such as main draw and shadow-map caster collection, dynamic buffer reallocation/release, stale draw-command buffer pointers, and proxy destruction during PIE stop. |
 | 2026-06-02 | Pre-merge stabilization pass: changed dynamic vertex/index buffers to report create/resize failure, keep the previous valid buffer alive when resize fails, and make Cloth/Skeletal/Particle/Text/Line upload paths skip drawing instead of dereferencing failed D3D buffers. Also moved `FPhysXClothCollisionReader` implementation from header to `.cpp`, moved cloth collision budget constants into `FClothCollisionBuilder`, removed the anonymous namespace from `FClothSceneProxy`, and restored short Korean comments for the touched cloth collision code. |
 | 2026-06-02 | Rebuilt the checked-in NvCloth Debug and Release binaries with CUDA Toolkit 10.0 and MSVC v141, embedded a `compute_60` PTX fallback for newer GPUs that cannot use the CUDA 10 native SASS targets, renamed the ThirdParty binary folders from `win.x86_64.vc143.md` to `win.x86_64.vc141.cuda10.md`, updated project generation/current project paths, verified CUDA/DX/CPU factory exports plus delay-loaded `nvcuda.dll`, and re-verified Debug x64 plus Release x64 engine builds. |
+| 2026-06-03 | Added moving collision support for fast cloth impact tests: `FClothInstance` now caches the previous NvCloth collision snapshot, feeds compatible sphere and plane data through NvCloth start/target overloads, preserves capsule/convex topology checks, invalidates sweep data when the cloth component transform changes, and falls back to current-only collision on topology changes. Debug x64 build passed with existing PhysX PDB warnings only. |
+| 2026-06-03 | Added cloth substeps for fast collision tests: `FClothScene` now clamps large frame deltas, runs cloth in up to four PhysX-aligned `1/60` maximum substeps, and calls `FClothInstance::SetCollisionDataForSubstep` so moving sphere/capsule/box collision sweeps are fed to NvCloth in smaller start/target segments. Debug x64 build passed with 0 warnings and 0 errors. |
+| 2026-06-03 | Exposed NvCloth phase and tether stability controls on `UClothComponent`: constraint stiffness, stiffness multiplier, compression/stretch limits, tether scale, and tether stiffness now flow through `FClothInstanceDesc` into `FClothInstance::ApplySettings`. Tuned `VehicleTest.Scene` cloth values toward stable pass-through collision: lower friction, moderate damping/drag, higher collision mass scale, and slightly springy phase/tether settings. |
+| 2026-06-03 | Retuned `VehicleTest.Scene` for the SkeletalMesh pass-through demo: increased cloth collision thickness so contact starts earlier, lowered collision mass scale so the cloth visibly lifts during penetration, reduced friction to avoid spin-up, lowered phase/tether stiffness for a softer flutter, and raised solver frequency for the larger `150 x 150` cloth grid. |
+| 2026-06-03 | Backed `VehicleTest.Scene` off from the aggressive pass-through preset after the cloth disappeared during testing. Restored a safer visible baseline: moderate collision thickness, higher collision mass scale, stronger damping/drag, tighter stretch limit, and less springy tether settings. Further lift should be tuned by raising collision thickness gradually rather than changing many stability axes at once. |
+| 2026-06-03 | Investigated crash dump `Crash_20260603_211802.dmp` at `PhysXPhysicsSceneBody.cpp:275`, inside `PxRigidActorExt::createExclusiveShape`. Added defensive validation in `BuildPxGeometry`: invalid/zero/NaN box, sphere, and capsule dimensions are skipped before reaching PhysX, and negative analytic shape dimensions are converted to positive magnitudes. Debug x64 build passed with 0 warnings and 0 errors. |
+| 2026-06-03 | Expanded `EClothPinMode` for procedural cloth authoring. Added bottom row, left/right columns, top corners, four corners, all edges, and `GoalFrame` pinning. `GoalFrame` pins the top row plus both side columns for goal-post/net style cloth. Existing enum values for `None`, `TopRow`, and `Corners` were preserved for saved-scene compatibility. |
 
 ## Pre-Smoke Structural Review
 

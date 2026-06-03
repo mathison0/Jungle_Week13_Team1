@@ -3,6 +3,7 @@
 #include "Cloth/ClothCollisionTypes.h"
 #include "Cloth/ClothMesh.h"
 #include "Cloth/NvClothContext.h"
+#include "Component/Primitive/ClothComponent.h"
 #include "Core/Logging/Log.h"
 
 #include <algorithm>
@@ -23,6 +24,110 @@
 static physx::PxVec3 ToPxVec3(const FVector& Vector)
 {
 	return physx::PxVec3(Vector.X, Vector.Y, Vector.Z);
+}
+
+static physx::PxVec4 ToPxVec4(const FVector4& Vector)
+{
+	return physx::PxVec4(Vector.X, Vector.Y, Vector.Z, Vector.W);
+}
+
+static TArray<physx::PxVec4> ToPxVec4Array(const TArray<FVector4>& Source)
+{
+	TArray<physx::PxVec4> Result;
+	Result.reserve(Source.size());
+	for (const FVector4& Value : Source)
+	{
+		Result.push_back(ToPxVec4(Value));
+	}
+	return Result;
+}
+
+static nv::cloth::Range<const physx::PxVec4> MakePxVec4Range(const TArray<physx::PxVec4>& Values)
+{
+	return Values.empty()
+		? nv::cloth::Range<const physx::PxVec4>()
+		: nv::cloth::Range<const physx::PxVec4>(Values.data(), Values.data() + Values.size());
+}
+
+static nv::cloth::Range<const uint32_t> MakeUint32Range(const TArray<uint32>& Values)
+{
+	return Values.empty()
+		? nv::cloth::Range<const uint32_t>()
+		: nv::cloth::Range<const uint32_t>(Values.data(), Values.data() + Values.size());
+}
+
+static bool CanUsePreviousSphereCollision(const FClothCollisionData& Previous, const FClothCollisionData& Current)
+{
+	return Previous.Spheres.size() == Current.Spheres.size()
+		&& Previous.Capsules == Current.Capsules;
+}
+
+static bool CanUsePreviousPlaneCollision(const FClothCollisionData& Previous, const FClothCollisionData& Current)
+{
+	return Previous.Planes.size() == Current.Planes.size()
+		&& Previous.ConvexMasks == Current.ConvexMasks;
+}
+
+static FVector4 LerpVector4(const FVector4& A, const FVector4& B, float Alpha)
+{
+	return FVector4(
+		A.X + (B.X - A.X) * Alpha,
+		A.Y + (B.Y - A.Y) * Alpha,
+		A.Z + (B.Z - A.Z) * Alpha,
+		A.W + (B.W - A.W) * Alpha);
+}
+
+static FVector4 LerpPlane(const FVector4& A, const FVector4& B, float Alpha)
+{
+	FVector4 Plane = LerpVector4(A, B, Alpha);
+	const float NormalLength = FVector(Plane.X, Plane.Y, Plane.Z).Length();
+	if (NormalLength <= 0.0001f)
+	{
+		return B;
+	}
+
+	const float InvLength = 1.0f / NormalLength;
+	return FVector4(
+		Plane.X * InvLength,
+		Plane.Y * InvLength,
+		Plane.Z * InvLength,
+		Plane.W * InvLength);
+}
+
+static void BuildSubstepSpheres(
+	const FClothCollisionData& Previous,
+	const FClothCollisionData& Current,
+	bool bUsePrevious,
+	float Alpha,
+	TArray<FVector4>& OutSpheres)
+{
+	OutSpheres.clear();
+	OutSpheres.reserve(Current.Spheres.size());
+
+	for (size_t Index = 0; Index < Current.Spheres.size(); ++Index)
+	{
+		OutSpheres.push_back(bUsePrevious
+			? LerpVector4(Previous.Spheres[Index], Current.Spheres[Index], Alpha)
+			: Current.Spheres[Index]);
+	}
+}
+
+static void BuildSubstepPlanes(
+	const FClothCollisionData& Previous,
+	const FClothCollisionData& Current,
+	bool bUsePrevious,
+	float Alpha,
+	TArray<FVector4>& OutPlanes)
+{
+	OutPlanes.clear();
+	OutPlanes.reserve(Current.Planes.size());
+
+	for (size_t Index = 0; Index < Current.Planes.size(); ++Index)
+	{
+		OutPlanes.push_back(bUsePrevious
+			? LerpPlane(Previous.Planes[Index], Current.Planes[Index], Alpha)
+			: Current.Planes[Index]);
+	}
 }
 #endif
 
@@ -104,6 +209,9 @@ void FClothInstance::Shutdown()
 
 	Context = nullptr;
 	Mesh = nullptr;
+	PreviousCollisionData.Reset();
+	PreviousCollisionOwnerWorldMatrix = FMatrix::Identity;
+	bHasPreviousCollisionData = false;
 }
 
 bool FClothInstance::Simulate(float DeltaTime)
@@ -168,18 +276,67 @@ void FClothInstance::SetWindVelocity(const FVector& InWindVelocity)
 
 void FClothInstance::SetCollisionData(const FClothCollisionData& CollisionData)
 {
+	SetCollisionDataForSubstep(CollisionData, 0, 1);
+}
+
+void FClothInstance::SetCollisionDataForSubstep(const FClothCollisionData& CollisionData, uint32 SubstepIndex, uint32 SubstepCount)
+{
 #if WITH_NVCLOTH
 	if (!Cloth)
 	{
 		return;
 	}
 
-	TArray<physx::PxVec4> Spheres;
-	Spheres.reserve(CollisionData.Spheres.size());
-	for (const FVector4& Sphere : CollisionData.Spheres)
+	const uint32 SafeSubstepCount = (std::max)(1u, SubstepCount);
+	const uint32 SafeSubstepIndex = (std::min)(SubstepIndex, SafeSubstepCount - 1);
+	const float StartAlpha = static_cast<float>(SafeSubstepIndex) / static_cast<float>(SafeSubstepCount);
+	const float EndAlpha = static_cast<float>(SafeSubstepIndex + 1) / static_cast<float>(SafeSubstepCount);
+
+	const FMatrix CurrentOwnerWorldMatrix = Desc.OwnerComponent
+		? Desc.OwnerComponent->GetWorldMatrix()
+		: FMatrix::Identity;
+	const bool bCanUsePreviousOwnerSpace = bHasPreviousCollisionData
+		&& PreviousCollisionOwnerWorldMatrix.Equals(CurrentOwnerWorldMatrix);
+	const bool bUsePreviousSpheres = bCanUsePreviousOwnerSpace
+		&& CanUsePreviousSphereCollision(PreviousCollisionData, CollisionData);
+	const bool bUsePreviousPlanes = bCanUsePreviousOwnerSpace
+		&& CanUsePreviousPlaneCollision(PreviousCollisionData, CollisionData);
+
+	FClothCollisionData StartCollisionData;
+	FClothCollisionData TargetCollisionData;
+	BuildSubstepSpheres(PreviousCollisionData, CollisionData, bUsePreviousSpheres, StartAlpha, StartCollisionData.Spheres);
+	BuildSubstepSpheres(PreviousCollisionData, CollisionData, bUsePreviousSpheres, EndAlpha, TargetCollisionData.Spheres);
+	StartCollisionData.Capsules = CollisionData.Capsules;
+	TargetCollisionData.Capsules = CollisionData.Capsules;
+
+	BuildSubstepPlanes(PreviousCollisionData, CollisionData, bUsePreviousPlanes, StartAlpha, StartCollisionData.Planes);
+	BuildSubstepPlanes(PreviousCollisionData, CollisionData, bUsePreviousPlanes, EndAlpha, TargetCollisionData.Planes);
+	StartCollisionData.ConvexMasks = CollisionData.ConvexMasks;
+	TargetCollisionData.ConvexMasks = CollisionData.ConvexMasks;
+
+	ApplyCollisionData(StartCollisionData, TargetCollisionData);
+
+	if (SafeSubstepIndex + 1 >= SafeSubstepCount)
 	{
-		Spheres.push_back(physx::PxVec4(Sphere.X, Sphere.Y, Sphere.Z, Sphere.W));
+		CommitCollisionDataFrame(CollisionData);
 	}
+#else
+	(void)CollisionData;
+	(void)SubstepIndex;
+	(void)SubstepCount;
+#endif
+}
+
+void FClothInstance::ApplyCollisionData(const FClothCollisionData& StartCollisionData, const FClothCollisionData& TargetCollisionData)
+{
+#if WITH_NVCLOTH
+	if (!Cloth)
+	{
+		return;
+	}
+
+	const TArray<physx::PxVec4> StartSpheres = ToPxVec4Array(StartCollisionData.Spheres);
+	const TArray<physx::PxVec4> TargetSpheres = ToPxVec4Array(TargetCollisionData.Spheres);
 
 	const uint32_t ExistingCapsuleCount = Cloth->getNumCapsules();
 	if (ExistingCapsuleCount > 0)
@@ -188,34 +345,24 @@ void FClothInstance::SetCollisionData(const FClothCollisionData& CollisionData)
 	}
 
 	const uint32_t ExistingSphereCount = Cloth->getNumSpheres();
-	if (ExistingSphereCount > 0)
+	if (ExistingSphereCount != static_cast<uint32_t>(TargetSpheres.size()))
 	{
 		Cloth->setSpheres(nv::cloth::Range<const physx::PxVec4>(), 0, ExistingSphereCount);
 	}
 
-	if (!Spheres.empty())
-	{
-		Cloth->setSpheres(
-			nv::cloth::Range<const physx::PxVec4>(Spheres.data(), Spheres.data() + Spheres.size()),
-			0,
-			0);
-	}
+	Cloth->setSpheres(MakePxVec4Range(StartSpheres), MakePxVec4Range(TargetSpheres));
 
-	const uint32_t NewCapsuleCount = static_cast<uint32_t>(CollisionData.Capsules.size() / 2);
+	const uint32_t NewCapsuleCount = static_cast<uint32_t>(TargetCollisionData.Capsules.size() / 2);
 	if (NewCapsuleCount > 0)
 	{
 		Cloth->setCapsules(
-			nv::cloth::Range<const uint32_t>(CollisionData.Capsules.data(), CollisionData.Capsules.data() + CollisionData.Capsules.size()),
+			MakeUint32Range(TargetCollisionData.Capsules),
 			0,
 			0);
 	}
 
-	TArray<physx::PxVec4> Planes;
-	Planes.reserve(CollisionData.Planes.size());
-	for (const FVector4& Plane : CollisionData.Planes)
-	{
-		Planes.push_back(physx::PxVec4(Plane.X, Plane.Y, Plane.Z, Plane.W));
-	}
+	const TArray<physx::PxVec4> StartPlanes = ToPxVec4Array(StartCollisionData.Planes);
+	const TArray<physx::PxVec4> TargetPlanes = ToPxVec4Array(TargetCollisionData.Planes);
 
 	const uint32_t ExistingConvexCount = Cloth->getNumConvexes();
 	if (ExistingConvexCount > 0)
@@ -224,29 +371,33 @@ void FClothInstance::SetCollisionData(const FClothCollisionData& CollisionData)
 	}
 
 	const uint32_t ExistingPlaneCount = Cloth->getNumPlanes();
-	if (ExistingPlaneCount > 0)
+	if (ExistingPlaneCount != static_cast<uint32_t>(TargetPlanes.size()))
 	{
 		Cloth->setPlanes(nv::cloth::Range<const physx::PxVec4>(), 0, ExistingPlaneCount);
 	}
 
-	if (!Planes.empty())
-	{
-		Cloth->setPlanes(
-			nv::cloth::Range<const physx::PxVec4>(Planes.data(), Planes.data() + Planes.size()),
-			0,
-			0);
-	}
+	Cloth->setPlanes(MakePxVec4Range(StartPlanes), MakePxVec4Range(TargetPlanes));
 
-	if (!CollisionData.ConvexMasks.empty())
+	if (!TargetCollisionData.ConvexMasks.empty())
 	{
 		Cloth->setConvexes(
-			nv::cloth::Range<const uint32_t>(CollisionData.ConvexMasks.data(), CollisionData.ConvexMasks.data() + CollisionData.ConvexMasks.size()),
+			MakeUint32Range(TargetCollisionData.ConvexMasks),
 			0,
 			0);
 	}
 #else
-	(void)CollisionData;
+	(void)StartCollisionData;
+	(void)TargetCollisionData;
 #endif
+}
+
+void FClothInstance::CommitCollisionDataFrame(const FClothCollisionData& CollisionData)
+{
+	PreviousCollisionData = CollisionData;
+	PreviousCollisionOwnerWorldMatrix = Desc.OwnerComponent
+		? Desc.OwnerComponent->GetWorldMatrix()
+		: FMatrix::Identity;
+	bHasPreviousCollisionData = true;
 }
 
 bool FClothInstance::CookFabricAndCreateCloth()
@@ -387,16 +538,22 @@ void FClothInstance::ApplySettings()
 	Cloth->setFriction(ClampClothSetting(Desc.Friction, 0.0f, 1.0f));
 	Cloth->setCollisionMassScale(ClampClothSetting(Desc.CollisionMassScale, 0.0f, 10.0f));
 	Cloth->enableContinuousCollision(Desc.bEnableContinuousCollision);
+	Cloth->setTetherConstraintScale(ClampClothSetting(Desc.TetherConstraintScale, 0.0f, 2.0f));
+	Cloth->setTetherConstraintStiffness(ClampClothSetting(Desc.TetherConstraintStiffness, 0.0f, 1.0f));
 
+	const float ConstraintStiffness = ClampClothSetting(Desc.ConstraintStiffness, 0.0f, 1.0f);
+	const float ConstraintStiffnessMultiplier = ClampClothSetting(Desc.ConstraintStiffnessMultiplier, 0.0f, 2.0f);
+	const float CompressionLimit = ClampClothSetting(Desc.CompressionLimit, 0.0f, 2.0f);
+	const float StretchLimit = ClampClothSetting(Desc.StretchLimit, 0.0f, 2.0f);
 	TArray<nv::cloth::PhaseConfig> PhaseConfigs;
 	PhaseConfigs.reserve(Fabric->getNumPhases());
 	for (uint32 Index = 0; Index < Fabric->getNumPhases(); ++Index)
 	{
 		nv::cloth::PhaseConfig PhaseConfig(static_cast<uint16_t>(Index));
-		PhaseConfig.mStiffness = 1.0f;
-		PhaseConfig.mStiffnessMultiplier = 1.0f;
-		PhaseConfig.mCompressionLimit = 1.0f;
-		PhaseConfig.mStretchLimit = 1.0f;
+		PhaseConfig.mStiffness = ConstraintStiffness;
+		PhaseConfig.mStiffnessMultiplier = ConstraintStiffnessMultiplier;
+		PhaseConfig.mCompressionLimit = CompressionLimit;
+		PhaseConfig.mStretchLimit = StretchLimit;
 		PhaseConfigs.push_back(PhaseConfig);
 	}
 
