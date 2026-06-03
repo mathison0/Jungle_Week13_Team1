@@ -22,6 +22,9 @@ struct FPhysXRockerBogieSetup
 
 	float MaxDriveTorque = 850.0f;
 	float MaxDriveSpeed = 18.0f;
+	float WheelContactProbeExtra = 0.18f;
+	float WheelSlipSpeed = 3.0f;
+	float MinGroundedTorqueScale = 0.15f;
 	float ChassisAngularDamping = 1.8f;
 	float ChassisPitchStiffness = 900.0f;
 	float ChassisPitchDamping = 180.0f;
@@ -98,7 +101,9 @@ private:
 
 	physx::PxRigidDynamic* CreateBox(const physx::PxTransform& Pose, const physx::PxVec3& HalfExtents, float Mass, physx::PxMaterial* Material);
 	physx::PxRigidDynamic* CreateWheel(const physx::PxTransform& Pose, float Radius, float HalfWidth, float Mass, physx::PxMaterial* Material);
+	physx::PxConvexMesh* CreateWheelConvexMesh(float Radius, float HalfWidth) const;
 	physx::PxRevoluteJoint* CreateHinge(physx::PxRigidActor* Parent, physx::PxRigidDynamic* Child, const physx::PxVec3& WorldPivot, const physx::PxQuat& WorldAxisFrame);
+	bool QueryWheelContact(const FJointedBody& Wheel, float& OutLoadScale, float& OutSlipScale) const;
 	void BuildSide(uint32 SideIndex);
 	void ReleaseSide(FSide& Side);
 	void SetCollisionFilter(physx::PxRigidActor* Actor) const;
@@ -110,6 +115,7 @@ private:
 	physx::PxRigidDynamic* Chassis = nullptr;
 	physx::PxMaterial* TireMaterial = nullptr;
 	physx::PxMaterial* BodyMaterial = nullptr;
+	physx::PxConvexMesh* WheelConvexMesh = nullptr;
 	FSide Sides[2];
 	physx::PxFilterData CollisionFilter;
 	float ThrottleInput = 0.0f;

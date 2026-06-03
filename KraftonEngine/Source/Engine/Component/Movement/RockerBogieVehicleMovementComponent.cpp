@@ -126,6 +126,9 @@ void URockerBogieVehicleMovementComponent::EnsureVehicle()
 	Setup.BogieHalfLength = BogieHalfLength;
 	Setup.MaxDriveTorque = MaxDriveTorque;
 	Setup.MaxDriveSpeed = MaxDriveSpeed;
+	Setup.WheelContactProbeExtra = WheelContactProbeExtra;
+	Setup.WheelSlipSpeed = WheelSlipSpeed;
+	Setup.MinGroundedTorqueScale = MinGroundedTorqueScale;
 	Setup.ChassisAngularDamping = ChassisAngularDamping;
 	Setup.ChassisPitchStiffness = ChassisPitchStiffness;
 	Setup.ChassisPitchDamping = ChassisPitchDamping;

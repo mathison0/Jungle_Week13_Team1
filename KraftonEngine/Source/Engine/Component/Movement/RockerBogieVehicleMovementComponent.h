@@ -74,6 +74,12 @@ private:
 	float MaxDriveTorque = 850.0f;
 	UPROPERTY(Edit, Save, Category="RockerBogie|Drive", DisplayName="Max Drive Speed")
 	float MaxDriveSpeed = 18.0f;
+	UPROPERTY(Edit, Save, Category="RockerBogie|Drive", DisplayName="Wheel Contact Probe Extra")
+	float WheelContactProbeExtra = 0.18f;
+	UPROPERTY(Edit, Save, Category="RockerBogie|Drive", DisplayName="Wheel Slip Speed")
+	float WheelSlipSpeed = 3.0f;
+	UPROPERTY(Edit, Save, Category="RockerBogie|Drive", DisplayName="Min Grounded Torque Scale")
+	float MinGroundedTorqueScale = 0.15f;
 
 	UPROPERTY(Edit, Save, Category="RockerBogie|Stability", DisplayName="Chassis Angular Damping")
 	float ChassisAngularDamping = 1.8f;

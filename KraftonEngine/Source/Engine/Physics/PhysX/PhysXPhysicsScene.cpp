@@ -1,4 +1,5 @@
-﻿#include "PhysXCore.h"
+#include "PhysXPhysicsScene.h"
+#include "PhysXCore.h"
 #include "PhysXCollision.h"
 #include "PhysXSimulationCallback.h"
 #include "PhysXClothCollisionReader.h"
@@ -497,10 +498,6 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	{
 		ActiveVehicle->Simulate(DeltaTime);
 	}
-	if (ActiveRockerBogieVehicle && PhysicsTimeAccumulator >= FixedPhysicsDeltaTime)
-	{
-		ActiveRockerBogieVehicle->Simulate(DeltaTime);
-	}
 
 	float SimulatedDeltaTime = 0.0f;
 	int32 StepCount = 0;
@@ -518,6 +515,10 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		if (ActiveVehicle)
 		{
 			ActiveVehicle->Simulate(FixedPhysicsDeltaTime);
+		}
+		if (ActiveRockerBogieVehicle)
+		{
+			ActiveRockerBogieVehicle->Simulate(FixedPhysicsDeltaTime);
 		}
 
 		// ── Simulate: 랙돌/동적 바디는 항상 고정 dt로 적분 ──

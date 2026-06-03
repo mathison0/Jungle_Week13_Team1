@@ -3,6 +3,7 @@
 #include "Core/Types/CollisionTypes.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 using namespace physx;
@@ -46,6 +47,39 @@ namespace
 
 		return Actor0->getGlobalPose().transform(Joint->getLocalPose(PxJointActorIndex::eACTOR0).p);
 	}
+
+	PxQueryHitType::Enum WheelContactPreFilter(
+		PxFilterData QueryFilterData, PxFilterData ObjectFilterData,
+		const void*, PxU32, PxHitFlags&)
+	{
+		if (QueryFilterData.word3 != 0 && QueryFilterData.word3 == ObjectFilterData.word3)
+		{
+			return PxQueryHitType::eNONE;
+		}
+		return PxQueryHitType::eBLOCK;
+	}
+
+	class FWheelContactQueryFilterCallback : public PxQueryFilterCallback
+	{
+	public:
+		PxQueryHitType::Enum preFilter(
+			const PxFilterData& QueryFilterData,
+			const PxShape* Shape,
+			const PxRigidActor*,
+			PxHitFlags& HitFlags) override
+		{
+			return Shape
+				? WheelContactPreFilter(QueryFilterData, Shape->getQueryFilterData(), nullptr, 0, HitFlags)
+				: PxQueryHitType::eNONE;
+		}
+
+		PxQueryHitType::Enum postFilter(
+			const PxFilterData&,
+			const PxQueryHit&) override
+		{
+			return PxQueryHitType::eBLOCK;
+		}
+	};
 }
 
 FPhysXRockerBogieVehicle::~FPhysXRockerBogieVehicle()
@@ -93,6 +127,13 @@ bool FPhysXRockerBogieVehicle::Build(PxScene* Scene, PxPhysics* Physics, PxRigid
 		return false;
 	}
 
+	WheelConvexMesh = CreateWheelConvexMesh(Setup.WheelRadius, Setup.WheelHalfWidth);
+	if (!WheelConvexMesh)
+	{
+		Release();
+		return false;
+	}
+
 	BuildSide(0);
 	BuildSide(1);
 
@@ -117,6 +158,11 @@ void FPhysXRockerBogieVehicle::Release()
 		BodyMaterial->release();
 		BodyMaterial = nullptr;
 	}
+	if (WheelConvexMesh)
+	{
+		WheelConvexMesh->release();
+		WheelConvexMesh = nullptr;
+	}
 
 	Chassis = nullptr;
 	SceneHandle = nullptr;
@@ -135,7 +181,6 @@ void FPhysXRockerBogieVehicle::Simulate(float)
 {
 	const float LeftOmega = (ThrottleInput + SteerInput) * Config.MaxDriveSpeed;
 	const float RightOmega = (ThrottleInput - SteerInput) * Config.MaxDriveSpeed;
-	const float PerWheelDriveTorque = Config.MaxDriveTorque / static_cast<float>(WheelCount);
 
 	if (Chassis)
 	{
@@ -152,9 +197,12 @@ void FPhysXRockerBogieVehicle::Simulate(float)
 		Chassis->addTorque(Right * PitchTorque);
 	}
 
+	float LoadScales[2][3] = {};
+	float SlipScales[2][3] = {};
+	float TotalLoadScale = 0.0f;
+
 	for (uint32 SideIndex = 0; SideIndex < 2; ++SideIndex)
 	{
-		const float Omega = (SideIndex == 0) ? LeftOmega : RightOmega;
 		for (uint32 Wheel = 0; Wheel < 3; ++Wheel)
 		{
 			FJointedBody& WheelBody = Sides[SideIndex].Wheels[Wheel];
@@ -168,6 +216,33 @@ void FPhysXRockerBogieVehicle::Simulate(float)
 				WheelBody.Joint->setRevoluteJointFlag(PxRevoluteJointFlag::eDRIVE_ENABLED, false);
 			}
 
+			float LoadScale = 0.0f;
+			float SlipScale = 0.0f;
+			if (QueryWheelContact(WheelBody, LoadScale, SlipScale))
+			{
+				LoadScales[SideIndex][Wheel] = std::max(LoadScale, Config.MinGroundedTorqueScale);
+				SlipScales[SideIndex][Wheel] = SlipScale;
+				TotalLoadScale += LoadScales[SideIndex][Wheel];
+			}
+		}
+	}
+
+	if (TotalLoadScale <= 0.001f)
+	{
+		return;
+	}
+
+	for (uint32 SideIndex = 0; SideIndex < 2; ++SideIndex)
+	{
+		const float Omega = (SideIndex == 0) ? LeftOmega : RightOmega;
+		for (uint32 Wheel = 0; Wheel < 3; ++Wheel)
+		{
+			FJointedBody& WheelBody = Sides[SideIndex].Wheels[Wheel];
+			if (!WheelBody.Body || LoadScales[SideIndex][Wheel] <= 0.0f)
+			{
+				continue;
+			}
+
 			if (std::fabs(Omega) <= 0.01f)
 			{
 				continue;
@@ -177,7 +252,8 @@ void FPhysXRockerBogieVehicle::Simulate(float)
 			const float CurrentOmega = WheelBody.Body->getAngularVelocity().dot(WheelAxis);
 			const float SpeedError = Omega - CurrentOmega;
 			const float TorqueScale = ClampInput(SpeedError / Config.MaxDriveSpeed);
-			WheelBody.Body->addTorque(WheelAxis * (PerWheelDriveTorque * TorqueScale));
+			const float LoadTorque = Config.MaxDriveTorque * (LoadScales[SideIndex][Wheel] / TotalLoadScale);
+			WheelBody.Body->addTorque(WheelAxis * (LoadTorque * SlipScales[SideIndex][Wheel] * TorqueScale));
 		}
 	}
 }
@@ -284,7 +360,15 @@ PxRigidDynamic* FPhysXRockerBogieVehicle::CreateWheel(const PxTransform& Pose, f
 		return nullptr;
 	}
 
-	PxShape* Shape = PhysicsHandle->createShape(PxCapsuleGeometry(Radius, HalfWidth), *Material, true);
+	PxShape* Shape = nullptr;
+	if (WheelConvexMesh)
+	{
+		Shape = PhysicsHandle->createShape(PxConvexMeshGeometry(WheelConvexMesh), *Material, true);
+	}
+	else
+	{
+		Shape = PhysicsHandle->createShape(PxCapsuleGeometry(Radius, HalfWidth), *Material, true);
+	}
 	if (!Shape)
 	{
 		Body->release();
@@ -300,6 +384,110 @@ PxRigidDynamic* FPhysXRockerBogieVehicle::CreateWheel(const PxTransform& Pose, f
 	SetCollisionFilter(Body);
 	SceneHandle->addActor(*Body);
 	return Body;
+}
+
+PxConvexMesh* FPhysXRockerBogieVehicle::CreateWheelConvexMesh(float Radius, float HalfWidth) const
+{
+	if (!PhysicsHandle)
+	{
+		return nullptr;
+	}
+
+	constexpr uint32 SegmentCount = 24;
+	std::array<PxVec3, SegmentCount * 2> Vertices;
+	for (uint32 Segment = 0; Segment < SegmentCount; ++Segment)
+	{
+		const float Angle = (static_cast<float>(Segment) / static_cast<float>(SegmentCount)) * PxTwoPi;
+		const float Y = std::cos(Angle) * Radius;
+		const float Z = std::sin(Angle) * Radius;
+		Vertices[Segment * 2] = PxVec3(-HalfWidth, Y, Z);
+		Vertices[Segment * 2 + 1] = PxVec3(HalfWidth, Y, Z);
+	}
+
+	PxConvexMeshDesc Desc;
+	Desc.points.count = static_cast<PxU32>(Vertices.size());
+	Desc.points.stride = sizeof(PxVec3);
+	Desc.points.data = Vertices.data();
+	Desc.flags = PxConvexFlag::eCOMPUTE_CONVEX;
+
+	PxCookingParams CookingParams(PhysicsHandle->getTolerancesScale());
+	CookingParams.convexMeshCookingType = PxConvexMeshCookingType::eQUICKHULL;
+	PxCooking* Cooking = PxCreateCooking(PX_PHYSICS_VERSION, PhysicsHandle->getFoundation(), CookingParams);
+	if (!Cooking)
+	{
+		return nullptr;
+	}
+
+	PxConvexMeshCookingResult::Enum CookResult = PxConvexMeshCookingResult::eFAILURE;
+	PxConvexMesh* Mesh = Cooking->createConvexMesh(Desc, PhysicsHandle->getPhysicsInsertionCallback(), &CookResult);
+	Cooking->release();
+
+	if (CookResult == PxConvexMeshCookingResult::eFAILURE)
+	{
+		if (Mesh)
+		{
+			Mesh->release();
+		}
+		return nullptr;
+	}
+
+	return Mesh;
+}
+
+bool FPhysXRockerBogieVehicle::QueryWheelContact(const FJointedBody& Wheel, float& OutLoadScale, float& OutSlipScale) const
+{
+	OutLoadScale = 0.0f;
+	OutSlipScale = 0.0f;
+
+	if (!SceneHandle || !Wheel.Body)
+	{
+		return false;
+	}
+
+	const PxTransform WheelPose = Wheel.Body->getGlobalPose();
+	const PxVec3 Down(0.0f, 0.0f, -1.0f);
+	const PxVec3 Start = WheelPose.p - Down * (Config.WheelRadius * 0.25f);
+	const float MaxDistance = Config.WheelRadius + Config.WheelContactProbeExtra;
+
+	PxRaycastBuffer Hit;
+	PxQueryFilterData FilterData;
+	FilterData.data = CollisionFilter;
+	FilterData.flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC | PxQueryFlag::ePREFILTER;
+	FWheelContactQueryFilterCallback FilterCallback;
+
+	const bool bHit = SceneHandle->raycast(
+		Start,
+		Down,
+		MaxDistance,
+		Hit,
+		PxHitFlag::eDEFAULT | PxHitFlag::eNORMAL,
+		FilterData,
+		&FilterCallback);
+
+	if (!bHit || !Hit.hasBlock)
+	{
+		return false;
+	}
+
+	const float GroundClearance = std::max(0.0f, Hit.block.distance - Config.WheelRadius * 0.25f);
+	OutLoadScale = ClampRange((MaxDistance - GroundClearance) / std::max(0.001f, MaxDistance), 0.0f, 1.0f);
+
+	const PxVec3 WheelAxis = WheelPose.q.rotate(PxVec3(1.0f, 0.0f, 0.0f)).getNormalized();
+	const PxVec3 WheelVelocity = Wheel.Body->getLinearVelocity();
+	const float SpinOmega = Wheel.Body->getAngularVelocity().dot(WheelAxis);
+	const PxVec3 GroundNormal = Hit.block.normal.getNormalized();
+	PxVec3 Forward = WheelAxis.cross(GroundNormal);
+	if (Forward.magnitudeSquared() < 0.0001f)
+	{
+		Forward = WheelPose.q.rotate(PxVec3(0.0f, 1.0f, 0.0f));
+	}
+	Forward.normalize();
+
+	const float LongitudinalSpeed = WheelVelocity.dot(Forward);
+	const float SurfaceSpeed = SpinOmega * Config.WheelRadius;
+	const float SlipSpeed = std::fabs(SurfaceSpeed - LongitudinalSpeed);
+	OutSlipScale = ClampRange(1.0f - (SlipSpeed / std::max(0.01f, Config.WheelSlipSpeed)), 0.25f, 1.0f);
+	return true;
 }
 
 PxRevoluteJoint* FPhysXRockerBogieVehicle::CreateHinge(PxRigidActor* Parent, PxRigidDynamic* Child, const PxVec3& WorldPivot, const PxQuat& WorldAxisFrame)
