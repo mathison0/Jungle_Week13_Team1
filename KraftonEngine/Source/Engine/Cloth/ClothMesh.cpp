@@ -220,6 +220,20 @@ bool UClothMesh::IsPinnedIndex(uint32 ParticleIndex) const
 		return Row == 0;
 	case EClothPinMode::Corners:
 		return Row == 0 && (Column == 0 || Column == Columns - 1);
+	case EClothPinMode::BottomRow:
+		return Row == Rows - 1;
+	case EClothPinMode::LeftColumn:
+		return Column == 0;
+	case EClothPinMode::RightColumn:
+		return Column == Columns - 1;
+	case EClothPinMode::TopCorners:
+		return Row == 0 && (Column == 0 || Column == Columns - 1);
+	case EClothPinMode::FourCorners:
+		return (Column == 0 || Column == Columns - 1) && (Row == 0 || Row == Rows - 1);
+	case EClothPinMode::Edges:
+		return Column == 0 || Column == Columns - 1 || Row == 0 || Row == Rows - 1;
+	case EClothPinMode::GoalFrame:
+		return Row == 0 || Column == 0 || Column == Columns - 1;
 	default:
 		return false;
 	}

@@ -221,17 +221,60 @@ static EPhysXBodyType GetBodyType(const PxRigidActor* Actor)
 
 static bool BuildPxGeometry(const FPhysXShapeDesc& Desc, PxGeometryHolder& OutGeometry)
 {
+	constexpr float MinShapeExtent = 1.0e-4f;
+	auto SanitizeExtent = [](float Value) -> float
+		{
+			if (!std::isfinite(Value))
+			{
+				return 0.0f;
+			}
+			return std::fabs(Value);
+		};
+
 	switch (Desc.ShapeType)
 	{
 	case EPhysXShapeType::Box:
-		OutGeometry = PxBoxGeometry(Desc.BoxHalfExtent.X, Desc.BoxHalfExtent.Y, Desc.BoxHalfExtent.Z);
+	{
+		const float X = SanitizeExtent(Desc.BoxHalfExtent.X);
+		const float Y = SanitizeExtent(Desc.BoxHalfExtent.Y);
+		const float Z = SanitizeExtent(Desc.BoxHalfExtent.Z);
+		if (X < MinShapeExtent || Y < MinShapeExtent || Z < MinShapeExtent)
+		{
+			UE_LOG("[PhysX] Invalid box shape skipped. HalfExtent=(%f,%f,%f)",
+				Desc.BoxHalfExtent.X,
+				Desc.BoxHalfExtent.Y,
+				Desc.BoxHalfExtent.Z);
+			return false;
+		}
+		OutGeometry = PxBoxGeometry(X, Y, Z);
 		return true;
+	}
 	case EPhysXShapeType::Sphere:
-		OutGeometry = PxSphereGeometry(Desc.Radius);
+	{
+		const float Radius = SanitizeExtent(Desc.Radius);
+		if (Radius < MinShapeExtent)
+		{
+			UE_LOG("[PhysX] Invalid sphere shape skipped. Radius=%f", Desc.Radius);
+			return false;
+		}
+		OutGeometry = PxSphereGeometry(Radius);
 		return true;
+	}
 	case EPhysXShapeType::Capsule:
-		OutGeometry = PxCapsuleGeometry(Desc.Radius, Desc.HalfHeight - Desc.Radius);
+	{
+		const float Radius = SanitizeExtent(Desc.Radius);
+		const float HalfHeight = SanitizeExtent(Desc.HalfHeight);
+		const float HalfCylinderHeight = HalfHeight - Radius;
+		if (Radius < MinShapeExtent || HalfCylinderHeight < MinShapeExtent)
+		{
+			UE_LOG("[PhysX] Invalid capsule shape skipped. Radius=%f HalfHeight=%f",
+				Desc.Radius,
+				Desc.HalfHeight);
+			return false;
+		}
+		OutGeometry = PxCapsuleGeometry(Radius, HalfCylinderHeight);
 		return true;
+	}
 	default:
 		return false;
 	}
