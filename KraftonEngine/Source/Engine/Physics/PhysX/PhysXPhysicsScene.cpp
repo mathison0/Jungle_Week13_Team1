@@ -541,7 +541,13 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	LastStats.PhysicsTimeMs = StepCount > 0
 		? std::chrono::duration<double, std::milli>(PhysicsEndTime - PhysicsStartTime).count()
 		: 0.0;
-	LastStats.RigidBodiesTotal = SimulationStats.nbStaticBodies + SimulationStats.nbDynamicBodies;
+	LastStats.RigidBodiesStatic = SimulationStats.nbStaticBodies;
+	LastStats.RigidBodiesDynamic = SimulationStats.nbDynamicBodies;
+	LastStats.RigidBodiesKinematic = SimulationStats.nbKinematicBodies;
+	LastStats.RigidBodiesTotal =
+		LastStats.RigidBodiesStatic +
+		LastStats.RigidBodiesDynamic +
+		LastStats.RigidBodiesKinematic;
 	LastStats.RigidBodiesActive = SimulationStats.nbActiveDynamicBodies + SimulationStats.nbActiveKinematicBodies;
 	LastStats.JointsCount = Scene->getNbConstraints();
 	LastStats.ContactPairs = SimulationStats.nbDiscreteContactPairsTotal;
