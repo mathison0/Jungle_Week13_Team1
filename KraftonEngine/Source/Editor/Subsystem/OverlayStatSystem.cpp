@@ -399,6 +399,12 @@ void FOverlayStatSystem::BuildPhysicsLines(const UEditorEngine& Editor, TArray<F
 		Stats.RigidBodiesActive);
 	OutLines.push_back(Buffer);
 
+	snprintf(Buffer, sizeof(Buffer), "  Static/Dynamic/Kinematic : %u / %u / %u",
+		Stats.RigidBodiesStatic,
+		Stats.RigidBodiesDynamic,
+		Stats.RigidBodiesKinematic);
+	OutLines.push_back(Buffer);
+
 	snprintf(Buffer, sizeof(Buffer), "Joints Count : %u", Stats.JointsCount);
 	OutLines.push_back(Buffer);
 

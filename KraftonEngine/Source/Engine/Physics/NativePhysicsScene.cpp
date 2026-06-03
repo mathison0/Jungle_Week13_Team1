@@ -304,11 +304,19 @@ void FNativePhysicsScene::Tick(float DeltaTime)
 	LastStats.PhysicsTimeMs = std::chrono::duration<double, std::milli>(PhysicsEndTime - PhysicsStartTime).count();
 	LastStats.RigidBodiesTotal = static_cast<uint32>(RegisteredComponents.size());
 	LastStats.RigidBodiesActive = 0;
+	LastStats.RigidBodiesStatic = 0;
+	LastStats.RigidBodiesDynamic = 0;
+	LastStats.RigidBodiesKinematic = 0;
 	for (UPrimitiveComponent* Comp : RegisteredComponents)
 	{
 		if (Comp && Comp->GetSimulatePhysics())
 		{
 			++LastStats.RigidBodiesActive;
+			++LastStats.RigidBodiesDynamic;
+		}
+		else
+		{
+			++LastStats.RigidBodiesStatic;
 		}
 	}
 	LastStats.JointsCount = 0;
