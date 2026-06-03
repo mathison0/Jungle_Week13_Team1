@@ -1,0 +1,23 @@
+{
+  "BlendState" : "",
+  "DepthStencilState" : "",
+  "EmissiveColor" : [1.000000, 1.000000, 1.000000, 1.000000],
+  "EmissiveIntensity" : 0.000000,
+  "Parameters" : {
+
+  },
+  "ParentMaterial" : "Content/Material/Editor/TempTexture.mat",
+  "PathFileName" : "Content/Material/Editor/TempTexture_Inst_1.matinst",
+  "RasterizerState" : "",
+  "RenderPass" : null,
+  "ShaderPath" : null,
+  "ShadowMode" : "Opaque",
+  "Textures" : {
+
+  },
+  "TranslucencyPass" : "AfterDOF",
+  "bEnableBloom" : false,
+  "bOverrideEmissiveColor" : false,
+  "bOverrideEmissiveIntensity" : false,
+  "bOverrideEnableBloom" : false
+}

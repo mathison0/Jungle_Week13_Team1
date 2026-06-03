@@ -574,6 +574,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Component\Movement\PendulumMovementComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Movement\ProjectileMovementComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Movement\PxVehicleMovementComponent.cpp" />
+    <ClCompile Include="Source\Engine\Component\Movement\RockerBogieVehicleMovementComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Movement\RotatingMovementComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Particle\ParticleSystemComponent.cpp" />
@@ -665,9 +666,9 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Mesh\Importer\ObjImporter.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxAnimationImporter.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxMaterialImporter.cpp" />
+    <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxScaleBakeUtil.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneLoader.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneQuery.cpp" />
-    <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxScaleBakeUtil.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSkeletalMeshImporter.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSkeletonImporter.cpp" />
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSkinWeightImporter.cpp" />
@@ -709,6 +710,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.cpp" />
+    <ClCompile Include="Source\Engine\Physics\PhysX\Vehicle\PhysXRockerBogieVehicle.cpp" />
     <ClCompile Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicle4W.cpp" />
     <ClCompile Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.cpp" />
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp" />
@@ -809,6 +811,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClCompile Include="Source\Engine\Viewport\ViewportClient.cpp" />
     <ClCompile Include="Source\Game\GameActorPlacements.cpp" />
     <ClCompile Include="Source\Game\PxVehicle4WActor.cpp" />
+    <ClCompile Include="Source\Game\RockerBogieVehicleActor.cpp" />
     <ClCompile Include="Source\Game\Vehicle4WActor.cpp" />
     <ClCompile Include="Source\Game\Lua\GameLuaBindings.cpp" />
     <ClCompile Include="Source\ObjViewer\ObjViewerEngine.cpp" />
@@ -986,6 +989,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Component\Movement\PendulumMovementComponent.h" />
     <ClInclude Include="Source\Engine\Component\Movement\ProjectileMovementComponent.h" />
     <ClInclude Include="Source\Engine\Component\Movement\PxVehicleMovementComponent.h" />
+    <ClInclude Include="Source\Engine\Component\Movement\RockerBogieVehicleMovementComponent.h" />
     <ClInclude Include="Source\Engine\Component\Movement\RotatingMovementComponent.h" />
     <ClInclude Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.h" />
     <ClInclude Include="Source\Engine\Component\Particle\ParticleSystemComponent.h" />
@@ -1095,9 +1099,9 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxImportContext.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxImportTypes.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxMaterialImporter.h" />
+    <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxScaleBakeUtil.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneLoader.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneQuery.h" />
-    <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxScaleBakeUtil.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSkeletalMeshImporter.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSkeletonImporter.h" />
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSkinWeightImporter.h" />
@@ -1152,6 +1156,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXQueryUtils.h" />
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXShapeDesc.h" />
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.h" />
+    <ClInclude Include="Source\Engine\Physics\PhysX\Vehicle\PhysXRockerBogieVehicle.h" />
     <ClInclude Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicle4W.h" />
     <ClInclude Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicleConfig.h" />
     <ClInclude Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.h" />
@@ -1281,6 +1286,7 @@ xcopy /Y "$(ProjectDir)ThirdParty\fbx\lib\x64\release\libfbxsdk.dll" "$(OutDir)"
     <ClInclude Include="Source\Engine\Viewport\ViewportClient.h" />
     <ClInclude Include="Source\Game\GameActorPlacements.h" />
     <ClInclude Include="Source\Game\PxVehicle4WActor.h" />
+    <ClInclude Include="Source\Game\RockerBogieVehicleActor.h" />
     <ClInclude Include="Source\Game\Vehicle4WActor.h" />
     <ClInclude Include="Source\Game\Lua\GameLuaBindings.h" />
     <ClInclude Include="Source\ObjViewer\ObjViewerEngine.h" />

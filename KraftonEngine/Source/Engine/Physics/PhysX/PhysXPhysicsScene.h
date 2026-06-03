@@ -35,6 +35,7 @@ namespace physx
 class FPhysXSimulationCallback;
 class UPhysicalMaterial;
 class FPhysXVehicle4W;
+class FPhysXRockerBogieVehicle;
 
 // ============================================================
 // FPhysXPhysicsScene — PhysX 4.1 기반 물리 시스템
@@ -138,6 +139,8 @@ public:
 	// 차량 객체 소유권은 컴포넌트에 있고 여기엔 포인터만 둔다(비소유).
 	void RegisterVehicle(FPhysXVehicle4W* Vehicle) { ActiveVehicle = Vehicle; }
 	void UnregisterVehicle(FPhysXVehicle4W* Vehicle) { if (ActiveVehicle == Vehicle) ActiveVehicle = nullptr; }
+	void RegisterRockerBogieVehicle(FPhysXRockerBogieVehicle* Vehicle) { ActiveRockerBogieVehicle = Vehicle; }
+	void UnregisterRockerBogieVehicle(FPhysXRockerBogieVehicle* Vehicle) { if (ActiveRockerBogieVehicle == Vehicle) ActiveRockerBogieVehicle = nullptr; }
 
 private:
 	UWorld* World = nullptr;
@@ -156,6 +159,7 @@ private:
 
 	// 현재 씬에서 구동 중인 차량(비소유). Tick의 simulate() 직전에 Simulate()를 호출.
 	FPhysXVehicle4W* ActiveVehicle = nullptr;
+	FPhysXRockerBogieVehicle* ActiveRockerBogieVehicle = nullptr;
 
 	// 랙돌/동적 바디는 렌더 FPS 변화에 민감하므로 fixed timestep으로 적분한다.
 	// frame 시간을 누적했다가 60Hz 단위로만 simulate하고, 너무 큰 누적 시간은 버려 발산을 막는다.
