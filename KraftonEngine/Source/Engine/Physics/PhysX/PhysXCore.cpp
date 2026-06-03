@@ -3,6 +3,8 @@
 #include "Core/Logging/Log.h"
 #include "Core/Types/CoreTypes.h"
 
+#include <vector>
+
 #include <PxPhysicsAPI.h>
 #include <vehicle/PxVehicleSDK.h>
 
@@ -51,6 +53,10 @@ static PxPvdTransport* GSharedPvdTransport = nullptr;
 static int32 GSharedRefCount = 0;
 static bool GSharedExtensionsInitialized = false;
 static bool GSharedVehicleSDKInitialized = false;
+
+// Physics가 실제로 파괴되기 직전(refcount 0)에 호출되는 콜백들.
+// PxMaterial 등 Physics가 만든 객체를 캐시한 시스템이 핸들을 무효화하는 데 쓴다.
+static std::vector<void(*)()> GTeardownCallbacks;
 
 #ifdef _DEBUG
 static void ReleasePvd()
@@ -204,6 +210,13 @@ void FPhysXCore::Release()
 	--GSharedRefCount;
 	if (GSharedRefCount > 0) return;
 
+	// Physics가 곧 파괴된다. Physics가 만든 객체(PxMaterial 등)를 캐시한 시스템이 dangling
+	// 포인터를 들지 않도록, Physics가 아직 살아있는 지금 핸들을 무효화하게 한다.
+	for (void (*Callback)() : GTeardownCallbacks)
+	{
+		if (Callback) Callback();
+	}
+
 	// Vehicle SDK는 Extension/Physics에 의존하므로 그보다 먼저 닫는다.
 	if (GSharedVehicleSDKInitialized)
 	{
@@ -246,4 +259,26 @@ physx::PxAllocatorCallback& FPhysXCore::GetAllocatorCallback()
 physx::PxErrorCallback& FPhysXCore::GetErrorCallback()
 {
 	return GPhysXErrorCallback;
+}
+
+// 프로세스 수명 keepalive — out 핸들이 필요 없는 호출자(엔진)가 refcount만 올릴 때.
+bool FPhysXCore::AcquireKeepAlive()
+{
+	PxFoundation* F = nullptr;
+	PxPhysics* P = nullptr;
+#ifdef _DEBUG
+	PxPvd* Pvd = nullptr;
+	PxPvdTransport* T = nullptr;
+	return Acquire(F, P, Pvd, T);
+#else
+	return Acquire(F, P);
+#endif
+}
+
+void FPhysXCore::RegisterTeardownCallback(void (*Callback)())
+{
+	if (Callback)
+	{
+		GTeardownCallbacks.push_back(Callback);
+	}
 }

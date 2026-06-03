@@ -28,6 +28,10 @@ public:
 	// GC: 로드해 캐시한 머티리얼을 루트로 등록해 수거되지 않게 한다 (GarbageCollector가 호출).
 	void AddReferencedObjects(FReferenceCollector& Collector);
 
+	// PhysX 코어가 teardown될 때(Physics 파괴 직전) 호출 — 캐시한 모든 머티리얼의 PxMaterial
+	// 핸들을 해제/무효화한다. 안 하면 새 Physics에서 옛 핸들을 재사용해 createExclusiveShape에서 크래시난다.
+	void InvalidateAllPxMaterials();
+
 private:
 	FPhysicalMaterialManager() = default;
 

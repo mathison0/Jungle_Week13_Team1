@@ -1,6 +1,7 @@
 #include "Physics/PhysicsMaterial/PhysicalMaterialManager.h"
 
 #include "Physics/PhysicsMaterial/PhysicalMaterial.h"
+#include "Physics/PhysX/PhysXCore.h"
 #include "Asset/AssetPackage.h"
 #include "Platform/Paths.h"
 #include "Serialization/WindowsArchive.h"
@@ -11,6 +12,18 @@
 
 UPhysicalMaterial* FPhysicalMaterialManager::Load(const FString& Path)
 {
+	// PhysX 코어 teardown 시 캐시 머티리얼 핸들을 무효화하도록 1회 등록.
+	// (캡처 없는 람다라 함수 포인터로 변환된다.)
+	static bool bTeardownHookRegistered = false;
+	if (!bTeardownHookRegistered)
+	{
+		FPhysXCore::RegisterTeardownCallback([]()
+		{
+			FPhysicalMaterialManager::Get().InvalidateAllPxMaterials();
+		});
+		bTeardownHookRegistered = true;
+	}
+
 	const FString NormalizedPath = FPaths::MakeProjectRelative(Path);
 
 	auto It = LoadedMaterials.find(NormalizedPath);
@@ -129,5 +142,18 @@ void FPhysicalMaterialManager::AddReferencedObjects(FReferenceCollector& Collect
 	for (auto& [Path, Material] : LoadedMaterials)
 	{
 		Collector.AddReferencedObject(Material);
+	}
+}
+
+void FPhysicalMaterialManager::InvalidateAllPxMaterials()
+{
+	// Physics가 아직 살아있을 때(코어 teardown 직전) 호출된다 → 각 PxMaterial을 안전하게 release하고
+	// 핸들을 null로 비운다. 다음 Physics에서 GetOrCreatePxMaterial이 새로 생성하므로 dangling이 사라진다.
+	for (auto& [Path, Material] : LoadedMaterials)
+	{
+		if (Material)
+		{
+			Material->ReleasePxMaterial();
+		}
 	}
 }
