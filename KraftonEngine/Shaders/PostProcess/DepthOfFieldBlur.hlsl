@@ -20,7 +20,7 @@ cbuffer DepthOfFieldCB : register(b2)
     float DepthOfFieldFocusTransitionPixels;
     float VisualizeFocusDistance;
     float DrawDebugFocusPlane;
-    float _Pad0;
+    float DepthOfFieldLayerMode;
     float2 BlurDirection;
     float2 _Pad1;
     float2 _Pad2;
@@ -36,7 +36,9 @@ float4 PS(PS_Input_UV input) : SV_TARGET
     float4 center = DepthOfFieldBlurTexture.SampleLevel(LinearClampSampler, input.uv, 0);
     float centerCoC = center.a;
 
-    float radiusPixels = saturate(abs(centerCoC)) * max(DepthOfFieldMaxBlurSize, 0.0f);
+    bool isNearLayer = DepthOfFieldLayerMode > 0.5f;
+    float maxBlur = max(DepthOfFieldMaxBlurSize, 0.0f);
+    float radiusPixels = isNearLayer ? maxBlur : saturate(abs(centerCoC)) * maxBlur;
     float radiusTexels = radiusPixels * 0.5f;
     float2 stepUV = BlurTexelSize * BlurDirection * (radiusTexels * 0.25f);
 

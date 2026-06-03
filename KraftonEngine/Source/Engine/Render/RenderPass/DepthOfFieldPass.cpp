@@ -27,7 +27,7 @@ struct FDepthOfFieldConstants
 	float DepthOfFieldFocusTransitionPixels = 1.0f;
 	float VisualizeFocusDistance = 0.0f;
 	float DrawDebugFocusPlane = 0.0f;
-	float Pad0 = 0.0f;
+	float DepthOfFieldLayerMode = 0.0f;
 	FVector2 BlurDirection;
 	FVector2 Pad1;
 	FVector2 Pad2;
@@ -103,10 +103,12 @@ static ID3D11ShaderResourceView* ApplyDepthOfFieldBlur(
 	ID3D11RenderTargetView* TargetA,
 	ID3D11ShaderResourceView* SourceA,
 	ID3D11RenderTargetView* TargetB,
-	ID3D11ShaderResourceView* SourceB)
+	ID3D11ShaderResourceView* SourceB,
+	bool bNearLayer)
 {
 	ID3D11DeviceContext* DC = Ctx.Device.GetDeviceContext();
 	ID3D11ShaderResourceView* NullSRV = nullptr;
+	DOFData.DepthOfFieldLayerMode = bNearLayer ? 1.0f : 0.0f;
 
 	if (Ctx.Frame.RenderOptions.DepthOfFieldBlurMethod == EDepthOfFieldBlurMethod::Gaussian)
 	{
@@ -243,7 +245,8 @@ void FDepthOfFieldPass::Execute(const FPassContext& Ctx)
 		Frame.DepthOfFieldFarRTVA,
 		Frame.DepthOfFieldFarSRVA,
 		Frame.DepthOfFieldFarRTVB,
-		Frame.DepthOfFieldFarSRVB);
+		Frame.DepthOfFieldFarSRVB,
+		false);
 
 	ID3D11ShaderResourceView* FinalNearBlurSRV = ApplyDepthOfFieldBlur(
 		Ctx,
@@ -254,7 +257,8 @@ void FDepthOfFieldPass::Execute(const FPassContext& Ctx)
 		Frame.DepthOfFieldNearRTVA,
 		Frame.DepthOfFieldNearSRVA,
 		Frame.DepthOfFieldNearRTVB,
-		Frame.DepthOfFieldNearSRVB);
+		Frame.DepthOfFieldNearSRVB,
+		true);
 
 	DC->RSSetViewports(1, &SceneViewport);
 	DC->OMSetRenderTargets(1, &Ctx.Cache.RTV, Ctx.Cache.DSV);
