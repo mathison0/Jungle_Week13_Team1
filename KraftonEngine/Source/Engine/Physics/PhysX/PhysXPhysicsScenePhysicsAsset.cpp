@@ -282,8 +282,10 @@ bool FPhysXPhysicsScene::SyncPhysicsAssetBodiesToComponentPose(USkeletalMeshComp
 		const physx::PxTransform ParentWorldPose = ParentActor->getGlobalPose();
 		const physx::PxTransform ChildWorldPose = ChildActor->getGlobalPose();
 
+		// ca2w: ConstraintFrameA to World
+		// cb2w: ConstraintFrameB to World
 		// cA2w == cB2w 가 되도록 ParentLocal 재설정 → 상대 변환(위치+회전) = identity = 위반 0.
-		//   cB2w = ChildWorldPose * ChildLocalPose,  ParentLocal = ParentWorldPose^-1 * cB2w
+		// cB2w = ChildWorldPose * ChildLocalPose,  ParentLocal = ParentWorldPose^-1 * cB2w
 		const physx::PxTransform ChildJointWorld = ChildWorldPose * ChildLocalPose;
 		const physx::PxTransform DesiredParentLocal = ParentWorldPose.getInverse() * ChildJointWorld;
 		Joint->setLocalPose(physx::PxJointActorIndex::eACTOR0, DesiredParentLocal);

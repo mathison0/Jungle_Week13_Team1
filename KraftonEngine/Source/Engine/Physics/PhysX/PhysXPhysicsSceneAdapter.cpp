@@ -1,4 +1,4 @@
-#include "PhysXPhysicsScene.h"
+﻿#include "PhysXPhysicsScene.h"
 
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/AActor.h"
@@ -77,15 +77,14 @@ std::unique_ptr<FBodyInstance> FPhysXPhysicsScene::CreateBodyFromBodySetup(
 		return nullptr;
 	}
 
-	// v1: dynamic body는 1kg 고정. 추후 density 기반으로 확장 가능.
+	// dynamic body는 1kg 고정. 추후 density 기반으로 확장 가능.
 	if (PxRigidDynamic* Dyn = Actor->is<PxRigidDynamic>())
 	{
 		// 랙돌 안정화(raw dynamic body = PhysicsAsset/랙돌 경로):
-		// - maxDepenetrationVelocity: 기본 무한대라 스폰/전환 시 바닥이나 월드 triangle mesh와
-		//   살짝 겹친 body가 과한 분리 속도로 튀는 것을 유한값으로 제한한다.
-		// - solverIterationCounts: 기본 (4,1)은 긴 관절 체인에서 수렴이 부족해 지터/발산하기 쉬우므로
-		//   (8,2)로 올려 joint 안정성을 확보한다. 값은 월드 스케일에 따라 튜닝 여지가 있다.
+		
+		// 겹친물체 밀어내는 최대 속도 제한
 		Dyn->setMaxDepenetrationVelocity(5.0f);
+		// PhysX에서 Rigid Body의 충돌/조인트 제약을 몇 번 반복해서 풀지
 		Dyn->setSolverIterationCounts(8, 2);
 
 		const float MassKg = OwnerComp && OwnerComp->GetMass() > 0.0f ? OwnerComp->GetMass() : 1.0f;
