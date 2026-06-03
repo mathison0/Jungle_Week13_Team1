@@ -1484,6 +1484,9 @@
     <ClCompile Include="Source\Engine\Component\Movement\PxVehicleMovementComponent.cpp">
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Component\Movement\RockerBogieVehicleMovementComponent.cpp">
+      <Filter>Source\Engine\Component\Movement</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Component\Movement\RotatingMovementComponent.cpp">
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClCompile>
@@ -1757,6 +1760,9 @@
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxMaterialImporter.cpp">
       <Filter>Source\Engine\Mesh\Importer\Fbx</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxScaleBakeUtil.cpp">
+      <Filter>Source\Engine\Mesh\Importer\Fbx</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneLoader.cpp">
       <Filter>Source\Engine\Mesh\Importer\Fbx</Filter>
     </ClCompile>
@@ -1885,6 +1891,9 @@
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.cpp">
       <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Physics\PhysX\Vehicle\PhysXRockerBogieVehicle.cpp">
+      <Filter>Source\Engine\Physics\PhysX\Vehicle</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicle4W.cpp">
       <Filter>Source\Engine\Physics\PhysX\Vehicle</Filter>
@@ -2184,6 +2193,9 @@
       <Filter>Source\Game</Filter>
     </ClCompile>
     <ClCompile Include="Source\Game\PxVehicle4WActor.cpp">
+      <Filter>Source\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Game\RockerBogieVehicleActor.cpp">
       <Filter>Source\Game</Filter>
     </ClCompile>
     <ClCompile Include="Source\Game\Vehicle4WActor.cpp">
@@ -2711,6 +2723,9 @@
     <ClInclude Include="Source\Engine\Component\Movement\PxVehicleMovementComponent.h">
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Component\Movement\RockerBogieVehicleMovementComponent.h">
+      <Filter>Source\Engine\Component\Movement</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Component\Movement\RotatingMovementComponent.h">
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClInclude>
@@ -3038,6 +3053,9 @@
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxMaterialImporter.h">
       <Filter>Source\Engine\Mesh\Importer\Fbx</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxScaleBakeUtil.h">
+      <Filter>Source\Engine\Mesh\Importer\Fbx</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Mesh\Importer\Fbx\FbxSceneLoader.h">
       <Filter>Source\Engine\Mesh\Importer\Fbx</Filter>
     </ClInclude>
@@ -3205,6 +3223,9 @@
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\PhysXSimulationCallback.h">
       <Filter>Source\Engine\Physics\PhysX</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Physics\PhysX\Vehicle\PhysXRockerBogieVehicle.h">
+      <Filter>Source\Engine\Physics\PhysX\Vehicle</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicle4W.h">
       <Filter>Source\Engine\Physics\PhysX\Vehicle</Filter>
@@ -3591,6 +3612,9 @@
       <Filter>Source\Game</Filter>
     </ClInclude>
     <ClInclude Include="Source\Game\PxVehicle4WActor.h">
+      <Filter>Source\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Game\RockerBogieVehicleActor.h">
       <Filter>Source\Game</Filter>
     </ClInclude>
     <ClInclude Include="Source\Game\Vehicle4WActor.h">

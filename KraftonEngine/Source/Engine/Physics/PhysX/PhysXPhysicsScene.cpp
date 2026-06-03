@@ -5,6 +5,7 @@
 #include "PhysXClothCollisionReader.h"
 #include "PhysXHelper.h"
 #include "Physics/PhysX/Vehicle/PhysXVehicle4W.h"
+#include "Physics/PhysX/Vehicle/PhysXRockerBogieVehicle.h"
 #include "Component/Primitive/ClothComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/Primitive/SkeletalMeshComponent.h"
@@ -148,6 +149,7 @@ void FPhysXPhysicsScene::Shutdown()
 
 	// 차량은 컴포넌트가 소유·해제하므로 여기선 포인터만 끊는다(컴포넌트 EndPlay에서 Release 가정).
 	ActiveVehicle = nullptr;
+	ActiveRockerBogieVehicle = nullptr;
 
 	if (DefaultPhysicalMaterial)
 	{
@@ -495,6 +497,10 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	if (ActiveVehicle && PhysicsTimeAccumulator >= FixedPhysicsDeltaTime)
 	{
 		ActiveVehicle->Simulate(DeltaTime);
+	}
+	if (ActiveRockerBogieVehicle && PhysicsTimeAccumulator >= FixedPhysicsDeltaTime)
+	{
+		ActiveRockerBogieVehicle->Simulate(DeltaTime);
 	}
 
 	float SimulatedDeltaTime = 0.0f;
