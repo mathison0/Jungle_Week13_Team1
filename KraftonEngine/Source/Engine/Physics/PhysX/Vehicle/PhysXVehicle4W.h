@@ -40,9 +40,12 @@ public:
 	uint32 GetNbWheels() const { return NbWheels; }
 
 	// --- 입력 (키보드 on/off) ---
-	void SetAccel(bool b)      { RawInput.setDigitalAccel(b); }
-	void SetBrake(bool b)      { RawInput.setDigitalBrake(b); }
-	void SetHandbrake(bool b)  { RawInput.setDigitalHandbrake(b); }
+	// 전진/후진/풋브레이크는 의도만 저장한다. 후진은 reverse 기어가 필요하고 진행 방향과
+	// 반대 입력은 먼저 제동해야 하므로, 실제 기어 전환 + accel/brake 페달은 Simulate 안의
+	// ResolveDriveInputs 가 속도/기어를 보고 결정한다.
+	void SetThrottle(bool b)   { bThrottleInput = b; }
+	void SetReverse(bool b)    { bReverseInput = b; }
+	void SetBrake(bool b)      { bBrakeInput = b; }
 	void SetSteerLeft(bool b)  { RawInput.setDigitalSteerLeft(b); }
 	void SetSteerRight(bool b) { RawInput.setDigitalSteerRight(b); }
 
@@ -57,8 +60,15 @@ public:
 
 private:
 	void SmoothInputs(float DeltaTime);
+	// 전진/후진/브레이크 의도를 기어 전환 + accel/brake 페달로 변환해 RawInput 에 기록.
+	void ResolveDriveInputs();
 
 	static constexpr uint32 NbWheels = 4;
+
+	// 키보드 의도 (W/S/Space). ResolveDriveInputs 가 매 프레임 페달/기어로 변환.
+	bool bThrottleInput = false;
+	bool bReverseInput = false;
+	bool bBrakeInput = false;
 
 	physx::PxVehicleDrive4W* Drive = nullptr;
 	physx::PxBatchQuery* BatchQuery = nullptr;

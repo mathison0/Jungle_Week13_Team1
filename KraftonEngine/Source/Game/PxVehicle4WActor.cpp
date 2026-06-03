@@ -52,7 +52,9 @@ void APxVehicle4WActor::InitDefaultComponents()
 	SpringArm->bUsePawnControlRotation = true;
 	SpringArm->bInheritPitch = true;
 	SpringArm->bInheritYaw = true;
-	SpringArm->bInheritRoll = false;
+	// roll 은 ControlRotation(항상 수평) 에서 가져온다. false 로 두면 차체 roll 을 그대로 따라가
+	// 회전 시 원심력 body roll 때문에 화면이 기울어진다.
+	SpringArm->bInheritRoll = true;
 
 	Camera = AddComponent<UCameraComponent>();
 	Camera->AttachToComponent(SpringArm);

@@ -7,8 +7,11 @@
 #include "Core/ProjectSettings.h"
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/AActor.h"
+#include "GameFramework/Pawn/Pawn.h"
 #include "GameFramework/World.h"
 #include "Input/InputSystem.h"
+
+#include <algorithm>
 
 using namespace physx;
 
@@ -55,11 +58,32 @@ void UPxVehicleMovementComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	if (bUseKeyboardInput)
 	{
 		InputSystem& Input = InputSystem::Get();
-		Vehicle->SetAccel(Input.GetKey('W'));
-		Vehicle->SetBrake(Input.GetKey('S'));
+		Vehicle->SetThrottle(Input.GetKey('W'));   // 전진
+		Vehicle->SetReverse(Input.GetKey('S'));    // 후진
+		Vehicle->SetBrake(Input.GetKey(0x20));     // Space = 브레이크
 		Vehicle->SetSteerLeft(Input.GetKey('A'));
 		Vehicle->SetSteerRight(Input.GetKey('D'));
-		Vehicle->SetHandbrake(Input.GetKey(0x20)); // Space
+	}
+
+	// 마우스 룩: 차량 pawn 은 ACharacter 가 아니라 자동 mouse look 이 없으므로 여기서 직접
+	// ControlRotation 을 누적한다. SpringArm 이 bUsePawnControlRotation 으로 이 값을 읽어
+	// 카메라만 회전시킨다(차체는 물리로만 움직임). pitch 는 상하 한도로 클램프.
+	if (bUseMouseLook)
+	{
+		if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+		{
+			const InputSystem& Input = InputSystem::Get();
+			const int DX = Input.MouseDeltaX();
+			const int DY = Input.MouseDeltaY();
+			if (DX != 0 || DY != 0)
+			{
+				FRotator Rot = OwnerPawn->GetControlRotation();
+				Rot.Yaw   += static_cast<float>(DX) * MouseSensitivity;
+				Rot.Pitch += static_cast<float>(DY) * MouseSensitivity;
+				Rot.Pitch  = std::clamp(Rot.Pitch, MinCameraPitch, MaxCameraPitch);
+				OwnerPawn->SetControlRotation(Rot);
+			}
+		}
 	}
 
 	// 직전 프레임 Simulate 결과(바퀴 자세)를 시각 컴포넌트에 반영.
