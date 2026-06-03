@@ -10,6 +10,7 @@
 #include "Animation/Instance/LuaAnimInstance.h"
 #include "Component/Movement/FloatingPawnMovementComponent.h"
 #include "Component/Camera/CameraComponent.h"
+#include "Component/Camera/CineCameraComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/SceneComponent.h"
 #include "Component/Primitive/StaticMeshComponent.h"
@@ -1082,9 +1083,55 @@ void FLuaScriptManager::RegisterActorBindings(sol::state& Lua)
 		.Property("bHit", "boolean");
 
 	Lua.new_usertype<UCameraComponent>("CameraComponent",
-		sol::base_classes, sol::bases<USceneComponent>());
+		sol::base_classes, sol::bases<USceneComponent>(),
+		"LookAt", &UCameraComponent::LookAt,
+		"SetPostProcessBlendWeight", &UCameraComponent::SetPostProcessBlendWeight,
+		"GetPostProcessBlendWeight", &UCameraComponent::GetPostProcessBlendWeight,
+		"SetDepthOfFieldEnabled", &UCameraComponent::SetDepthOfFieldEnabled,
+		"SetDepthOfFieldFocalDistance", &UCameraComponent::SetDepthOfFieldFocalDistance,
+		"SetDepthOfFieldFstop", &UCameraComponent::SetDepthOfFieldFstop,
+		"SetDepthOfFieldScale", &UCameraComponent::SetDepthOfFieldScale,
+		"SetDepthOfFieldMaxBlurSize", &UCameraComponent::SetDepthOfFieldMaxBlurSize,
+		"SetDepthOfFieldVisualizeFocusDistance", &UCameraComponent::SetDepthOfFieldVisualizeFocusDistance,
+		"GetDepthOfFieldFocalDistance", &UCameraComponent::GetDepthOfFieldFocalDistance,
+		"GetDepthOfFieldFstop", &UCameraComponent::GetDepthOfFieldFstop,
+		"GetDepthOfFieldScale", &UCameraComponent::GetDepthOfFieldScale,
+		"GetDepthOfFieldMaxBlurSize", &UCameraComponent::GetDepthOfFieldMaxBlurSize);
 
-	FLuaDocRegistry::Get().Type("CameraComponent", "SceneComponent");
+	FLuaDocRegistry::Get().Type("CameraComponent", "SceneComponent")
+		.Method("---@param target Vector\nfunction CameraComponent:LookAt(target) end")
+		.Method("---@param weight number\nfunction CameraComponent:SetPostProcessBlendWeight(weight) end")
+		.Method("---@return number\nfunction CameraComponent:GetPostProcessBlendWeight() end")
+		.Method("---@param enabled boolean\nfunction CameraComponent:SetDepthOfFieldEnabled(enabled) end")
+		.Method("---@param distance number\nfunction CameraComponent:SetDepthOfFieldFocalDistance(distance) end")
+		.Method("---@param fstop number\nfunction CameraComponent:SetDepthOfFieldFstop(fstop) end")
+		.Method("---@param scale number\nfunction CameraComponent:SetDepthOfFieldScale(scale) end")
+		.Method("---@param size number\nfunction CameraComponent:SetDepthOfFieldMaxBlurSize(size) end")
+		.Method("---@param enabled boolean\nfunction CameraComponent:SetDepthOfFieldVisualizeFocusDistance(enabled) end");
+
+	Lua.new_usertype<UCineCameraComponent>("CineCameraComponent",
+		sol::base_classes, sol::bases<UCameraComponent, USceneComponent>(),
+		"SetCurrentFocalLength", &UCineCameraComponent::SetCurrentFocalLength,
+		"SetCurrentAperture", &UCineCameraComponent::SetCurrentAperture,
+		"SetManualFocusDistance", &UCineCameraComponent::SetManualFocusDistance,
+		"SetDrawDebugFocusPlane", &UCineCameraComponent::SetDrawDebugFocusPlane,
+		"SetLetterboxEnabled", &UCineCameraComponent::SetLetterboxEnabled,
+		"SetLetterboxAmount", &UCineCameraComponent::SetLetterboxAmount,
+		"SetLetterboxThickness", &UCineCameraComponent::SetLetterboxThickness,
+		"GetCurrentFocalLength", &UCineCameraComponent::GetCurrentFocalLength,
+		"GetCurrentAperture", &UCineCameraComponent::GetCurrentAperture,
+		"GetManualFocusDistance", &UCineCameraComponent::GetManualFocusDistance,
+		"GetCurrentFocusDistance", &UCineCameraComponent::GetCurrentFocusDistance,
+		"GetCurrentHorizontalFOV", &UCineCameraComponent::GetCurrentHorizontalFOV);
+
+	FLuaDocRegistry::Get().Type("CineCameraComponent", "CameraComponent")
+		.Method("---@param focalLength number\nfunction CineCameraComponent:SetCurrentFocalLength(focalLength) end")
+		.Method("---@param aperture number\nfunction CineCameraComponent:SetCurrentAperture(aperture) end")
+		.Method("---@param distance number\nfunction CineCameraComponent:SetManualFocusDistance(distance) end")
+		.Method("---@param enabled boolean\nfunction CineCameraComponent:SetDrawDebugFocusPlane(enabled) end")
+		.Method("---@param enabled boolean\nfunction CineCameraComponent:SetLetterboxEnabled(enabled) end")
+		.Method("---@param amount number\nfunction CineCameraComponent:SetLetterboxAmount(amount) end")
+		.Method("---@param thickness number\nfunction CineCameraComponent:SetLetterboxThickness(thickness) end");
 
 	Lua.new_usertype<USkinnedMeshComponent>("SkinnedMeshComponent",
 		sol::base_classes, sol::bases<UPrimitiveComponent, USceneComponent>());
@@ -1136,6 +1183,9 @@ void FLuaScriptManager::RegisterActorBindings(sol::state& Lua)
 		.Method("GetCamera",
 			"---@return CameraComponent?\nfunction Actor:GetCamera() end",
 			[](AActor& Actor) { return Actor.GetComponentByClass<UCameraComponent>(); })
+		.Method("GetCineCamera",
+			"---@return CineCameraComponent?\nfunction Actor:GetCineCamera() end",
+			[](AActor& Actor) { return Actor.GetComponentByClass<UCineCameraComponent>(); })
 		.Method("GetActionComponent",
 			"---@return ActionComponent?\nfunction Actor:GetActionComponent() end",
 			[](AActor& Actor) { return Actor.GetComponentByClass<UActionComponent>(); })

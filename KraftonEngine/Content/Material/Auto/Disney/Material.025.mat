@@ -3,13 +3,13 @@
   "DepthStencilState" : "",
   "EmissiveColor" : [1.000000, 1.000000, 1.000000, 1.000000],
   "EmissiveIntensity" : 0.000000,
-  "Origin" : "FbxImport",
+  "Origin" : "ObjImport",
   "Parameters" : {
     "HasNormalMap" : 0.000000,
-    "SectionColor" : [1.000000, 1.000000, 1.000000, 1.000000],
+    "SectionColor" : [0.000607, 0.010960, 0.023153, 1.000000],
     "_pad" : [0.000000, 0.000000, 0.000000]
   },
-  "PathFileName" : "Content/Material/Auto/Material.001.mat",
+  "PathFileName" : "Content/Material/Auto/Disney/Material.025.mat",
   "RasterizerState" : "",
   "RenderPass" : "Opaque",
   "ShaderPath" : "Shaders/Geometry/UberLit.hlsl",

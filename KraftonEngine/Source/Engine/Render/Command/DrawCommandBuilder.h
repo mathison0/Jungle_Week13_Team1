@@ -106,6 +106,9 @@ private:
 	// 공통 헬퍼
 	void EmitLineCommand(FLineGeometry& Lines, FShader* Shader, const FDrawCommandRenderState& RS);
 	void ApplyMaterialRenderState(FDrawCommandRenderState& OutState, const UMaterialInterface* Mat, const FDrawCommandRenderState& BaseState);
+	void ApplyMaterialFallbackTextures(FDrawCommand& Cmd) const;
+	void CreateFallbackMaterialTextures(ID3D11Device* InDevice);
+	void ReleaseFallbackMaterialTextures();
 	FShader* SelectEffectiveShader(FShader* ProxyShader, EViewMode ViewMode,
 		bool bUseSkeletalVertexFactory, bool bUseInstancedVertexFactory, bool bWeightBoneHeatMap, bool bApplyFog);
 
@@ -148,6 +151,8 @@ private:
 	// D3D 디바이스 캐시 (Create 시 설정, 변하지 않음)
 	ID3D11Device*        CachedDevice  = nullptr;
 	ID3D11DeviceContext* CachedContext = nullptr;
+	ID3D11ShaderResourceView* FallbackWhiteSRV = nullptr;
+	ID3D11ShaderResourceView* FallbackFlatNormalSRV = nullptr;
 
 	// 프레임마다 Camera 정보 캐시
 	FVector CollectCameraPosition;

@@ -17,6 +17,7 @@ struct FDynamicEmitterReplayDataBase
 	FParticleEmitterInstance* Instance = nullptr;
 	UMaterialInterface* Material = nullptr;
 	EParticleRenderType RenderType = EParticleRenderType::Sprite;
+	FVector ComponentScale = FVector::OneVector;
 };
 
 struct FDynamicEmitterDataBase

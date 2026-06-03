@@ -132,6 +132,10 @@ FDynamicEmitterReplayDataBase FParticleSystemSceneProxy::BuildEmitterSource(FPar
 	Source.Instance = Instance;
 	Source.Material = ResolveEmitterMaterial(Instance);
 	Source.RenderType = GetEmitterRenderType(Instance);
+	if (UParticleSystemComponent* Component = Instance ? Instance->GetComponent() : nullptr)
+	{
+		Source.ComponentScale = Component->GetWorldScale();
+	}
 	return Source;
 }
 

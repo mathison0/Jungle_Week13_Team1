@@ -1,0 +1,13 @@
+{
+        "Parameters" : {
+
+        },
+        "ParentMaterial" : "Content/Material/Auto/BasicShapeMaterial.mat",
+        "PathFileName" : "Content/Material/Auto/BasicShapeMaterial_Inst_1.matinst",
+        "Textures" : {
+          "DiffuseTexture" : "Content/Texture/JungleLogo.jpg"
+        },
+        "bOverrideEmissiveColor" : false,
+        "bOverrideEmissiveIntensity" : false,
+        "bOverrideEnableBloom" : false
+      }

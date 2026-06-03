@@ -232,6 +232,57 @@ HitResult = {}
 ---@class CameraComponent: SceneComponent
 CameraComponent = {}
 
+---@param target Vector
+function CameraComponent:LookAt(target) end
+
+---@param weight number
+function CameraComponent:SetPostProcessBlendWeight(weight) end
+
+---@return number
+function CameraComponent:GetPostProcessBlendWeight() end
+
+---@param enabled boolean
+function CameraComponent:SetDepthOfFieldEnabled(enabled) end
+
+---@param distance number
+function CameraComponent:SetDepthOfFieldFocalDistance(distance) end
+
+---@param fstop number
+function CameraComponent:SetDepthOfFieldFstop(fstop) end
+
+---@param scale number
+function CameraComponent:SetDepthOfFieldScale(scale) end
+
+---@param size number
+function CameraComponent:SetDepthOfFieldMaxBlurSize(size) end
+
+---@param enabled boolean
+function CameraComponent:SetDepthOfFieldVisualizeFocusDistance(enabled) end
+
+---@class CineCameraComponent: CameraComponent
+CineCameraComponent = {}
+
+---@param focalLength number
+function CineCameraComponent:SetCurrentFocalLength(focalLength) end
+
+---@param aperture number
+function CineCameraComponent:SetCurrentAperture(aperture) end
+
+---@param distance number
+function CineCameraComponent:SetManualFocusDistance(distance) end
+
+---@param enabled boolean
+function CineCameraComponent:SetDrawDebugFocusPlane(enabled) end
+
+---@param enabled boolean
+function CineCameraComponent:SetLetterboxEnabled(enabled) end
+
+---@param amount number
+function CineCameraComponent:SetLetterboxAmount(amount) end
+
+---@param thickness number
+function CineCameraComponent:SetLetterboxThickness(thickness) end
+
 ---@class SkinnedMeshComponent: PrimitiveComponent
 SkinnedMeshComponent = {}
 
@@ -288,6 +339,9 @@ function Actor:GetFloatingPawnMovement() end
 
 ---@return CameraComponent?
 function Actor:GetCamera() end
+
+---@return CineCameraComponent?
+function Actor:GetCineCamera() end
 
 ---@return ActionComponent?
 function Actor:GetActionComponent() end

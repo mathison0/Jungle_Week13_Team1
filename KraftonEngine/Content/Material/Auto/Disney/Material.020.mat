@@ -1,17 +1,17 @@
 {
-  "BlendState" : "AlphaBlend",
-  "DepthStencilState" : "DepthReadOnly",
+  "BlendState" : "",
+  "DepthStencilState" : "",
   "EmissiveColor" : [1.000000, 1.000000, 1.000000, 1.000000],
   "EmissiveIntensity" : 0.000000,
-  "Origin" : "FbxImport",
+  "Origin" : "ObjImport",
   "Parameters" : {
     "HasNormalMap" : 0.000000,
-    "SectionColor" : [0.800000, 0.800000, 0.800000, 0.253846],
+    "SectionColor" : [0.110677, 0.038786, 0.018737, 1.000000],
     "_pad" : [0.000000, 0.000000, 0.000000]
   },
-  "PathFileName" : "Content/Material/Auto/Material.008.mat",
+  "PathFileName" : "Content/Material/Auto/Disney/Material.020.mat",
   "RasterizerState" : "",
-  "RenderPass" : "AlphaBlend",
+  "RenderPass" : "Opaque",
   "ShaderPath" : "Shaders/Geometry/UberLit.hlsl",
   "ShadowMode" : "Opaque",
   "TranslucencyPass" : "AfterDOF",

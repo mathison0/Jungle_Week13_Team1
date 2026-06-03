@@ -19,6 +19,7 @@ struct FObjInfo
 	TArray<uint32>   NormalIndices;   // f - normal index
 
 	FString ObjectName; // object name (optional)
+	FString SourceFilePath;
 
 	FString MaterialLibraryFilePath;
 	TArray<FStaticMeshSection> Sections;
@@ -52,7 +53,7 @@ private:
 	static bool ParseMtl(const FString& MtlFilePath, TArray<FObjMaterialInfo>& OutMaterials);
 	static bool Convert(const FObjInfo& ObjInfo, const TArray<FObjMaterialInfo>& MtlInfos, const FImportOptions& Options, FStaticMesh& OutMesh, TArray<FStaticMaterial>& OutMaterials);
 
-	static FString ConvertMtlInfoToJson(const FObjMaterialInfo* MtlInfo);
-	static FString ConvertMtlInfoToMat(const FObjMaterialInfo* MtlInfo);
+	static FString ConvertMtlInfoToJson(const FObjMaterialInfo* MtlInfo, const FString& SourceFilePath);
+	static FString ConvertMtlInfoToMat(const FObjMaterialInfo* MtlInfo, const FString& SourceFilePath);
 	static FVector RemapPosition(const FVector& ObjPos, EForwardAxis Axis);
 };

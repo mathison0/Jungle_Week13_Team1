@@ -43,6 +43,16 @@ public:
 	FPostProcessSettings& GetPostProcessSettingsMutable() { return PostProcessSettings; }
 	float GetPostProcessBlendWeight() const { return PostProcessBlendWeight; }
 	void SetPostProcessBlendWeight(float InWeight) { PostProcessBlendWeight = FMath::Clamp(InWeight, 0.0f, 1.0f); }
+	void SetDepthOfFieldEnabled(bool bEnabled) { PostProcessSettings.DepthOfField.bEnableDepthOfField = bEnabled; }
+	void SetDepthOfFieldFocalDistance(float InDistance) { PostProcessSettings.DepthOfField.DepthOfFieldFocalDistance = InDistance > 0.0f ? InDistance : 0.0f; }
+	void SetDepthOfFieldFstop(float InFstop) { PostProcessSettings.DepthOfField.DepthOfFieldFstop = InFstop > 0.1f ? InFstop : 0.1f; }
+	void SetDepthOfFieldScale(float InScale) { PostProcessSettings.DepthOfField.DepthOfFieldScale = FMath::Clamp(InScale, 0.0f, 10.0f); }
+	void SetDepthOfFieldMaxBlurSize(float InSize) { PostProcessSettings.DepthOfField.DepthOfFieldMaxBlurSize = InSize > 0.0f ? InSize : 0.0f; }
+	void SetDepthOfFieldVisualizeFocusDistance(bool bEnabled) { PostProcessSettings.DepthOfField.bVisualizeFocusDistance = bEnabled; }
+	float GetDepthOfFieldFocalDistance() const { return PostProcessSettings.DepthOfField.DepthOfFieldFocalDistance; }
+	float GetDepthOfFieldFstop() const { return PostProcessSettings.DepthOfField.DepthOfFieldFstop; }
+	float GetDepthOfFieldScale() const { return PostProcessSettings.DepthOfField.DepthOfFieldScale; }
+	float GetDepthOfFieldMaxBlurSize() const { return PostProcessSettings.DepthOfField.DepthOfFieldMaxBlurSize; }
 
 	// 카메라 POV 통화 산출 — UE: UCameraComponent::GetCameraView.
 	// CameraManager / RenderPipeline 이 이걸 받아 매트릭스/프러스텀을 빌드한다.

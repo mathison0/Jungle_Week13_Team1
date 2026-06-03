@@ -19,6 +19,8 @@
 #include "Materials/Material.h"
 #include "Texture/Texture2D.h"
 
+#include <cstring>
+
 // UpdateProxyLOD defined in RenderCollector.cpp (shared)
 extern void UpdateProxyLOD(FPrimitiveSceneProxy* Proxy, const FLODUpdateContext& LODCtx);
 
@@ -115,6 +117,7 @@ void FDrawCommandBuilder::Create(ID3D11Device* InDevice, ID3D11DeviceContext* In
 	CachedDevice = InDevice;
 	CachedContext = InContext;
 	PassRenderStateTable = InPassRenderStateTable;
+	CreateFallbackMaterialTextures(InDevice);
 
 	EditorLines.Create(InDevice);
 	GridLines.Create(InDevice);
@@ -137,6 +140,8 @@ void FDrawCommandBuilder::Create(ID3D11Device* InDevice, ID3D11DeviceContext* In
 
 void FDrawCommandBuilder::Release()
 {
+	ReleaseFallbackMaterialTextures();
+
 	EditorLines.Release();
 	GridLines.Release();
 	DebugBoneLines.Release();
@@ -164,6 +169,85 @@ void FDrawCommandBuilder::Release()
 	CameraVignetteCB.Release();
 	CameraLetterboxCB.Release();
 	BoneHeatMapCB.Release();
+}
+
+void FDrawCommandBuilder::CreateFallbackMaterialTextures(ID3D11Device* InDevice)
+{
+	ReleaseFallbackMaterialTextures();
+	if (!InDevice)
+	{
+		return;
+	}
+
+	auto CreateTextureSRV = [InDevice](const uint8 Color[4], const char* Name) -> ID3D11ShaderResourceView*
+	{
+		D3D11_TEXTURE2D_DESC TextureDesc = {};
+		TextureDesc.Width = 1;
+		TextureDesc.Height = 1;
+		TextureDesc.MipLevels = 1;
+		TextureDesc.ArraySize = 1;
+		TextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		TextureDesc.SampleDesc.Count = 1;
+		TextureDesc.Usage = D3D11_USAGE_IMMUTABLE;
+		TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+		D3D11_SUBRESOURCE_DATA InitialData = {};
+		InitialData.pSysMem = Color;
+		InitialData.SysMemPitch = 4;
+
+		ID3D11Texture2D* Texture = nullptr;
+		if (FAILED(InDevice->CreateTexture2D(&TextureDesc, &InitialData, &Texture)) || !Texture)
+		{
+			return nullptr;
+		}
+
+		ID3D11ShaderResourceView* SRV = nullptr;
+		if (FAILED(InDevice->CreateShaderResourceView(Texture, nullptr, &SRV)))
+		{
+			Texture->Release();
+			return nullptr;
+		}
+
+		Texture->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(std::strlen(Name)), Name);
+		SRV->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(std::strlen(Name)), Name);
+		Texture->Release();
+		return SRV;
+	};
+
+	const uint8 White[4] = { 255, 255, 255, 255 };
+	const uint8 FlatNormal[4] = { 128, 128, 255, 255 };
+	FallbackWhiteSRV = CreateTextureSRV(White, "FallbackWhiteMaterialTexture");
+	FallbackFlatNormalSRV = CreateTextureSRV(FlatNormal, "FallbackFlatNormalMaterialTexture");
+}
+
+void FDrawCommandBuilder::ReleaseFallbackMaterialTextures()
+{
+	if (FallbackWhiteSRV)
+	{
+		FallbackWhiteSRV->Release();
+		FallbackWhiteSRV = nullptr;
+	}
+
+	if (FallbackFlatNormalSRV)
+	{
+		FallbackFlatNormalSRV->Release();
+		FallbackFlatNormalSRV = nullptr;
+	}
+}
+
+void FDrawCommandBuilder::ApplyMaterialFallbackTextures(FDrawCommand& Cmd) const
+{
+	ID3D11ShaderResourceView*& DiffuseSRV = Cmd.Bindings.SRVs[(int)EMaterialTextureSlot::Diffuse];
+	if (!DiffuseSRV)
+	{
+		DiffuseSRV = FallbackWhiteSRV;
+	}
+
+	ID3D11ShaderResourceView*& NormalSRV = Cmd.Bindings.SRVs[(int)EMaterialTextureSlot::Normal];
+	if (!NormalSRV)
+	{
+		NormalSRV = FallbackFlatNormalSRV;
+	}
 }
 
 // ============================================================
@@ -686,6 +770,11 @@ void FDrawCommandBuilder::BuildCommandForSection(FScene& Scene, const FPrimitive
 			ApplyMaterialRenderState(Cmd.RenderState, Mat, BaseRenderState);
 	}
 
+	if (!bDepthOnly)
+	{
+		ApplyMaterialFallbackTextures(Cmd);
+	}
+
 	Cmd.BuildSortKey();
 }
 
@@ -743,6 +832,11 @@ void FDrawCommandBuilder::BuildParticleCommandForSection(FScene& Scene, const FP
 		// 섹션별 Material의 RenderPass가 현재 Pass와 일치할 때만 렌더 상태 오버라이드
 		if (Pass == ResolveMaterialRenderPass(Mat))
 			ApplyMaterialRenderState(Cmd.RenderState, Mat, BaseRenderState);
+	}
+
+	if (!bDepthOnly)
+	{
+		ApplyMaterialFallbackTextures(Cmd);
 	}
 
 	if (bApplyFog)

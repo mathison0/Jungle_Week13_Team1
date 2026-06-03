@@ -50,9 +50,13 @@ public:
 
 	void SetCurrentFocalLength(float InFocalLength) { CurrentFocalLength = InFocalLength > 0.001f ? InFocalLength : 0.001f; }
 	void SetCurrentAperture(float InAperture) { CurrentAperture = InAperture > 0.1f ? InAperture : 0.1f; }
+	void SetFocusMethod(ECameraFocusMethod InFocusMethod) { FocusSettings.FocusMethod = InFocusMethod; }
+	void SetManualFocusDistance(float InDistance) { FocusSettings.ManualFocusDistance = InDistance > 0.0f ? InDistance : 0.0f; }
+	void SetDrawDebugFocusPlane(bool bEnabled) { FocusSettings.bDrawDebugFocusPlane = bEnabled; }
 
 	float GetCurrentFocalLength() const { return CurrentFocalLength; }
 	float GetCurrentAperture() const { return CurrentAperture; }
+	float GetManualFocusDistance() const { return FocusSettings.ManualFocusDistance; }
 	float GetCurrentFocusDistance() const;
 	float GetCurrentHorizontalFOV() const;
 

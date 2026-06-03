@@ -9,6 +9,33 @@
 
 namespace
 {
+	FString SanitizeImportedMaterialPathPart(FString Name)
+	{
+		if (Name.empty())
+		{
+			return "Imported";
+		}
+
+		for (char& Ch : Name)
+		{
+			if (Ch == '/' || Ch == '\\' || Ch == ':' || Ch == '*' || Ch == '?' || Ch == '"' || Ch == '<' || Ch == '>' || Ch == '|')
+			{
+				Ch = '_';
+			}
+		}
+		return Name;
+	}
+
+	FString BuildImportedMaterialPath(const FString& SourceFilePath, const FString& MaterialSlotName)
+	{
+		std::filesystem::path SourcePath(FPaths::ToWide(SourceFilePath));
+		FString SourceStem = FPaths::ToUtf8(SourcePath.stem().wstring());
+		SourceStem = SanitizeImportedMaterialPathPart(SourceStem);
+
+		FString SafeMaterialName = SanitizeImportedMaterialPathPart(MaterialSlotName.empty() ? FString("None") : MaterialSlotName);
+		return "Content/Material/Auto/" + SourceStem + "/" + SafeMaterialName + ".mat";
+	}
+
 	// 실제 파일을 찾아 프로젝트 Content/Texture/Auto/<FBX이름>/ 아래로 복사하고
 	// 프로젝트 상대경로를 돌려준다. 못 찾으면 기존 동작(경로 정리)만 수행한다.
 	FString ImportTextureToProject(const FString& RawTexturePath, const FString& FbxSourcePath)
@@ -193,7 +220,7 @@ void FFbxMaterialImporter::BuildStaticMaterials(const FFbxImportContext& Context
 	{
 		FStaticMaterial NewMaterial;
 		NewMaterial.MaterialSlotName = MaterialInfo.Name;
-		NewMaterial.MaterialInterface = FMaterialManager::Get().GetOrCreateMaterialInterface(CreateOrUpdateMaterialAsset(MaterialInfo));
+		NewMaterial.MaterialInterface = FMaterialManager::Get().GetOrCreateMaterialInterface(CreateOrUpdateMaterialAsset(MaterialInfo, Context.SourcePath));
 		OutMaterials.push_back(NewMaterial);
 	}
 }
@@ -205,7 +232,7 @@ void FFbxMaterialImporter::BuildSkeletalMaterials(const FFbxImportContext& Conte
 
 	for (const FFbxImportedMaterialInfo& MaterialInfo : Context.Materials)
 	{
-		const FString MaterialPath = CreateOrUpdateMaterialAsset(MaterialInfo);
+		const FString MaterialPath = CreateOrUpdateMaterialAsset(MaterialInfo, Context.SourcePath);
 		UMaterial* MaterialObject = FMaterialManager::Get().GetOrCreateMaterial(MaterialPath);
 
 		FSkeletalMaterial NewMaterial;
@@ -246,16 +273,16 @@ void FFbxMaterialImporter::BuildSkeletalMaterials(const FFbxImportContext& Conte
 	}
 }
 
-FString FFbxMaterialImporter::CreateOrUpdateMaterialAsset(const FFbxImportedMaterialInfo& MaterialInfo)
+FString FFbxMaterialImporter::CreateOrUpdateMaterialAsset(const FFbxImportedMaterialInfo& MaterialInfo, const FString& SourcePath)
 {
-	const FString MatPath = "Content/Material/Auto/" + MaterialInfo.Name + ".mat";
+	const FString MatPath = BuildImportedMaterialPath(SourcePath, MaterialInfo.Name);
 
 	if (std::filesystem::exists(FPaths::ToWide(MatPath)))
 	{
 		return MatPath;
 	}
 
-	std::filesystem::create_directories(FPaths::ToWide("Content/Material/Auto"));
+	std::filesystem::create_directories(std::filesystem::path(FPaths::ToWide(MatPath)).parent_path());
 
 	json::JSON JsonData;
 	JsonData["PathFileName"] = MatPath;

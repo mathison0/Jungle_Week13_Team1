@@ -1,0 +1,13 @@
+{
+        "Parameters" : {
+
+        },
+        "ParentMaterial" : "Content/Material/Auto/BasicShapeMaterial.mat",
+        "PathFileName" : "Content/Material/Auto/BasicShapeMaterial_Inst.matinst",
+        "Textures" : {
+
+        },
+        "bOverrideEmissiveColor" : false,
+        "bOverrideEmissiveIntensity" : false,
+        "bOverrideEnableBloom" : false
+      }

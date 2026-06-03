@@ -32,6 +32,11 @@ namespace
 		return (Particle.Position - Frame.CameraPosition).Dot(Frame.CameraForward);
 	}
 
+	float GetUniformParticleScale(const FVector& Scale)
+	{
+		return std::max({ std::abs(Scale.X), std::abs(Scale.Y), std::abs(Scale.Z) });
+	}
+
 	const UParticleModuleTypeDataRibbon* GetRibbonTypeData(const FParticleEmitterInstance* Instance)
 	{
 		if (!Instance)
@@ -193,12 +198,18 @@ uint32 FDynamicSpriteEmitterDataBase::BuildDynamicVertexData(const FFrameContext
 	for (uint16 ParticleSlot : RenderOrder)
 	{
 		const FBaseParticle& Particle = Data.GetParticle(ParticleSlot);
+		FBaseParticle RenderParticle = Particle;
+		const float UniformScale = GetUniformParticleScale(Source.ComponentScale);
+		RenderParticle.Size = FVector(
+			RenderParticle.Size.X * UniformScale,
+			RenderParticle.Size.Y * UniformScale,
+			RenderParticle.Size.Z * UniformScale);
 		FVector2 TopLeftUV;
 		FVector2 TopRightUV;
 		FVector2 BottomLeftUV;
 		FVector2 BottomRightUV;
-		GetParticleSubUVs(Particle, SubImagesHorizontal, SubImagesVertical, TopLeftUV, TopRightUV, BottomLeftUV, BottomRightUV);
-		OutGeometry.AddParticleQuad(Particle, Frame.CameraRight, Frame.CameraUp, TopLeftUV, TopRightUV, BottomLeftUV, BottomRightUV);
+		GetParticleSubUVs(RenderParticle, SubImagesHorizontal, SubImagesVertical, TopLeftUV, TopRightUV, BottomLeftUV, BottomRightUV);
+		OutGeometry.AddParticleQuad(RenderParticle, Frame.CameraRight, Frame.CameraUp, TopLeftUV, TopRightUV, BottomLeftUV, BottomRightUV);
 	}
 
 	return OutGeometry.GetIndexCount() - FirstIndex;
@@ -327,7 +338,8 @@ uint32 FDynamicRibbonEmitterData::BuildDynamicVertexData(const FFrameContext& Fr
 			}
 
 			const FVector Position = Point.Particle->Position;
-			const FVector HalfWidth = Side * (Point.Payload->Width * 0.5f);
+			const float WidthScale = GetUniformParticleScale(Source.ComponentScale);
+			const FVector HalfWidth = Side * (Point.Payload->Width * WidthScale * 0.5f);
 			const FVector4 Color = Point.Particle->Color;
 
 			const uint32 LeftIndex = OutGeometry.AddVertex({
@@ -552,7 +564,7 @@ uint32 FDynamicBeamEmitterData::BuildDynamicVertexData(const FFrameContext& Fram
 				Side.Normalize();
 			}
 
-			const float Width = Payload->Width;
+			const float Width = Payload->Width * GetUniformParticleScale(Source.ComponentScale);
 			const FVector HalfWidth = Side * (Width * 0.5f);
 			const float U = AccumulatedDistance / TextureTileDistance;
 
@@ -643,6 +655,10 @@ uint32 FDynamicMeshEmitterData::BuildDynamicVertexData(const FFrameContext& Fram
 				Transform.Scale.Z * Payload->MeshScale.Z);
 			Transform.RotationEuler += Payload->MeshRotation;
 		}
+		Transform.Scale = FVector(
+			Transform.Scale.X * Source.ComponentScale.X,
+			Transform.Scale.Y * Source.ComponentScale.Y,
+			Transform.Scale.Z * Source.ComponentScale.Z);
 
 		OutInstances.push_back(MakeMeshParticleInstanceData(Transform, Particle.Color));
 	}

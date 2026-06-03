@@ -105,6 +105,33 @@ struct FStringParser
 	}
 };
 
+static FString SanitizeImportedMaterialPathPart(FString Name)
+{
+	if (Name.empty())
+	{
+		return "Imported";
+	}
+
+	for (char& Ch : Name)
+	{
+		if (Ch == '/' || Ch == '\\' || Ch == ':' || Ch == '*' || Ch == '?' || Ch == '"' || Ch == '<' || Ch == '>' || Ch == '|')
+		{
+			Ch = '_';
+		}
+	}
+	return Name;
+}
+
+static FString BuildImportedMaterialPath(const FString& SourceFilePath, const FString& MaterialSlotName)
+{
+	std::filesystem::path SourcePath(FPaths::ToWide(SourceFilePath));
+	FString SourceStem = FPaths::ToUtf8(SourcePath.stem().wstring());
+	SourceStem = SanitizeImportedMaterialPathPart(SourceStem);
+
+	FString SafeMaterialName = SanitizeImportedMaterialPathPart(MaterialSlotName.empty() ? FString("None") : MaterialSlotName);
+	return "Content/Material/Auto/" + SourceStem + "/" + SafeMaterialName + ".mat";
+}
+
 struct FRawFaceVertex
 {
     int32 PosIndex = -1;
@@ -143,6 +170,7 @@ FRawFaceVertex ParseSingleFaceVertex(std::string_view FaceToken)
 bool FObjImporter::ParseObj(const FString& ObjFilePath, FObjInfo& OutObjInfo)
 {
 	OutObjInfo = FObjInfo();
+	OutObjInfo.SourceFilePath = ObjFilePath;
 
 	std::ifstream File(FPaths::ToWide(ObjFilePath), std::ios::binary | std::ios::ate);
 	if (!File.is_open())
@@ -467,22 +495,22 @@ bool FObjImporter::ParseMtl(const FString& MtlFilePath, TArray<FObjMaterialInfo>
 }
 
 // MTL 정보에서 머티리얼 파일로 변환하는 레거시 래퍼
-FString FObjImporter::ConvertMtlInfoToJson(const FObjMaterialInfo* MtlInfo)
+FString FObjImporter::ConvertMtlInfoToJson(const FObjMaterialInfo* MtlInfo, const FString& SourceFilePath)
 {
-	return ConvertMtlInfoToMat(MtlInfo);
+	return ConvertMtlInfoToMat(MtlInfo, SourceFilePath);
 }
 
 // MTL 정보에서 머티리얼 mat 파일로 변환하는 함수
-FString FObjImporter::ConvertMtlInfoToMat(const FObjMaterialInfo* MtlInfo)
+FString FObjImporter::ConvertMtlInfoToMat(const FObjMaterialInfo* MtlInfo, const FString& SourceFilePath)
 {
-	FString MatPath = "Content/Material/Auto/" + MtlInfo->MaterialSlotName + ".mat";
+	FString MatPath = BuildImportedMaterialPath(SourceFilePath, MtlInfo->MaterialSlotName);
 
 	// 이미 존재하면 덮어쓰지 않음 (에디터에서 수정했을 수 있으므로)
 	if (std::filesystem::exists(FPaths::ToWide(MatPath)))
 		return MatPath;
 
 	// Auto/ 디렉토리 보장
-	std::filesystem::create_directories(FPaths::ToWide("Content/Material/Auto"));
+	std::filesystem::create_directories(std::filesystem::path(FPaths::ToWide(MatPath)).parent_path());
 
 	json::JSON JsonData;
 	JsonData["PathFileName"] = MatPath;
@@ -604,7 +632,7 @@ bool FObjImporter::Convert(const FObjInfo& ObjInfo, const TArray<FObjMaterialInf
 			UE_LOG("Importer TargetSlotName: %s;", TargetSlotName.c_str());
 
 			// Convert() 안에서 기존 직접 세팅 대신
-			FString MaterialPath = ConvertMtlInfoToMat(MatchedMaterial); // .mat 파일 생성
+			FString MaterialPath = ConvertMtlInfoToMat(MatchedMaterial, ObjInfo.SourceFilePath); // .mat 파일 생성
 
 			UMaterial* MaterialObject = FMaterialManager::Get().GetOrCreateMaterial(MaterialPath);
 
