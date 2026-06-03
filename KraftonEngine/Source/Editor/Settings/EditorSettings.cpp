@@ -39,6 +39,7 @@ namespace Key
 	constexpr const char* bShowShadowFrustum = "bShowShadowFrustum";
 	constexpr const char* bCollision = "bCollision";
 	constexpr const char* bShowCollisionShape = "bShowCollisionShape";
+	constexpr const char* bStaticMeshTriangleCollision = "bStaticMeshTriangleCollision";
 	constexpr const char* bParticle = "bParticle";
 	constexpr const char* GridSpacing = "GridSpacing";
 	constexpr const char* GridHalfLineCount = "GridHalfLineCount";
@@ -176,6 +177,7 @@ json::JSON SaveRenderOptions(const FViewportRenderOptions& Opts)
 	Obj[Key::bShowShadowFrustum] = Opts.ShowFlags.bShowShadowFrustum;
 	Obj[Key::bCollision] = Opts.ShowFlags.bCollision;
 	Obj[Key::bShowCollisionShape] = Opts.ShowFlags.bShowCollisionShape;
+	Obj[Key::bStaticMeshTriangleCollision] = Opts.ShowFlags.bStaticMeshTriangleCollision;
 	Obj[Key::bParticle] = Opts.ShowFlags.bParticle;
 	Obj[Key::GridSpacing] = Opts.GridSpacing;
 	Obj[Key::GridHalfLineCount] = Opts.GridHalfLineCount;
@@ -241,6 +243,8 @@ void LoadRenderOptions(json::JSON Obj, FViewportRenderOptions& Opts)
 		Opts.ShowFlags.bCollision = Obj[Key::bCollision].ToBool();
 	if (Obj.hasKey(Key::bShowCollisionShape))
 		Opts.ShowFlags.bShowCollisionShape = Obj[Key::bShowCollisionShape].ToBool();
+	if (Obj.hasKey(Key::bStaticMeshTriangleCollision))
+		Opts.ShowFlags.bStaticMeshTriangleCollision = Obj[Key::bStaticMeshTriangleCollision].ToBool();
 	if (Obj.hasKey(Key::bParticle))
 		Opts.ShowFlags.bParticle = Obj[Key::bParticle].ToBool();
 	if (Obj.hasKey(Key::GridSpacing))

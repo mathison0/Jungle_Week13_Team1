@@ -99,11 +99,17 @@ bool FStaticMeshEditorViewportClient::GetCameraView(FMinimalViewInfo& OutPOV) co
 void FStaticMeshEditorViewportClient::SetShowTriangleCollision(bool bEnabled)
 {
 	bShowTriangleCollision = bEnabled;
+	RenderOptions.ShowFlags.bStaticMeshTriangleCollision = bEnabled;
 	if (!bShowTriangleCollision)
 	{
 		// overlay를 끄면서 렌더 메시가 계속 숨겨져 있으면 빈 preview처럼 보인다.
 		// Collision Only 상태도 함께 해제하여 원래 렌더 메시를 복구한다.
 		SetTriangleCollisionOnly(false);
+	}
+	else if (PreviewMeshComponent)
+	{
+		PreviewMeshComponent->SetVisibility(!bTriangleCollisionOnly);
+		PreviewMeshComponent->MarkProxyDirty(EDirtyFlag::Mesh);
 	}
 }
 
@@ -123,7 +129,7 @@ void FStaticMeshEditorViewportClient::SubmitPreviewDebugDraw(FScene& Scene)
 {
 	// overlay가 꺼져 있으면 edge cache를 만들지도 않고 frame line도 제출하지 않는다.
 	// triangle 수가 많은 맵을 열어도 사용자가 시각화를 요청하기 전에는 추가 비용이 없다.
-	if (!bShowTriangleCollision || !PreviewMeshComponent)
+	if (!bShowTriangleCollision || !RenderOptions.ShowFlags.bStaticMeshTriangleCollision || !PreviewMeshComponent)
 	{
 		return;
 	}

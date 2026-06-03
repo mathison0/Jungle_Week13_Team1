@@ -12,8 +12,6 @@ public:
 	GENERATED_BODY()
 	ASkeletalMeshActor() = default;
 
-	void BeginPlay() override;
-
 	void InitDefaultComponents(const FString& SkeletalMeshFileName = "Content/Data/Samba Dancing (10).fbx");
 
 private:

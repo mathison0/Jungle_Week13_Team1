@@ -10,6 +10,7 @@
 #include "Render/Proxy/ShapeSceneProxy.h"
 #include "Render/Proxy/BoneDebugSceneProxy.h"
 #include "Render/Proxy/SkeletalMeshSceneProxy.h"
+#include "Render/Proxy/StaticMeshSceneProxy.h"
 #include "Render/Proxy/ParticleSystemSceneProxy.h"
 #include "Render/Scene/FScene.h"
 #include "Render/Types/RenderConstants.h"
@@ -476,6 +477,17 @@ void FDrawCommandBuilder::BuildProxyCommands(const FFrameContext& Frame, FScene&
 			PhysicsConstraintSolids.AddIndexedTriangles(
 				SkeletalProxy->GetCachedPhysicsConstraintSolidVertices(),
 				SkeletalProxy->GetCachedPhysicsConstraintSolidIndices());
+		}
+
+		if (Frame.RenderOptions.ShowFlags.bStaticMeshTriangleCollision
+			&& Proxy->HasProxyFlag(EPrimitiveProxyFlags::StaticMesh))
+		{
+			const FStaticMeshSceneProxy* StaticMeshProxy = static_cast<const FStaticMeshSceneProxy*>(Proxy);
+			const FVector4& Color = StaticMeshProxy->GetTriangleCollisionColor();
+			for (const FWireLine& Line : StaticMeshProxy->GetCachedTriangleCollisionLines())
+			{
+				EditorLines.AddLine(Line.Start, Line.End, Color);
+			}
 		}
 
 		if (Proxy->IsSelected())

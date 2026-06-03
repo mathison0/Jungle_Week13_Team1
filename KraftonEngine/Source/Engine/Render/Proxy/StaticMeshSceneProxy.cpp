@@ -5,6 +5,7 @@
 #include "Materials/Material.h"
 
 #include <algorithm>
+#include <unordered_set>
 
 namespace
 {
@@ -41,6 +42,12 @@ UStaticMeshComponent* FStaticMeshSceneProxy::GetStaticMeshComponent() const
 	return static_cast<UStaticMeshComponent*>(GetOwner());
 }
 
+void FStaticMeshSceneProxy::UpdateTransform()
+{
+	FPrimitiveSceneProxy::UpdateTransform();
+	RebuildTriangleCollisionLines();
+}
+
 // ============================================================
 // UpdateMaterial — 머티리얼만 변경된 경우 SectionDraws 재구축
 // ============================================================
@@ -56,6 +63,7 @@ void FStaticMeshSceneProxy::UpdateMesh()
 {
 	MeshBuffer = GetOwner()->GetMeshBuffer();
 	RebuildSectionDraws();
+	RebuildTriangleCollisionLines();
 }
 
 // ============================================================
@@ -138,4 +146,63 @@ void FStaticMeshSceneProxy::RebuildSectionDraws()
 	std::swap(MeshBuffer, LODData[0].MeshBuffer);
 	std::swap(SectionDraws, LODData[0].SectionDraws);
 
+}
+
+void FStaticMeshSceneProxy::RebuildTriangleCollisionLines()
+{
+	CachedTriangleCollisionLines.clear();
+
+	UStaticMeshComponent* SMC = GetStaticMeshComponent();
+	if (!SMC)
+	{
+		return;
+	}
+
+	UStaticMesh* StaticMesh = SMC->GetStaticMesh();
+	if (!StaticMesh || !StaticMesh->IsTriangleMeshCollisionEnabled())
+	{
+		return;
+	}
+
+	const FStaticMesh* MeshAsset = StaticMesh->GetStaticMeshAsset();
+	if (!MeshAsset || MeshAsset->Indices.size() < 3)
+	{
+		return;
+	}
+
+	const FMatrix& WorldMatrix = SMC->GetWorldMatrix();
+	CachedTriangleCollisionLines.reserve(MeshAsset->Indices.size());
+
+	std::unordered_set<uint64> UniqueEdges;
+	UniqueEdges.reserve(MeshAsset->Indices.size());
+	auto AddUniqueEdge = [&](uint32 IndexA, uint32 IndexB)
+	{
+		const uint32 MinIndex = IndexA < IndexB ? IndexA : IndexB;
+		const uint32 MaxIndex = IndexA < IndexB ? IndexB : IndexA;
+		const uint64 EdgeKey = (static_cast<uint64>(MinIndex) << 32) | static_cast<uint64>(MaxIndex);
+		if (!UniqueEdges.insert(EdgeKey).second)
+		{
+			return;
+		}
+
+		CachedTriangleCollisionLines.push_back({
+			WorldMatrix.TransformPositionWithW(MeshAsset->Vertices[IndexA].pos),
+			WorldMatrix.TransformPositionWithW(MeshAsset->Vertices[IndexB].pos)
+		});
+	};
+
+	for (size_t IndexOffset = 0; IndexOffset + 2 < MeshAsset->Indices.size(); IndexOffset += 3)
+	{
+		const uint32 I0 = MeshAsset->Indices[IndexOffset];
+		const uint32 I1 = MeshAsset->Indices[IndexOffset + 1];
+		const uint32 I2 = MeshAsset->Indices[IndexOffset + 2];
+		if (I0 >= MeshAsset->Vertices.size() || I1 >= MeshAsset->Vertices.size() || I2 >= MeshAsset->Vertices.size())
+		{
+			continue;
+		}
+
+		AddUniqueEdge(I0, I1);
+		AddUniqueEdge(I1, I2);
+		AddUniqueEdge(I2, I0);
+	}
 }
