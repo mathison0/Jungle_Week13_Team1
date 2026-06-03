@@ -25,6 +25,9 @@ struct FPhysicsSceneStats
 	double PhysicsTimeMs = 0.0;
 	uint32 RigidBodiesTotal = 0;
 	uint32 RigidBodiesActive = 0;
+	uint32 RigidBodiesStatic = 0;
+	uint32 RigidBodiesDynamic = 0;
+	uint32 RigidBodiesKinematic = 0;
 	uint32 JointsCount = 0;
 	uint32 ContactPairs = 0;
 	uint32 RaycastQueries = 0;
