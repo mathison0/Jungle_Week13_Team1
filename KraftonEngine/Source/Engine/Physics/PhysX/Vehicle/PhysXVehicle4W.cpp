@@ -205,6 +205,7 @@ void FPhysXVehicle4W::Simulate(float DeltaTime)
 		return;
 	}
 
+	ResolveDriveInputs();
 	SmoothInputs(DeltaTime);
 
 	// 자기 1대만 배열에 담아 일괄 함수 호출. 순서 고정(반드시 simulate() 직전).
@@ -222,6 +223,56 @@ void FPhysXVehicle4W::SmoothInputs(float DeltaTime)
 
 	PxVehicleDrive4WSmoothDigitalRawInputsAndSetAnalogInputs(
 		GKeySmoothing, SteerVsSpeed, RawInput, DeltaTime, IsInAir(), *Drive);
+}
+
+void FPhysXVehicle4W::ResolveDriveInputs()
+{
+	// 전진과 후진은 기어가 다르다. auto gearbox 는 reverse 로는 절대 안 가므로 후진은 직접
+	// reverse 기어로 바꾼다(이땐 auto off). 진행 방향과 반대 입력이 들어오면 곧장 기어를
+	// 바꾸지 않고 먼저 제동해 정지에 가까워진 뒤 전환한다(고속에서 기어 역전 방지).
+	const float ForwardSpeed = Drive->computeForwardSpeed(); // +면 전진, -면 후진 (m/s)
+	constexpr float StopSpeed = 1.0f;                        // 방향 전환 전 정지로 간주할 임계
+
+	const bool bInReverse = (Drive->mDriveDynData.getCurrentGear() == PxVehicleGearsData::eREVERSE);
+
+	bool bAccel = false;
+	bool bBrake = bBrakeInput; // Space = 풋 브레이크 (항상 우선)
+
+	if (bThrottleInput && !bReverseInput)
+	{
+		if (ForwardSpeed < -StopSpeed)
+		{
+			bBrake = true; // 아직 뒤로 가는 중 → 먼저 정지
+		}
+		else
+		{
+			if (bInReverse)
+			{
+				Drive->mDriveDynData.setUseAutoGears(true);
+				Drive->mDriveDynData.forceGearChange(PxVehicleGearsData::eFIRST);
+			}
+			bAccel = true;
+		}
+	}
+	else if (bReverseInput && !bThrottleInput)
+	{
+		if (ForwardSpeed > StopSpeed)
+		{
+			bBrake = true; // 아직 앞으로 가는 중 → 먼저 정지
+		}
+		else
+		{
+			if (!bInReverse)
+			{
+				Drive->mDriveDynData.setUseAutoGears(false);
+				Drive->mDriveDynData.forceGearChange(PxVehicleGearsData::eREVERSE);
+			}
+			bAccel = true;
+		}
+	}
+
+	RawInput.setDigitalAccel(bAccel);
+	RawInput.setDigitalBrake(bBrake);
 }
 
 bool FPhysXVehicle4W::IsInAir() const

@@ -57,6 +57,17 @@ private:
 	UPROPERTY(Edit, Save, Category="Vehicle|Input", DisplayName="Use Keyboard Input")
 	bool bUseKeyboardInput = true;
 
+	// --- 카메라 마우스 룩 ---
+	// 차량 pawn 은 ACharacter 가 아니라 자동 mouse look 이 없어 여기서 ControlRotation 을 누적한다.
+	UPROPERTY(Edit, Save, Category="Vehicle|Input", DisplayName="Use Mouse Look")
+	bool bUseMouseLook = true;
+	UPROPERTY(Edit, Save, Category="Vehicle|Input", DisplayName="Mouse Sensitivity")
+	float MouseSensitivity = 0.2f;     // deg / pixel — yaw/pitch 공통
+	UPROPERTY(Edit, Save, Category="Vehicle|Input", DisplayName="Min Camera Pitch")
+	float MinCameraPitch = -80.0f;     // 위 한도
+	UPROPERTY(Edit, Save, Category="Vehicle|Input", DisplayName="Max Camera Pitch")
+	float MaxCameraPitch = 60.0f;      // 아래 한도
+
 	// --- 바퀴 배치/제원 ---
 	UPROPERTY(Edit, Save, Category="Vehicle|Wheel", DisplayName="Wheel Radius")
 	float WheelRadius = 0.35f;

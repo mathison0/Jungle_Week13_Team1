@@ -68,10 +68,13 @@ public:
 	// owner APawn 의 ControlRotation 을 desired rotation 으로 사용 — mouse look 이 capsule
 	// 회전 안 건드리고 카메라만 움직이는 ThirdPerson 패턴.
 	// bInheritPitch/Yaw/Roll 가 각 axis 별로 — false 면 그 axis 는 capsule rotation 사용.
+	// roll 기본값은 true(수평 유지). 이 플래그들은 직렬화되지 않아 씬 로드 시 이 기본값이
+	// 그대로 적용되는데, false 로 두면 부모가 굴러갈 때(차량 body roll) 카메라가 같이 기울어진다.
+	// 캡슐 캐릭터는 roll 이 0 이라 어느 값이든 동일 — 사실상 차량에만 영향.
 	bool bUsePawnControlRotation = true;
 	bool bInheritPitch           = true;
 	bool bInheritYaw             = true;
-	bool bInheritRoll            = false;
+	bool bInheritRoll            = true;
 
 private:
 	// 매 Tick 에 갱신되는 보간 상태 — 부착점 (parent + TargetOffset) 위치/회전.
