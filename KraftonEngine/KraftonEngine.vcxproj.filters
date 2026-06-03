@@ -1490,9 +1490,6 @@
     <ClCompile Include="Source\Engine\Component\Movement\RotatingMovementComponent.cpp">
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.cpp">
-      <Filter>Source\Engine\Component\Movement</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Engine\Component\Particle\ParticleSystemComponent.cpp">
       <Filter>Source\Engine\Component\Particle</Filter>
     </ClCompile>
@@ -1898,9 +1895,6 @@
     <ClCompile Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicle4W.cpp">
       <Filter>Source\Engine\Physics\PhysX\Vehicle</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.cpp">
-      <Filter>Source\Engine\Physics\Vehicle</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Engine\Platform\CrashDump.cpp">
       <Filter>Source\Engine\Platform</Filter>
     </ClCompile>
@@ -2196,9 +2190,6 @@
       <Filter>Source\Game</Filter>
     </ClCompile>
     <ClCompile Include="Source\Game\RockerBogieVehicleActor.cpp">
-      <Filter>Source\Game</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Game\Vehicle4WActor.cpp">
       <Filter>Source\Game</Filter>
     </ClCompile>
     <ClCompile Include="Source\Game\Lua\GameLuaBindings.cpp">
@@ -2729,9 +2720,6 @@
     <ClInclude Include="Source\Engine\Component\Movement\RotatingMovementComponent.h">
       <Filter>Source\Engine\Component\Movement</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Component\Movement\WheeledVehicleMovementComponent.h">
-      <Filter>Source\Engine\Component\Movement</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Engine\Component\Particle\ParticleSystemComponent.h">
       <Filter>Source\Engine\Component\Particle</Filter>
     </ClInclude>
@@ -3233,15 +3221,6 @@
     <ClInclude Include="Source\Engine\Physics\PhysX\Vehicle\PhysXVehicleConfig.h">
       <Filter>Source\Engine\Physics\PhysX\Vehicle</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\Vehicle\Vehicle4WPhysics.h">
-      <Filter>Source\Engine\Physics\Vehicle</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\Vehicle\VehiclePhysicsInterface.h">
-      <Filter>Source\Engine\Physics\Vehicle</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Engine\Physics\Vehicle\VehicleWheel.h">
-      <Filter>Source\Engine\Physics\Vehicle</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Engine\Platform\ConsoleHelper.h">
       <Filter>Source\Engine\Platform</Filter>
     </ClInclude>
@@ -3615,9 +3594,6 @@
       <Filter>Source\Game</Filter>
     </ClInclude>
     <ClInclude Include="Source\Game\RockerBogieVehicleActor.h">
-      <Filter>Source\Game</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Game\Vehicle4WActor.h">
       <Filter>Source\Game</Filter>
     </ClInclude>
     <ClInclude Include="Source\Game\Lua\GameLuaBindings.h">
