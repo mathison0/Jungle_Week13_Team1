@@ -162,6 +162,9 @@ public:
 	void AddForce(const FVector& Force);
 	void AddForceAtLocation(const FVector& Force, const FVector& Location);
 	void AddTorque(const FVector& Torque);
+	void AddImpulse(const FVector& Impulse);
+	void AddImpulseAtLocation(const FVector& Impulse, const FVector& Location);
+	void AddAngularImpulse(const FVector& AngularImpulse);
 	FVector GetLinearVelocity() const;
 	void SetLinearVelocity(const FVector& Vel);
 	FVector GetAngularVelocity() const;

@@ -51,15 +51,17 @@ void FPhysXSimulationCallback::onContact(const PxContactPairHeader& PairHeader,
 		FVector ContactPos(0, 0, 0);
 		FVector ContactNormal(0, 0, 1);
 		float Penetration = 0.0f;
+		FVector ContactImpulse(0, 0, 0);
 
 		if (NumPoints > 0)
 		{
 			ContactPos = FPhysXHelper::ToFVector(ContactPoints[0].position);
 			ContactNormal = FPhysXHelper::ToFVector(ContactPoints[0].normal);
 			Penetration = ContactPoints[0].separation; // 음수 = 관통
+			ContactImpulse = FPhysXHelper::ToFVector(ContactPoints[0].impulse);
 		}
 
-		const FVector NormalImpulse = ContactNormal * Penetration;
+		const FVector NormalImpulse = ContactImpulse;
 
 		FQueuedHit A;
 		A.Self = CompA;

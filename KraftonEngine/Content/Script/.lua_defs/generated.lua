@@ -163,6 +163,16 @@ function PrimitiveComponent:AddForceAtLocation(force, location) end
 ---@param torque Vector
 function PrimitiveComponent:AddTorque(torque) end
 
+---@param impulse Vector
+function PrimitiveComponent:AddImpulse(impulse) end
+
+---@param impulse Vector
+---@param location Vector
+function PrimitiveComponent:AddImpulseAtLocation(impulse, location) end
+
+---@param angularImpulse Vector
+function PrimitiveComponent:AddAngularImpulse(angularImpulse) end
+
 ---@return Vector
 function PrimitiveComponent:GetLinearVelocity() end
 
@@ -257,6 +267,16 @@ Actor = {}
 
 ---@param offset Vector
 function Actor:AddWorldOffset(offset) end
+
+---@param tag string
+---@return boolean
+function Actor:HasTag(tag) end
+
+---@param tag string
+function Actor:AddTag(tag) end
+
+---@param tag string
+function Actor:RemoveTag(tag) end
 
 function Actor:Destroy() end
 

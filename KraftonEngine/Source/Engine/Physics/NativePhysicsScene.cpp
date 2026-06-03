@@ -355,6 +355,41 @@ void FNativePhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& To
 	It->second.AccumulatedTorque = It->second.AccumulatedTorque + Torque;
 }
 
+void FNativePhysicsScene::AddImpulse(UPrimitiveComponent* Comp, const FVector& Impulse)
+{
+	auto It = BodyStates.find(Comp);
+	if (It == BodyStates.end()) return;
+
+	const float InvMass = 1.0f / ((It->second.Mass > 0.0f) ? It->second.Mass : 1.0f);
+	It->second.Velocity = It->second.Velocity + Impulse * InvMass;
+}
+
+void FNativePhysicsScene::AddImpulseAtLocation(UPrimitiveComponent* Comp, const FVector& Impulse, const FVector& WorldLocation)
+{
+	auto It = BodyStates.find(Comp);
+	if (It == BodyStates.end()) return;
+
+	AddImpulse(Comp, Impulse);
+
+	FVector COMWorld = Comp->GetWorldLocation()
+		+ Comp->GetWorldMatrix().ToQuat().RotateVector(It->second.CenterOfMassLocal);
+	FVector R = WorldLocation - COMWorld;
+	FVector AngularImpulse;
+	AngularImpulse.X = R.Y * Impulse.Z - R.Z * Impulse.Y;
+	AngularImpulse.Y = R.Z * Impulse.X - R.X * Impulse.Z;
+	AngularImpulse.Z = R.X * Impulse.Y - R.Y * Impulse.X;
+	AddAngularImpulse(Comp, AngularImpulse);
+}
+
+void FNativePhysicsScene::AddAngularImpulse(UPrimitiveComponent* Comp, const FVector& AngularImpulse)
+{
+	auto It = BodyStates.find(Comp);
+	if (It == BodyStates.end()) return;
+
+	const float InvMass = 1.0f / ((It->second.Mass > 0.0f) ? It->second.Mass : 1.0f);
+	It->second.AngularVelocity = It->second.AngularVelocity + AngularImpulse * InvMass;
+}
+
 // ============================================================
 // Velocity
 // ============================================================

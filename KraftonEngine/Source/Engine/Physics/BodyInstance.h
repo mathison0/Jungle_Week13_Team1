@@ -74,6 +74,9 @@ public:
 	void AddForce(const FVector& Force);
 	void AddForceAtLocation(const FVector& Force, const FVector& WorldLocation);
 	void AddTorque(const FVector& Torque);
+	void AddImpulse(const FVector& Impulse);
+	void AddImpulseAtLocation(const FVector& Impulse, const FVector& WorldLocation);
+	void AddAngularImpulse(const FVector& AngularImpulse);
 
 	// --- Mass / Center of Mass ---
 	float GetBodyMass() const;

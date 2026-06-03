@@ -1001,6 +1001,9 @@ void FLuaScriptManager::RegisterActorBindings(sol::state& Lua)
 		"AddForce", &UPrimitiveComponent::AddForce,
 		"AddForceAtLocation", &UPrimitiveComponent::AddForceAtLocation,
 		"AddTorque", &UPrimitiveComponent::AddTorque,
+		"AddImpulse", &UPrimitiveComponent::AddImpulse,
+		"AddImpulseAtLocation", &UPrimitiveComponent::AddImpulseAtLocation,
+		"AddAngularImpulse", &UPrimitiveComponent::AddAngularImpulse,
 		"GetLinearVelocity", &UPrimitiveComponent::GetLinearVelocity,
 		"SetLinearVelocity", &UPrimitiveComponent::SetLinearVelocity,
 		"GetAngularVelocity", &UPrimitiveComponent::GetAngularVelocity,
@@ -1015,6 +1018,9 @@ void FLuaScriptManager::RegisterActorBindings(sol::state& Lua)
 		.Method("---@param force Vector\nfunction PrimitiveComponent:AddForce(force) end")
 		.Method("---@param force Vector\n---@param location Vector\nfunction PrimitiveComponent:AddForceAtLocation(force, location) end")
 		.Method("---@param torque Vector\nfunction PrimitiveComponent:AddTorque(torque) end")
+		.Method("---@param impulse Vector\nfunction PrimitiveComponent:AddImpulse(impulse) end")
+		.Method("---@param impulse Vector\n---@param location Vector\nfunction PrimitiveComponent:AddImpulseAtLocation(impulse, location) end")
+		.Method("---@param angularImpulse Vector\nfunction PrimitiveComponent:AddAngularImpulse(angularImpulse) end")
 		.Method("---@return Vector\nfunction PrimitiveComponent:GetLinearVelocity() end")
 		.Method("---@param velocity Vector\nfunction PrimitiveComponent:SetLinearVelocity(velocity) end")
 		.Method("---@return Vector\nfunction PrimitiveComponent:GetAngularVelocity() end")
@@ -1103,6 +1109,15 @@ void FLuaScriptManager::RegisterActorBindings(sol::state& Lua)
 		.Method("AddWorldOffset",
 			"---@param offset Vector\nfunction Actor:AddWorldOffset(offset) end",
 			[](AActor& Actor, const FVector& Offset) { Actor.AddActorWorldOffset(Offset); })
+		.Method("HasTag",
+			"---@param tag string\n---@return boolean\nfunction Actor:HasTag(tag) end",
+			[](AActor& Actor, const FString& Tag) { return Actor.HasTag(FName(Tag)); })
+		.Method("AddTag",
+			"---@param tag string\nfunction Actor:AddTag(tag) end",
+			[](AActor& Actor, const FString& Tag) { Actor.AddTag(FName(Tag)); })
+		.Method("RemoveTag",
+			"---@param tag string\nfunction Actor:RemoveTag(tag) end",
+			[](AActor& Actor, const FString& Tag) { Actor.RemoveTag(FName(Tag)); })
 		.Method("Destroy",
 			"function Actor:Destroy() end",
 			[](AActor& Actor)

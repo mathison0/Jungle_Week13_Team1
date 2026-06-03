@@ -73,6 +73,9 @@ public:
 	virtual void AddForce(UPrimitiveComponent* Comp, const FVector& Force) = 0;
 	virtual void AddForceAtLocation(UPrimitiveComponent* Comp, const FVector& Force, const FVector& WorldLocation) = 0;
 	virtual void AddTorque(UPrimitiveComponent* Comp, const FVector& Torque) = 0;
+	virtual void AddImpulse(UPrimitiveComponent* Comp, const FVector& Impulse) = 0;
+	virtual void AddImpulseAtLocation(UPrimitiveComponent* Comp, const FVector& Impulse, const FVector& WorldLocation) = 0;
+	virtual void AddAngularImpulse(UPrimitiveComponent* Comp, const FVector& AngularImpulse) = 0;
 
 	// --- 속도 읽기/쓰기 ---
 	virtual FVector GetLinearVelocity(UPrimitiveComponent* Comp) const = 0;

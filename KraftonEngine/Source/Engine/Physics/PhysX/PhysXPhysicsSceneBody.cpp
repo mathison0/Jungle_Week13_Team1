@@ -1,5 +1,6 @@
 ﻿#include "PhysXPhysicsScene.h"
 
+#include "Component/Primitive/SkeletalMeshComponent.h"
 #include "Component/Primitive/StaticMeshComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Core/Logging/Log.h"
@@ -21,6 +22,24 @@ using namespace physx;
 
 namespace
 {
+	int32 CountValidRagdollBodies(USkeletalMeshComponent* Comp)
+	{
+		if (!Comp || !Comp->IsRagdollSimulating())
+		{
+			return 0;
+		}
+
+		int32 Count = 0;
+		for (const std::unique_ptr<FBodyInstance>& Body : Comp->GetBodies())
+		{
+			if (Body && Body->IsValidBodyInstance() && Body->IsSimulatingPhysics())
+			{
+				++Count;
+			}
+		}
+		return Count;
+	}
+
 	FTransform BuildComponentLocalTransformForTriangleMesh(UPrimitiveComponent* RootComp, UPrimitiveComponent* Comp)
 	{
 		// primitive shape 경로의 FPhysXShapeDesc와 같은 기준: 모든 shape local pose는 대표 RootComp 기준이다.
@@ -477,6 +496,78 @@ void FPhysXPhysicsScene::AddTorque(UPrimitiveComponent* Comp, const FVector& Tor
 	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
 	if (!BodyInstance) return;
 	BodyInstance->AddTorque(Torque);
+}
+
+void FPhysXPhysicsScene::AddImpulse(UPrimitiveComponent* Comp, const FVector& Impulse)
+{
+	if (USkeletalMeshComponent* SkeletalComp = Cast<USkeletalMeshComponent>(Comp))
+	{
+		const int32 BodyCount = CountValidRagdollBodies(SkeletalComp);
+		if (BodyCount > 0)
+		{
+			const FVector PerBodyImpulse = Impulse / static_cast<float>(BodyCount);
+			for (std::unique_ptr<FBodyInstance>& Body : SkeletalComp->GetBodies())
+			{
+				if (Body && Body->IsValidBodyInstance() && Body->IsSimulatingPhysics())
+				{
+					Body->AddImpulse(PerBodyImpulse);
+				}
+			}
+			return;
+		}
+	}
+
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->AddImpulse(Impulse);
+}
+
+void FPhysXPhysicsScene::AddImpulseAtLocation(UPrimitiveComponent* Comp, const FVector& Impulse, const FVector& WorldLocation)
+{
+	if (USkeletalMeshComponent* SkeletalComp = Cast<USkeletalMeshComponent>(Comp))
+	{
+		const int32 BodyCount = CountValidRagdollBodies(SkeletalComp);
+		if (BodyCount > 0)
+		{
+			const FVector PerBodyImpulse = Impulse / static_cast<float>(BodyCount);
+			for (std::unique_ptr<FBodyInstance>& Body : SkeletalComp->GetBodies())
+			{
+				if (Body && Body->IsValidBodyInstance() && Body->IsSimulatingPhysics())
+				{
+					Body->AddImpulseAtLocation(PerBodyImpulse, WorldLocation);
+				}
+			}
+			return;
+		}
+	}
+
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->AddImpulseAtLocation(Impulse, WorldLocation);
+}
+
+void FPhysXPhysicsScene::AddAngularImpulse(UPrimitiveComponent* Comp, const FVector& AngularImpulse)
+{
+	if (USkeletalMeshComponent* SkeletalComp = Cast<USkeletalMeshComponent>(Comp))
+	{
+		const int32 BodyCount = CountValidRagdollBodies(SkeletalComp);
+		if (BodyCount > 0)
+		{
+			const FVector PerBodyAngularImpulse = AngularImpulse / static_cast<float>(BodyCount);
+			for (std::unique_ptr<FBodyInstance>& Body : SkeletalComp->GetBodies())
+			{
+				if (Body && Body->IsValidBodyInstance() && Body->IsSimulatingPhysics())
+				{
+					Body->AddAngularImpulse(PerBodyAngularImpulse);
+				}
+			}
+			return;
+		}
+	}
+
+	FBodyInstance* BodyInstance = GetBodyInstance(Comp);
+	if (!BodyInstance) return;
+	BodyInstance->AddAngularImpulse(AngularImpulse);
 }
 
 // ============================================================

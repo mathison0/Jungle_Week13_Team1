@@ -506,6 +506,30 @@ void UPrimitiveComponent::AddTorque(const FVector& Torque)
 				PS->AddTorque(this, Torque);
 }
 
+void UPrimitiveComponent::AddImpulse(const FVector& Impulse)
+{
+	if (Owner)
+		if (UWorld* W = Owner->GetWorld())
+			if (IPhysicsScene* PS = W->GetPhysicsScene())
+				PS->AddImpulse(this, Impulse);
+}
+
+void UPrimitiveComponent::AddImpulseAtLocation(const FVector& Impulse, const FVector& Location)
+{
+	if (Owner)
+		if (UWorld* W = Owner->GetWorld())
+			if (IPhysicsScene* PS = W->GetPhysicsScene())
+				PS->AddImpulseAtLocation(this, Impulse, Location);
+}
+
+void UPrimitiveComponent::AddAngularImpulse(const FVector& AngularImpulse)
+{
+	if (Owner)
+		if (UWorld* W = Owner->GetWorld())
+			if (IPhysicsScene* PS = W->GetPhysicsScene())
+				PS->AddAngularImpulse(this, AngularImpulse);
+}
+
 FVector UPrimitiveComponent::GetLinearVelocity() const
 {
 	if (Owner)

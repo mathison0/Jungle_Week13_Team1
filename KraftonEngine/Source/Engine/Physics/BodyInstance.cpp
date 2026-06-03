@@ -246,6 +246,44 @@ void FBodyInstance::AddTorque(const FVector& Torque)
 	Dyn->addTorque(FPhysXHelper::ToPxVec3(Torque));
 }
 
+void FBodyInstance::AddImpulse(const FVector& Impulse)
+{
+	PxRigidDynamic* Dyn = GetPxRigidDynamic();
+	if (!Dyn)
+	{
+		return;
+	}
+
+	Dyn->addForce(FPhysXHelper::ToPxVec3(Impulse), PxForceMode::eIMPULSE);
+}
+
+void FBodyInstance::AddImpulseAtLocation(const FVector& Impulse, const FVector& WorldLocation)
+{
+	PxRigidDynamic* Dyn = GetPxRigidDynamic();
+	if (!Dyn)
+	{
+		return;
+	}
+
+	PxRigidBodyExt::addForceAtPos(
+		*Dyn,
+		FPhysXHelper::ToPxVec3(Impulse),
+		FPhysXHelper::ToPxVec3(WorldLocation),
+		PxForceMode::eIMPULSE
+	);
+}
+
+void FBodyInstance::AddAngularImpulse(const FVector& AngularImpulse)
+{
+	PxRigidDynamic* Dyn = GetPxRigidDynamic();
+	if (!Dyn)
+	{
+		return;
+	}
+
+	Dyn->addTorque(FPhysXHelper::ToPxVec3(AngularImpulse), PxForceMode::eIMPULSE);
+}
+
 float FBodyInstance::GetBodyMass() const
 {
 	PxRigidDynamic* Dyn = GetPxRigidDynamic();
