@@ -64,6 +64,12 @@ void UClothComponent::PostEditProperty(const char* PropertyName)
 		std::strcmp(PropertyName, "AngularDrag") == 0 ||
 		std::strcmp(PropertyName, "DragCoefficient") == 0 ||
 		std::strcmp(PropertyName, "LiftCoefficient") == 0 ||
+		std::strcmp(PropertyName, "ConstraintStiffness") == 0 ||
+		std::strcmp(PropertyName, "ConstraintStiffnessMultiplier") == 0 ||
+		std::strcmp(PropertyName, "CompressionLimit") == 0 ||
+		std::strcmp(PropertyName, "StretchLimit") == 0 ||
+		std::strcmp(PropertyName, "TetherConstraintScale") == 0 ||
+		std::strcmp(PropertyName, "TetherConstraintStiffness") == 0 ||
 		std::strcmp(PropertyName, "bUseGeodesicTether") == 0 ||
 		std::strcmp(PropertyName, "CollisionMode") == 0 ||
 		std::strcmp(PropertyName, "Friction") == 0 ||
@@ -199,6 +205,12 @@ void UClothComponent::RegisterClothInstance()
 	Desc.AngularDrag = AngularDrag;
 	Desc.DragCoefficient = DragCoefficient;
 	Desc.LiftCoefficient = LiftCoefficient;
+	Desc.ConstraintStiffness = ConstraintStiffness;
+	Desc.ConstraintStiffnessMultiplier = ConstraintStiffnessMultiplier;
+	Desc.CompressionLimit = CompressionLimit;
+	Desc.StretchLimit = StretchLimit;
+	Desc.TetherConstraintScale = TetherConstraintScale;
+	Desc.TetherConstraintStiffness = TetherConstraintStiffness;
 	Desc.Friction = Friction;
 	Desc.CollisionMassScale = CollisionMassScale;
 	Desc.bEnableContinuousCollision = bEnableContinuousCollision;

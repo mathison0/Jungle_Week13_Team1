@@ -10,7 +10,14 @@ enum class EClothPinMode : uint8
 {
 	None = 0,
 	TopRow = 1,
-	Corners = 2
+	Corners = 2,
+	BottomRow = 3,
+	LeftColumn = 4,
+	RightColumn = 5,
+	TopCorners = 6,
+	FourCorners = 7,
+	Edges = 8,
+	GoalFrame = 9
 };
 
 struct FClothParticle

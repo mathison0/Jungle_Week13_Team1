@@ -14,6 +14,16 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+
+static constexpr float MaxClothSubstepTime = 1.0f / 60.0f;
+static constexpr uint32 MaxClothSubstepCount = 4;
+
+static uint32 CalculateClothSubstepCount(float DeltaTime)
+{
+	const float SafeDeltaTime = (std::max)(0.0f, (std::min)(DeltaTime, MaxClothSubstepTime * MaxClothSubstepCount));
+	return (std::max)(1u, static_cast<uint32>(std::ceil(SafeDeltaTime / MaxClothSubstepTime)));
+}
 
 FClothScene::~FClothScene()
 {
@@ -63,6 +73,9 @@ void FClothScene::Tick(float DeltaTime)
 
 	SCOPE_STAT_CAT("ClothSimulation", "Cloth");
 	const auto StartTime = std::chrono::high_resolution_clock::now();
+	const uint32 SubstepCount = CalculateClothSubstepCount(DeltaTime);
+	const float ClampedDeltaTime = (std::min)(DeltaTime, MaxClothSubstepTime * MaxClothSubstepCount);
+	const float SubstepDeltaTime = ClampedDeltaTime / static_cast<float>(SubstepCount);
 	LastActiveInstanceCount = 0;
 	LastParticleCount = 0;
 	LastCollisionPrimitiveCount = 0;
@@ -96,15 +109,24 @@ void FClothScene::Tick(float DeltaTime)
 					FClothCollisionBridge::BuildWorldShapeCollision(World, OwnerComponent, OwnerComponent->GetCollisionThickness(), CollisionScratch);
 				}
 				LastCollisionPrimitiveCount += CollisionScratch.GetPrimitiveCount();
-				Instance->SetCollisionData(CollisionScratch);
 			}
 			else
 			{
 				CollisionScratch.Reset();
-				Instance->SetCollisionData(CollisionScratch);
 			}
 
-			const bool bSimulated = Instance->Simulate(DeltaTime);
+			bool bSimulated = false;
+			for (uint32 SubstepIndex = 0; SubstepIndex < SubstepCount; ++SubstepIndex)
+			{
+				Instance->SetCollisionDataForSubstep(CollisionScratch, SubstepIndex, SubstepCount);
+				if (!Instance->Simulate(SubstepDeltaTime))
+				{
+					break;
+				}
+
+				bSimulated = true;
+			}
+
 			if (bSimulated && OwnerComponent)
 			{
 				OwnerComponent->MarkWorldBoundsDirty();

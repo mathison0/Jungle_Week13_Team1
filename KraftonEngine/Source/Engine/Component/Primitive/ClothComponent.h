@@ -77,6 +77,18 @@ private:
 	float DragCoefficient = 0.2f;
 	UPROPERTY(Edit, Save, Category="Cloth|Simulation", DisplayName="Lift Coefficient", Min=0.0f, Max=2.0f)
 	float LiftCoefficient = 0.05f;
+	UPROPERTY(Edit, Save, Category="Cloth|Simulation", DisplayName="Constraint Stiffness", Min=0.0f, Max=1.0f)
+	float ConstraintStiffness = 1.0f;
+	UPROPERTY(Edit, Save, Category="Cloth|Simulation", DisplayName="Constraint Stiffness Multiplier", Min=0.0f, Max=2.0f)
+	float ConstraintStiffnessMultiplier = 1.0f;
+	UPROPERTY(Edit, Save, Category="Cloth|Simulation", DisplayName="Compression Limit", Min=0.0f, Max=2.0f)
+	float CompressionLimit = 1.0f;
+	UPROPERTY(Edit, Save, Category="Cloth|Simulation", DisplayName="Stretch Limit", Min=0.0f, Max=2.0f)
+	float StretchLimit = 1.0f;
+	UPROPERTY(Edit, Save, Category="Cloth|Simulation", DisplayName="Tether Scale", Min=0.0f, Max=2.0f)
+	float TetherConstraintScale = 1.0f;
+	UPROPERTY(Edit, Save, Category="Cloth|Simulation", DisplayName="Tether Stiffness", Min=0.0f, Max=1.0f)
+	float TetherConstraintStiffness = 1.0f;
 	UPROPERTY(Edit, Save, Category="Cloth|Simulation", DisplayName="Use Geodesic Tether")
 	bool bUseGeodesicTether = false;
 	UPROPERTY(Edit, Save, Category="Cloth|Collision", DisplayName="Collision Mode", Enum=EClothCollisionMode)
