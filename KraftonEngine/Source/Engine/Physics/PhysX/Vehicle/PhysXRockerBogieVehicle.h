@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Core/Types/CoreTypes.h"
 #include "Math/Transform.h"
@@ -27,9 +27,9 @@ struct FPhysXRockerBogieSetup
 	float ChassisPitchDamping = 180.0f;
 	float MaxChassisPitchTorque = 2200.0f;
 	float RockerAngleLimit = physx::PxPi * 0.35f;
-	float BogieAngleLimit = physx::PxPi * 0.30f;
-	float JointSpring = 220.0f;
-	float JointDamping = 28.0f;
+	float BogieAngleLimit = physx::PxPi * 0.18f;
+	float JointSpring = 450.0f;
+	float JointDamping = 90.0f;
 	float TireStaticFriction = 1.2f;
 	float TireDynamicFriction = 1.0f;
 };
