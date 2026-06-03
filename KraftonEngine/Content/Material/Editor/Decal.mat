@@ -12,5 +12,6 @@
   "Textures" : {
     "DiffuseTexture" : "Content/Editor/Icons/S_DecalActorIcon_256x.png"
   },
+  "TranslucencyPass" : "AfterDOF",
   "bEnableBloom" : false
 }
