@@ -489,14 +489,6 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	// SyncPhysicsAssetBodiesToBones가 body→bone 반대 방향으로 처리하므로 여기선 건너뛴다.)
 	SyncKinematicPhysicsAssetBodiesToBones();
 
-	// ── Vehicle: 입력 보간 + 서스펜션 raycast + 힘 적용 ──
-	// 차량 튜닝은 이번 랙돌/바디 안정화 대상이 아니므로 fixed substep dt를 먹이지 않는다.
-	// 기존 경로처럼 클램프된 frame DeltaTime 기준으로 한 번만 처리한다.
-	if (ActiveVehicle && PhysicsTimeAccumulator >= FixedPhysicsDeltaTime)
-	{
-		ActiveVehicle->Simulate(DeltaTime);
-	}
-
 	float SimulatedDeltaTime = 0.0f;
 	int32 StepCount = 0;
 
@@ -506,6 +498,15 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	const auto PhysicsStartTime = std::chrono::high_resolution_clock::now();
 	while (PhysicsTimeAccumulator >= FixedPhysicsDeltaTime && StepCount < MaxPhysicsSubsteps)
 	{
+		// ── Vehicle: 입력 보간 + 서스펜션 raycast + 힘 적용 (반드시 simulate 직전) ──
+		// PxVehicleUpdates의 dt는 바로 뒤따르는 simulate()의 dt와 같아야 한다(SDK 계약).
+		// 그래서 fixed dt로, 씬과 같은 횟수만큼 substep 안에서 돌린다. frame dt로 한 번만
+		// 돌리면 힘이 어긋나 차가 덜덜 떨리며 전진하지 못한다.
+		if (ActiveVehicle)
+		{
+			ActiveVehicle->Simulate(FixedPhysicsDeltaTime);
+		}
+
 		// ── Simulate: 랙돌/동적 바디는 항상 고정 dt로 적분 ──
 		Scene->simulate(FixedPhysicsDeltaTime);
 		Scene->fetchResults(true);
