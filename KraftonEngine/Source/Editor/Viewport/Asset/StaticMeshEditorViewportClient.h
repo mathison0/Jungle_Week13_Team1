@@ -45,7 +45,7 @@ public:
 
 	// Show Collision 토글. 끄면 Collision Only도 함께 해제하여 preview mesh가 다시 보이게 한다.
 	void SetShowTriangleCollision(bool bEnabled);
-	bool IsShowingTriangleCollision() const { return bShowTriangleCollision; }
+	bool IsShowingTriangleCollision() const { return RenderOptions.ShowFlags.bStaticMeshTriangleCollision; }
 
 	// Collision Only 토글. overlay는 유지하고 preview 대상 렌더 메시만 숨긴다.
 	void SetTriangleCollisionOnly(bool bEnabled);
