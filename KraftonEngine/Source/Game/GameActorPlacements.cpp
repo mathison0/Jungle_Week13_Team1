@@ -4,6 +4,7 @@
 #include "Engine/Runtime/EngineInitHooks.h"
 #include "Game/Vehicle4WActor.h"
 #include "Game/PxVehicle4WActor.h"
+#include "Game/RockerBogieVehicleActor.h"
 #include "GameFramework/World.h"
 
 // ============================================================
@@ -42,6 +43,25 @@ void RegisterGameActorPlacements()
 		}
 
 		APxVehicle4WActor* Vehicle = World->SpawnActor<APxVehicle4WActor>();
+		if (!Vehicle)
+		{
+			return nullptr;
+		}
+
+		Vehicle->InitDefaultComponents();
+		Vehicle->SetActorLocation(Location);
+		World->InsertActorToOctree(Vehicle);
+		return Vehicle;
+	});
+
+	FActorPlacementRegistry::Get().RegisterEntry("PhysX Rocker-Bogie 6W", [](UWorld* World, const FVector& Location) -> AActor*
+	{
+		if (!World)
+		{
+			return nullptr;
+		}
+
+		ARockerBogieVehicleActor* Vehicle = World->SpawnActor<ARockerBogieVehicleActor>();
 		if (!Vehicle)
 		{
 			return nullptr;

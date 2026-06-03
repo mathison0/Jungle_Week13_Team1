@@ -1,10 +1,11 @@
-﻿#include "PhysXPhysicsScene.h"
+#include "PhysXPhysicsScene.h"
 #include "PhysXCore.h"
 #include "PhysXCollision.h"
 #include "PhysXSimulationCallback.h"
 #include "PhysXClothCollisionReader.h"
 #include "PhysXHelper.h"
 #include "Physics/PhysX/Vehicle/PhysXVehicle4W.h"
+#include "Physics/PhysX/Vehicle/PhysXRockerBogieVehicle.h"
 #include "Component/Primitive/ClothComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/Primitive/SkeletalMeshComponent.h"
@@ -148,6 +149,7 @@ void FPhysXPhysicsScene::Shutdown()
 
 	// 차량은 컴포넌트가 소유·해제하므로 여기선 포인터만 끊는다(컴포넌트 EndPlay에서 Release 가정).
 	ActiveVehicle = nullptr;
+	ActiveRockerBogieVehicle = nullptr;
 
 	if (DefaultPhysicalMaterial)
 	{
@@ -489,6 +491,14 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 	// SyncPhysicsAssetBodiesToBones가 body→bone 반대 방향으로 처리하므로 여기선 건너뛴다.)
 	SyncKinematicPhysicsAssetBodiesToBones();
 
+	// ── Vehicle: 입력 보간 + 서스펜션 raycast + 힘 적용 ──
+	// 차량 튜닝은 이번 랙돌/바디 안정화 대상이 아니므로 fixed substep dt를 먹이지 않는다.
+	// 기존 경로처럼 클램프된 frame DeltaTime 기준으로 한 번만 처리한다.
+	if (ActiveVehicle && PhysicsTimeAccumulator >= FixedPhysicsDeltaTime)
+	{
+		ActiveVehicle->Simulate(DeltaTime);
+	}
+
 	float SimulatedDeltaTime = 0.0f;
 	int32 StepCount = 0;
 
@@ -505,6 +515,10 @@ void FPhysXPhysicsScene::Tick(float DeltaTime)
 		if (ActiveVehicle)
 		{
 			ActiveVehicle->Simulate(FixedPhysicsDeltaTime);
+		}
+		if (ActiveRockerBogieVehicle)
+		{
+			ActiveRockerBogieVehicle->Simulate(FixedPhysicsDeltaTime);
 		}
 
 		// ── Simulate: 랙돌/동적 바디는 항상 고정 dt로 적분 ──
